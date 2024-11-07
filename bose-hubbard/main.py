@@ -1,14 +1,23 @@
 from two_mode import *
 
 N = 15
+S = 3
+M = 2
 
-BS2 = BH(1, 0.5, 2.0 * np.pi, 0.1, 0, 0, 3, 2)
-BS2.sample_CS(N, np.array([-np.sqrt(0.7), np.sqrt(0.3)]))
+BS2 = BH(1, 0.5, 2.0 * np.pi, 0.1, 0, 0, S, M)
+BS2.sample_CS(N, np.array([-np.sqrt(0.7), np.sqrt(0.3)], dtype=complex))
 
-A_evol, basis_evol, E_evol = BS2.iterate(8.0, 0.01)
+t_space, A_evol, basis_evol, E_evol = BS2.iterate(0.008, 0.0001)
 
+avg_n_1 = np.zeros(len(t_space), dtype=complex)
 
-
+for t_i in range(len(t_space)):
+    for a in range(N):
+        for b in range(N):
+            avg_n_1 += np.conjugate(A_evol[t_i][a]) * A_evol[t_i][b] * np.conjugate(basis_evol[t_i][a][0]) * basis_evol[t_i][b][0] * CS(M, basis_evol[t_i][b]).overlap(CS(M, basis_evol[t_i][a]), S, reduction = 1)
+plt.plot(t_space, avg_n_1, label="$\\frac{\\langle N_1 \\rangle}{S}$")
+plt.legend()
+plt.show()
 
 """
 # we plot the z1 and z2 of the basis set for fun

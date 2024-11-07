@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+import time
 
 class CS():
     # object Coherent state, namely the SU(2) one
@@ -103,10 +104,6 @@ class BH():
         N = len(cur_basis)
         M = len(cur_basis[0].xi)
 
-        print("LOL")
-        for i in range(len(cur_basis)):
-            print(cur_A[i])
-
         m_Theta = np.zeros(((M+1)*N, (M+1)*N), dtype=complex)
 
         # First, we fill in X
@@ -117,18 +114,18 @@ class BH():
         for a in range(N):
             for b in range(M):
                 for d in range(N):
-                    m_Theta[a][N + b * M + d] = self.S * np.conjugate(cur_basis[a].xi[b]) * cur_A[d] * cur_basis[d].overlap(cur_basis[a], self.S, reduction = 1)
-                    m_Theta[N + b * M + d][a] = np.conjugate(m_Theta[a][N + b * M + d])
+                    m_Theta[a][N + b * N + d] = self.S * np.conjugate(cur_basis[a].xi[b]) * cur_A[d] * cur_basis[d].overlap(cur_basis[a], self.S, reduction = 1)
+                    m_Theta[N + b * N + d][a] = np.conjugate(m_Theta[a][N + b * N + d])
         # Then, we fill in Z
         for i in range(M):
             for j in range(M):
                 for a in range(N):
                     for b in range(N):
                         # first, we evaluate (F_ij)_ab
-                        m_Theta[N + i * M + a][N + j * M + b] = self.S * (self.S - 1) * cur_basis[b].overlap(cur_basis[a], self.S, reduction = 2) * np.conjugate(cur_basis[a].xi[j]) * cur_basis[b].xi[i]
+                        m_Theta[N + i * N + a][N + j * N + b] = self.S * (self.S - 1) * cur_basis[b].overlap(cur_basis[a], self.S, reduction = 2) * np.conjugate(cur_basis[a].xi[j]) * cur_basis[b].xi[i]
                         if i == j:
-                            m_Theta[N + i * M + a][N + j * M + b] += self.S * cur_basis[b].overlap(cur_basis[a], self.S, reduction = 1)
-                        m_Theta[N + i * M + a][N + j * M + b] *= np.conjugate(cur_A[a]) * cur_A[b]
+                            m_Theta[N + i * N + a][N + j * N + b] += self.S * cur_basis[b].overlap(cur_basis[a], self.S, reduction = 1)
+                        m_Theta[N + i * N + a][N + j * N + b] *= np.conjugate(cur_A[a]) * cur_A[b]
         return(m_Theta)
 
     def R(self, t, cur_A, cur_basis):
@@ -186,18 +183,21 @@ class BH():
                         term6 += (1 + i - self.j_zero) * (1 + i - self.j_zero) * (np.conjugate(cur_basis[k].xi[i]) * cur_basis[j].xi[i]) * cur_basis[j].overlap(cur_basis[k], self.S, reduction = 2)
                     term6 *= self.K * self.S * (self.S - 1) * cur_basis[j].xi[m] / 2
 
-                    R[N + m * M + k] += np.conjugate(cur_A[k]) * cur_A[j] * (term1 + term2 + term3 + term4 + term5 + term6)
+                    R[N + m * N + k] += np.conjugate(cur_A[k]) * cur_A[j] * (term1 + term2 + term3 + term4 + term5 + term6)
 
         return(R)
 
 
 
-    def iterate(self, max_t, dt):
+    def iterate(self, max_t, dt, xi_1 = np.array([])):
         # everything is in natural units (hbar=1)
         # maximum time will actually be J_0 * max_t, which will also be the units we display it in
         N = len(self.basis)
 
-        # We begin with A(t) = [1, 0, 0, ..., 0]
+        if len(xi_1) == 0:
+            xi_1 = self.basis[0]
+        else:
+            xi_1 = CS(self.M, xi_1)
 
         t_space = np.arange(0.0, self.J_0 * max_t + dt, dt)
 
@@ -215,15 +215,27 @@ class BH():
             E_evol[t_i] = self.H(t_i * dt, cur_it_A, cur_it_basis)
 
         # we set up the iterated variables
+
+        # Here we initialize A(0) with the naive algorithm
         it_A = np.zeros(N, dtype=complex)
-        it_A[0] = 1.0
+        for i in range(N):
+            it_A[i] = xi_1.overlap(self.basis[i], self.S)
+        Psi_0_mag = 0.0
+        for a in range(N):
+            for b in range(N):
+                Psi_0_mag += xi_1.overlap(self.basis[a], self.S) * self.basis[b].overlap(xi_1, self.S) * self.basis[a].overlap(self.basis[b], self.S)
+        it_A /= Psi_0_mag
 
         it_basis = []
         for i in range(N):
             it_basis.append(CS(self.M, self.basis[i].xi.copy()))
 
         record_state(0, it_A, it_basis)
+
+        start_time = time.time()
         progress = 0
+
+        print(f"Iterative simulation of the Bose-Hubbard model on a timescale of t_max = {self.J_0 * max_t}, dt = {dt} ({step_N} steps) at {time.strftime("%H:%M:%S", time.localtime( start_time))}")
 
         for t_i in range(1, step_N):
             cur_t = (t_i-1) * dt
@@ -236,7 +248,11 @@ class BH():
                 it_basis_copy.append(CS(self.M, it_basis[i].xi.copy()))
             cur_R = self.R(cur_t, it_A_copy, it_basis_copy)
 
-            print(self.Theta(cur_t, it_A_copy, it_basis_copy))
+            """based = self.Theta(cur_t, it_A_copy, it_basis_copy)
+            print(based)
+            plt.imshow(np.abs(based), cmap='hot', interpolation='nearest')
+            plt.show()"""
+            #print(it_A)
 
             cur_Theta_inv = np.linalg.inv(self.Theta(cur_t, it_A_copy, it_basis_copy))
             k1 = - 1j * cur_Theta_inv.dot(cur_R)
@@ -271,14 +287,14 @@ class BH():
 
             record_state(t_i, it_A, it_basis)
             if np.floor(t_i / step_N * 100) > progress:
-                progress = np.floor(self.t / max_t * 100)
-                print("  %i percent done" % progress, end='\r')
+                progress = np.floor(t_i / step_N * 100)
+                print("  " + str(progress) + "% done; est. time of finish: " + time.strftime("%H:%M:%S", time.localtime( (time.time()-start_time) * 100 / progress + start_time )), end='\r')
 
 
         # This function outputs the following arrays:
         #    1. [t][n] = A_n(t)
         #    2. [t] = <Psi(t) | H | Psi(t)> = <E>(t), for checking whether energy is conserved
         #    3. [t][n] = sum_m |xi_nm(t)|^2 (for checking if CSs stay SU(N)-normalized during their dynamical evolution)
-        return(A_evol, basis_evol, E_evol)
+        return(t_space, A_evol, basis_evol, E_evol)
 
 

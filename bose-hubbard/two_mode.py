@@ -26,7 +26,11 @@ class CS():
 
     def overlap(self, other, S, reduction = 0):
         # calculates the overlap integral < other (r) | self (r) >, where r(eduction) is the number of apostrophes
+
+        # If other == self, the number should be real
         coef_product = np.sum(np.conjugate(other.xi) * self.xi)
+        if self == other:
+            return(np.power(coef_product.real, S - reduction))
         return(np.power(coef_product, S - reduction))
 
 
@@ -70,6 +74,14 @@ class BH():
             self.basis.append(CS(self.M, z))
 
         print("A basis set of size %i has been initialized." % N)
+
+        # We print <N_1> for all just to check if it's sensible
+        counter = 1
+        for b_v in self.basis:
+            N_1 = (b_v.xi[0].real * b_v.xi[0].real + b_v.xi[0].imag * b_v.xi[0].imag) * b_v.overlap(b_v, self.S, reduction = 1)
+            print(f"  Basis vector no. {counter} has < N_1 > = {N_1}")
+            counter += 1
+
 
     def J(self, t):
         return(self.J_0 + self.J_1 * np.cos(self.omega * t))
@@ -223,8 +235,20 @@ class BH():
         Psi_0_mag = 0.0
         for a in range(N):
             for b in range(N):
-                Psi_0_mag += xi_1.overlap(self.basis[a], self.S) * self.basis[b].overlap(xi_1, self.S) * self.basis[a].overlap(self.basis[b], self.S)
-        it_A /= Psi_0_mag
+                Psi_0_mag += it_A[a] * np.conjugate(it_A[b]) * self.basis[a].overlap(self.basis[b], self.S)
+        it_A /= np.sqrt(Psi_0_mag)
+
+        # we check the normalization
+        Psi_0_mag = 0.0
+        for a in range(N):
+            for b in range(N):
+                Psi_0_mag += it_A[a] * np.conjugate(it_A[b]) * self.basis[a].overlap(self.basis[b], self.S)
+        print("  < Psi_0 | Psi_0 > =", Psi_0_mag)
+        N_1_exp = 0.0
+        for a in range(N):
+            for b in range(N):
+                N_1_exp += it_A[a] * np.conjugate(it_A[b]) * self.basis[a].xi[0] * np.conjugate(self.basis[b].xi[0]) * self.basis[a].overlap(self.basis[b], self.S, reduction = 1)
+        print("  < Psi_0 | N_1 | Psi_0 > =", N_1_exp)
 
         it_basis = []
         for i in range(N):

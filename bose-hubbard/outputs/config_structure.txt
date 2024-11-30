@@ -1,0 +1,4 @@
+S, M, N
+J_0, J_1, omega, U, K, j_zero
+z_0_1, z_0_2... z_0_M-1
+basis_distance, basis_spacing

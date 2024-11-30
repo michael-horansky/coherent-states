@@ -66,6 +66,30 @@ def N_tuple_sum_K(N, K):
 
 
 
+def subplot_dimensions(number_of_plots):
+    # 1x1, 2x1, 3x1, 2x2, 3x2, 4x2, 3x3, 4x3, 5x3
+    if number_of_plots == 1:
+        return(1, 1)
+    if number_of_plots == 2:
+        return(2, 1)
+    if number_of_plots == 3:
+        return(3, 1)
+    if number_of_plots == 4:
+        return(2, 2)
+    if number_of_plots <= 6:
+        return(3, 2)
+    if number_of_plots <= 8:
+        return(4, 2)
+    if number_of_plots <= 9:
+        return(3, 3)
+    if number_of_plots <= 12:
+        return(4, 3)
+    if number_of_plots <= 15:
+        return(5, 3)
+    return(int(np.ceil(np.sqrt(number_of_plots))), int(np.ceil(np.sqrt(number_of_plots))))
+
+
+
 class CS():
     # object Coherent state, namely the SU(2) one
 
@@ -109,7 +133,131 @@ class BH():
     # -------- Initializers, descriptors, destructors ---------
     # ---------------------------------------------------------
 
-    def __init__(self, J_0, J_1, omega, U, K, j_zero, S, M):
+    def __init__(self, ID):
+        # Identification
+        self.ID = ID
+
+        print("---------------------------- " + str(ID) + " -----------------------------")
+
+
+    def save_recent_data(self):
+
+        print("Recording of recent data onto local memory unit initialized.")
+        output_filename = "BH_" + str(self.ID)
+        config_filename = "BH_" + str(self.ID) + "_config"
+
+        print("  Writing config info into outputs/" + config_filename + ".txt...", end='', flush=True)
+        config_file = open("outputs/" + config_filename + ".txt", "w")
+        config_file.write(", ".join(str(x) for x in [self.S, self.M, self.N]) + "\n")
+        config_file.write(", ".join(str(x) for x in [self.J_0, self.J_1, self.omega, self.U, self.K, self.j_zero]) + "\n")
+        config_file.write(", ".join(str(x) for x in self.z_0.z) + "\n")
+        config_file.write(", ".join(str(x) for x in [self.basis_distance, self.basis_spacing]) + "\n")
+        config_file.close()
+        print(" Done!")
+
+
+        print("  Writing output table into outputs/" + output_filename + ".csv...", end='', flush=True)
+
+        output_file = open("outputs/" + output_filename + ".csv", "w")
+        output_writer = csv.writer(output_file)
+
+        N = len(self.basis)
+
+        # number of string lengths (max int is 10^fill -1)
+        N_fill = 4
+        M_fill = 2
+
+        # header
+        header_row = ["t"]
+        for n in range(N):
+            header_row.append("A_" + str(n).zfill(N_fill))
+        for n in range(N):
+            for m in range(self.M - 1):
+                header_row.append("z_" + str(n).zfill(N_fill) + "_" + str(m).zfill(M_fill))
+        header_row.append("E")
+        output_writer.writerow(header_row)
+
+        output_writer.writerows(self.output_table)
+
+        output_file.close()
+        print(" Done!")
+
+    def load_recent_data(self):
+        # Loads configuration info and simulation evolution based on the provided ID
+        print("Initializing simulation object from local memory unit initialized.")
+        simulation_filename = "BH_" + str(self.ID)
+        config_filename = "BH_" + str(self.ID) + "_config"
+
+        # Reading config
+        init_config_file = open("outputs/" + config_filename + ".txt", 'r')
+        config_lines = [line.rstrip('\n') for line in init_config_file]
+
+        first_line_list = config_lines[0].split(", ")
+        self.S = int(first_line_list[0])
+        self.M = int(first_line_list[1])
+        self.N = int(first_line_list[2])
+
+        second_line_list = config_lines[1].split(", ")
+        self.J_0    = float(second_line_list[0])
+        self.J_1    = float(second_line_list[1])
+        self.omega  = float(second_line_list[2])
+        self.U      = float(second_line_list[3])
+        self.K      = float(second_line_list[4])
+        self.j_zero = float(second_line_list[5])
+
+        print("A driven Bose-Hubbard model with %i bosons over %i modes has been initialized." % (self.S, self.M))
+        print(f"    | J(t) = {self.J_0} + {self.J_1} . cos({self.omega:.2f}t)   (hopping interaction)")
+        print(f"    | U = {self.U}                       (on-site interaction)")
+        print(f"    | K = {self.K}, j_0 = {self.j_zero}                (harmonic trapping potential)")
+
+        third_line_list = config_lines[2].split(", ")
+        z_0 = np.array([complex(x) for x in third_line_list], dtype=complex)
+        fourth_line_list = config_lines[3].split(", ")
+        basis_distance = int(fourth_line_list[0])
+        basis_spacing  = float(fourth_line_list[1])
+        self.sample_gridlike(basis_distance, z_0, basis_spacing)
+
+        init_config_file.close()
+
+        print("Reading recent iterated evolution...", end='', flush=True)
+
+        simulation_file = open("outputs/" + simulation_filename + ".csv", newline='')
+        simulation_reader = csv.reader(simulation_file, delimiter=',', quotechar='"')
+
+        simulation_rows = list(simulation_reader)
+
+        header_row = simulation_rows[0]
+
+        N_dtp = len(simulation_rows) - 1
+        self.output_table = np.zeros((N_dtp, 2 + self.N * self.M), dtype=complex) # here we'll store all the results smashed together
+        self.t_space = np.zeros(N_dtp)
+        self.A_evol = np.zeros((N_dtp, self.N), dtype=complex)
+        self.basis_evol = np.zeros((N_dtp, self.N, self.M-1), dtype=complex)
+        self.E_evol = np.zeros(N_dtp, dtype=complex)
+
+        for i in range(N_dtp):
+            self.t_space[i] = float(simulation_rows[i+1][0])
+            self.output_table[i][0] = float(simulation_rows[i+1][0])
+            for n in range(self.N):
+                self.A_evol[i][n] = complex(simulation_rows[i+1][1+n])
+                self.output_table[i][1+n] = complex(simulation_rows[i+1][1+n])
+                for m in range(self.M-1):
+                    self.basis_evol[i][n][m] = complex(simulation_rows[i+1][1 + self.N + (self.M - 1) * n + m])
+                    self.output_table[i][1 + self.N + (self.M - 1) * n + m] = complex(simulation_rows[i+1][1 + self.N + (self.M - 1) * n + m])
+            self.E_evol[i] = float(simulation_rows[i+1][1 + self.M * self.N])
+            self.output_table[i][1 + self.M * self.N] = float(simulation_rows[i+1][1 + self.M * self.N])
+
+        simulation_file.close()
+        print(" Done! " + str(N_dtp) + " datapoints loaded.")
+
+    # ---------------------------------------------------------
+    # ------------------- Physical methods --------------------
+    # ---------------------------------------------------------
+
+    def set_global_parameters(self, S, M, J_0, J_1, omega, U, K, j_zero):
+        # Fock parameters
+        self.S = S
+        self.M = M
         # Hamiltonian parameters
         self.J_0 = J_0
         self.J_1 = J_1
@@ -118,19 +266,13 @@ class BH():
         self.K = K
         self.j_zero = j_zero
 
-
-        # Fock parameters
-        self.S = S
-        self.M = M
-
         print("A driven Bose-Hubbard model with %i bosons over %i modes has been initialized." % (self.S, self.M))
         print(f"    | J(t) = {self.J_0} + {self.J_1} . cos({self.omega:.2f}t)   (hopping interaction)")
         print(f"    | U = {self.U}                       (on-site interaction)")
         print(f"    | K = {self.K}, j_0 = {self.j_zero}                (harmonic trapping potential)")
 
-    # ---------------------------------------------------------
-    # ------------------- Physical methods --------------------
-    # ---------------------------------------------------------
+
+
 
     # ------------------- Sampling methods --------------------
 
@@ -144,7 +286,7 @@ class BH():
         self.basis = []
         self.beta = beta
 
-        print("  Sampling the neighbourhood of z_0 in a gridlike fashion...")
+        print("Sampling the neighbourhood of z_0 in a gridlike fashion...", end='', flush=True)
 
         for rect_dist in range(max_rect_dist+1):
             deviations = N_tuple_sum_K(2 * (self.M-1), rect_dist)
@@ -168,12 +310,14 @@ class BH():
 
         self.N = len(self.basis)
         self.z_0 = CS(self.S, self.M, z_0)
+        self.basis_distance = max_rect_dist
+        self.basis_spacing = beta
 
-        #print("  Preparing overlap matrices...")
+        print(" Done!")
 
         #TODO calculate <z_j | z_i> and their reductions here
 
-        print(f"A sample of N = {self.N} basis vectors around z_0 = {z_0} with rectangular radius of {max_rect_dist} and spacing of {beta:.2f} has been initialized.")
+        print(f"  A sample of N = {self.N} basis vectors around z_0 = {z_0} with rectangular radius of {max_rect_dist} and spacing of {beta:.2f} has been initialized.")
 
     # ----------------- Dynamical descriptors -----------------
 
@@ -213,6 +357,7 @@ class BH():
                 sum3 *= (self.S * self.K / 2)
 
                 H += np.conjugate(cur_A[k]) * cur_A[j] * (sum1 + sum2 + sum3)
+        return(H.real)
 
     def R(self, t, cur_A, cur_basis):
         N = len(cur_basis)
@@ -306,30 +451,52 @@ class BH():
 
     # ---------------- Runtime routine methods ----------------
 
-    def iterate(self, max_t, dt):
+    def iterate(self, max_t, dt, N_dtp):
 
+        # max_t is the terminal simulation time, dt is the timestep, N_dtp is the number of datapoints equidistant in time which are saved
         N = len(self.basis)
 
         # everything is in natural units (hbar=1)
         # maximum time will actually be J_0 * max_t, which will also be the units we display it in
 
-        t_space = np.arange(0.0, self.J_0 * max_t + dt, dt)
+        self.full_t_space = np.arange(0.0, self.J_0 * max_t + dt, dt)
 
-        step_N = len(t_space)
+        step_N = len(self.full_t_space)
 
-        A_evol = np.zeros((step_N, N), dtype=complex)
-        basis_evol = np.zeros((step_N, N, self.M-1), dtype=complex)
-        E_evol = np.zeros(step_N, dtype=complex)
+        # If the user asks for more datapoints than there are steps, we will limit the datapoint number
+        if N_dtp > step_N:
+            N_dtp = step_N
 
+        # Output data bins
+        self.output_table = []#np.zeros((N_dtp, 2 + self.N * self.M), dtype=complex) # here we'll store all the results smashed together
+        self.t_space = np.zeros(N_dtp)
+        self.A_evol = np.zeros((N_dtp, N), dtype=complex)
+        self.basis_evol = np.zeros((N_dtp, N, self.M-1), dtype=complex)
+        self.E_evol = np.zeros(N_dtp, dtype=complex)
+
+        self.N_dtp_saved = 0 # we track the amount of datapoints saved
         def record_state(t_i, cur_it_A, cur_it_basis):
+            self.t_space[self.N_dtp_saved] = t_i * dt
             for i in range(N):
-                A_evol[t_i][i] = cur_it_A[i]
+                self.A_evol[self.N_dtp_saved][i] = cur_it_A[i]
                 for j in range(self.M-1):
-                    basis_evol[t_i][i][j] = cur_it_basis[i].std_z(j)
-            E_evol[t_i] = self.H(t_i * dt, cur_it_A, cur_it_basis)
+                    self.basis_evol[self.N_dtp_saved][i][j] = cur_it_basis[i].std_z(j)
+            self.E_evol[self.N_dtp_saved] = self.H(t_i * dt, cur_it_A, cur_it_basis)
+            # we save everything to the output table
+            self.output_table.append([])
+            self.output_table[self.N_dtp_saved].append(t_i * dt)
+            for i in range(N):
+                self.output_table[self.N_dtp_saved].append(cur_it_A[i])
+            for i in range(N):
+                for j in range(self.M-1):
+                    self.output_table[self.N_dtp_saved].append(cur_it_basis[i].std_z(j))
+            self.output_table[self.N_dtp_saved].append(self.H(t_i * dt, cur_it_A, cur_it_basis))
+            self.N_dtp_saved += 1
 
 
         # We initialize dynamical variables
+
+        # Output table = [t, A_k, z_k_m, E]
 
         print("  Calculating initial decomposition coefficients...", end='', flush=True)
         identity_prefactor = math.factorial(self.S + self.M - 1) / math.factorial(self.S)
@@ -353,11 +520,12 @@ class BH():
 
         start_time = time.time()
         progress = 0
+        ETA = "???"
 
         print(f"Iterative simulation of the Bose-Hubbard model on a timescale of t_max = {self.J_0 * max_t}, dt = {dt} ({step_N} steps) at {time.strftime("%H:%M:%S", time.localtime( start_time))}")
 
         for t_i in range(1, step_N):
-            cur_t = (t_i-1) * dt
+            cur_t = (t_i-1) * dt #this is previous cycle's time
             # RK4
 
             #TODO triple check the basis_copy.z += update: shouldnt the slices through k1 be spaced out? as in it_basis_copy[n].z[m] += k1[N + m * N + n]
@@ -407,72 +575,124 @@ class BH():
                 for m in range(self.M-1):
                     it_basis[n].z += (dt / 6) * (k1[N + N * m + n] + 2 * k2[N + N * m + n] + 2 * k3[N + N * m + n] + k4[N + N * m + n])
 
-            record_state(t_i, it_A, it_basis)
-            if np.floor(t_i / step_N * 100) > progress:
-                progress = np.floor(t_i / step_N * 100)
-                print("  " + str(progress) + "% done; est. time of finish: " + time.strftime("%H:%M:%S", time.localtime( (time.time()-start_time) * 100 / progress + start_time )), end='\r')
+            # Check if state should be recorded and progress updated
+            if np.floor(t_i / (step_N-1) * (N_dtp-1)) > (self.N_dtp_saved - 1):
+                record_state(t_i, it_A, it_basis)
+            if np.floor(t_i / (step_N-1) * 100) > progress:
+                progress = int(np.floor(t_i / (step_N-1) * 100))
+                ETA = time.strftime("%H:%M:%S", time.localtime( (time.time()-start_time) * 100 / progress + start_time ))
+            print("  " + str(progress).zfill(2) + "% done (" + str(t_i) + "/" + str(step_N-1) + "); est. time of finish: " + ETA, end='\r')
 
-
+        print("  Simulation finished at " + time.strftime("%H:%M:%S", time.localtime(time.time())) + "; " + str(self.N_dtp_saved) + " datapoints saved.                  ")
         # This function outputs the following arrays:
         #    1. [t][n] = A_n(t)
         #    2. [t] = <Psi(t) | H | Psi(t)> = <E>(t), for checking whether energy is conserved
         #    3. [t][n] = sum_m |xi_nm(t)|^2 (for checking if CSs stay SU(N)-normalized during their dynamical evolution)
-        return(t_space, A_evol, basis_evol, E_evol)
+
+        #self.
+
+        #return(t_space, A_evol, basis_evol, E_evol)
 
         #print("  Preparing overlap matrices...", end='', flush=True)
         #print(" Done!")
 
+    def plot_recent_data(self, graph_list = ["expected_mode_occupancy", "initial_basis_heatmap"], save_graph=True):
+
+        print("Graphical output plotting routine initialized.")
+        # create a superplot
+        superplot_shape_x, superplot_shape_y = subplot_dimensions(len(graph_list))
+
+        plt.figure(figsize=(15, 8))
+
+        # initialize lims; if changed, apply them afterwards
+        x_left = -1
+        x_right = -1
+        y_left = -1
+        y_right = -1
+
+        include_legend = True
+
+        for i in range(len(graph_list)):
+            plt.subplot(superplot_shape_y, superplot_shape_x, i + 1)
+            if graph_list[i] == 'initial_basis_heatmap':
+                print("  Plotting the heatmap of initial basis decomposition coefficient magnitudes...", end='', flush=True)
+                plt.title("Initial basis decomposition coefficient magnitudes")
+                x_vals = []
+                y_vals = []
+
+                for basis_element in self.basis:
+                    x_vals.append(round(basis_element.z[0].real - z_0.real, 3))
+                    y_vals.append(round(basis_element.z[0].imag - z_0.imag, 3))
+                A_vals = self.A_evol[0]
+
+                df = pd.DataFrame({"Y" : y_vals, "X" : x_vals, "A" : np.sqrt(A_vals.real * A_vals.real + A_vals.imag * A_vals.imag)})
+                table = df.pivot(index='Y', columns='X', values='A')
+                ax = sns.heatmap(table)
+                ax.collections[0].colorbar.set_label("$|A_k|$", rotation=0, labelpad=15)
+                ax.invert_yaxis()
+                plt.xlabel("$\\Re\\left(z_n-z_0\\right)$")
+                plt.ylabel("$\\Im\\left(z_n-z_0\\right)$")
+                plt.gca().set_aspect("equal")
+                include_legend = False
+                print(" Done!")
+
+            elif graph_list[i] == 'expected_mode_occupancy':
+                print("  Plotting the time evolution of expected mode occupancy...", end='', flush=True)
+                plt.title("Expected mode occupancy")
+                plt.xlabel("t")
+                psi_mag = np.zeros(len(self.t_space))
+
+                avg_n = []
+                for m in range(self.M):
+                    avg_n.append(np.zeros(len(self.t_space)))
+
+                for t_i in range(len(self.t_space)):
+                    for a in range(self.N):
+                        for b in range(self.N):
+                            cur_X_1 = CS(self.S, self.M, self.basis_evol[t_i][b]).overlap(CS(self.S, self.M, self.basis_evol[t_i][a]), reduction = 1)
+                            psi_mag[t_i] += (np.conjugate(self.A_evol[t_i][a]) * self.A_evol[t_i][b] * CS(self.S, self.M, self.basis_evol[t_i][b]).overlap(CS(self.S, self.M, self.basis_evol[t_i][a]))).real
+                            for m in range(self.M-1):
+                                avg_n[m][t_i] += (np.conjugate(self.A_evol[t_i][a]) * self.A_evol[t_i][b] * np.conjugate(self.basis_evol[t_i][a][m]) * self.basis_evol[t_i][b][m] * cur_X_1).real
+                            avg_n[self.M-1][t_i] += (np.conjugate(self.A_evol[t_i][a]) * self.A_evol[t_i][b] * cur_X_1).real
+                plt.plot(self.t_space, psi_mag, label="$\\langle \\Psi | \\Psi \\rangle$")
+                for m in range(self.M):
+                    plt.plot(self.t_space, avg_n[m], label="$\\langle N_" + str(m+1) + " \\rangle/S$")
+                print(" Done!")
+
+            if x_left != -1:
+                plt.xlim(x_left, x_right)
+            if y_left != -1:
+                plt.ylim(y_left, y_right)
+
+            if include_legend:
+                plt.legend()
+
+        plt.tight_layout()
+        if save_graph:
+            plt.savefig("outputs/BH_" + str(self.ID) + "_graph_output.png")
+        plt.show()
+
+
+z_0 = -0.0+ 1j * 0.0
 
 
 
+lol = BH("kerek")
 
-def save_outputs(t_space, A_evol, basis_evol, E_evol):
-
-    output_filename = "changename"
-
-    print("  Writing outputs into outputs/" + output_filename + ".csv", end='', flush=True)
-
-    output_file = open("outputs/" + output_filename + ".csv", "w")
-    output_writer = csv.writer(output_file)
-
-    N = len(A_evol[0])
-    M = len(basis_evol[0][0])+1
-
-    # number of string lengths (max int is 10^fill -1)
-    N_fill = 4
-    M_fill = 2
-
-    # header
-    header_row = ["t"]
-    for n in range(N):
-        header_row.append("A_" + str(n).zfill(N_fill))
-    for n in range(N):
-        for m in range(M - 1):
-            header_row.append("z_" + str(n).zfill(N_fill) + "_" + str(m).zfill(M_fill))
-    header_row.append("E")
-    output_writer.writerow(header_row)
+lol.load_recent_data()
 
 
-
-    output_file.close()
-    print(" Done!")
-
-
-z_0 = 0.0+ 1j * 0.0
-
-
-
-lol = BH(1, 0.5, 2 * np.pi, 0.1, 0, 0, 5, 2)
-lol.sample_gridlike(4, np.array([z_0], dtype=complex), 0.4)
+"""lol.set_global_parameters(S = 5, M = 2, J_0 = 1, J_1 = 0.5, omega = 2 * np.pi, U = 0.1, K = 0, j_zero = 0)
+lol.sample_gridlike(4, np.array([z_0], dtype=complex), 0.35)
 N = len(lol.basis)
 
-x_vals = []
-y_vals = []
+lol.iterate(max_t = 0.04, dt = 0.00001, N_dtp = 100)
+lol.save_recent_data()"""
 
-for basis_element in lol.basis:
-    x_vals.append(round(basis_element.z[0].real - z_0.real, 3))
-    y_vals.append(round(basis_element.z[0].imag - z_0.imag, 3))
-t_space, A_evol, basis_evol, E_evol = lol.iterate(0.008, 0.00002)
+lol.plot_recent_data(graph_list = ["expected_mode_occupancy", "initial_basis_heatmap"])
+
+
+#t_space, A_evol, basis_evol, E_evol = lol.iterate(0.008, 0.00002)
 #lol.iterate(5, 0.001)
 
 """Psi_mag = 0.0
@@ -481,6 +701,7 @@ for i in range(lol.N):
         Psi_mag += np.conjugate(A_vals[i]) * A_vals[j] * lol.basis[j].overlap(lol.basis[i])
 print("< Psi | Psi > =", Psi_mag.real)"""
 
+"""
 psi_mag = np.zeros(len(t_space))
 avg_n_1 = np.zeros(len(t_space), dtype=complex)
 
@@ -492,17 +713,10 @@ for t_i in range(len(t_space)):
 plt.plot(t_space, psi_mag, label="$\\langle \\Psi | \\Psi \\rangle}$")
 plt.plot(t_space, avg_n_1, label="$\\frac{\\langle N_1 \\rangle}{S}$")
 plt.legend()
-plt.show()
-
-save_outputs(t_space, A_evol, basis_evol, E_evol)
-
-"""A_vals = A_evol[0]
-
-df = pd.DataFrame({"Y" : y_vals, "X" : x_vals, "A" : np.sqrt(A_vals.real * A_vals.real + A_vals.imag * A_vals.imag)})
-table = df.pivot(index='Y', columns='X', values='A')
-ax = sns.heatmap(table)
-ax.invert_yaxis()
 plt.show()"""
+
+#save_outputs(t_space, A_evol, basis_evol, E_evol)
+
 
 #TODO check at t=0 if <n_1> is a sensible number (between 0 and 1)
 

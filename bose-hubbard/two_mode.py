@@ -89,7 +89,7 @@ class BH():
     def H(self, t, cur_A, cur_basis):
         # this evaluates < Psi | H | Psi >
         N = len(cur_basis)
-        M = len(cur_basis[0].xi)
+        M = len(cur_basis[0].M)
         H = 0.0
         for k in range(N):
             for j in range(N):
@@ -114,9 +114,9 @@ class BH():
         # cur_A is an ndarray of complex decomposition coefficients A(t) of length N
         # cur_basis is a list of N instances of CS, each possessing an ndarray of complex parameters of length M
         N = len(cur_basis)
-        M = len(cur_basis[0].xi)
+        M = len(cur_basis[0].M)
 
-        m_Theta = np.zeros(((M+1)*N, (M+1)*N), dtype=complex)
+        m_Theta = np.zeros((M*N, M*N), dtype=complex)
 
         # First, we fill in X
         for i in range(N):

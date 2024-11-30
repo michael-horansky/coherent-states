@@ -89,7 +89,7 @@ class BH():
     def H(self, t, cur_A, cur_basis):
         # this evaluates < Psi | H | Psi >
         N = len(cur_basis)
-        M = len(cur_basis[0].M)
+        M = len(cur_basis[0].xi)
         H = 0.0
         for k in range(N):
             for j in range(N):
@@ -114,9 +114,9 @@ class BH():
         # cur_A is an ndarray of complex decomposition coefficients A(t) of length N
         # cur_basis is a list of N instances of CS, each possessing an ndarray of complex parameters of length M
         N = len(cur_basis)
-        M = len(cur_basis[0].M)
+        M = len(cur_basis[0].xi)
 
-        m_Theta = np.zeros((M*N, M*N), dtype=complex)
+        m_Theta = np.zeros(((M+1)*N, (M+1)*N), dtype=complex)
 
         # First, we fill in X
         for i in range(N):
@@ -284,7 +284,8 @@ class BH():
             #k2
             it_A_copy += (dt / 2) * k1[:N]
             for n in range(N):
-                it_basis_copy[n].xi += (dt / 2) * k1[N + self.M * n:N + self.M * (n+1)]
+                for m in range(self.M):
+                    it_basis_copy[n].xi[m] += (dt / 2) * k1[N + N * m + n]#(dt / 2) * k1[N + self.M * n:N + self.M * (n+1)]
             cur_R = self.R(cur_t + dt / 2, it_A_copy, it_basis_copy)
             cur_Theta_inv = np.linalg.inv(self.Theta(cur_t + dt / 2, it_A_copy, it_basis_copy))
             k2 = - 1j * cur_Theta_inv.dot(cur_R)
@@ -292,7 +293,8 @@ class BH():
             #k3
             it_A_copy += (dt / 2) * (k2[:N]-k1[:N])
             for n in range(N):
-                it_basis_copy[n].xi += (dt / 2) * (k2[N + self.M * n:N + self.M * (n+1)]-k1[N + self.M * n:N + self.M * (n+1)])
+                for m in range(self.M):
+                    it_basis_copy[n].xi += (dt / 2) * (k2[N + N * m + n]-k1[N + N * m + n])
             cur_R = self.R(cur_t + dt / 2, it_A_copy, it_basis_copy)
             cur_Theta_inv = np.linalg.inv(self.Theta(cur_t + dt / 2, it_A_copy, it_basis_copy))
             k3 = - 1j * cur_Theta_inv.dot(cur_R)
@@ -300,14 +302,16 @@ class BH():
             #k4
             it_A_copy += (dt / 2) * (2 * k3[:N]-k2[:N])
             for n in range(N):
-                it_basis_copy[n].xi += (dt / 2) * (2 * k3[N + self.M * n:N + self.M * (n+1)]-k2[N + self.M * n:N + self.M * (n+1)])
+                for m in range(self.M):
+                    it_basis_copy[n].xi += (dt / 2) * (2 * k3[N + N * m + n]-k2[N + N * m + n])
             cur_R = self.R(cur_t + dt, it_A_copy, it_basis_copy)
             cur_Theta_inv = np.linalg.inv(self.Theta(cur_t + dt, it_A_copy, it_basis_copy))
             k4 = - 1j * cur_Theta_inv.dot(cur_R)
 
             it_A += (dt / 6) * (k1[:N] + 2 * k2[:N] + 2 * k3[:N] + k4[:N])
             for n in range(N):
-                it_basis[n].xi += (dt / 6) * (k1[N + self.M * n:N + self.M * (n+1)] + 2 * k2[N + self.M * n:N + self.M * (n+1)] + 2 * k3[N + self.M * n:N + self.M * (n+1)] + k4[N + self.M * n:N + self.M * (n+1)])
+                for m in range(self.M):
+                    it_basis[n].xi += (dt / 6) * (k1[N + N * m + n] + 2 * k2[N + N * m + n] + 2 * k3[N + N * m + n] + k4[N + N * m + n])
 
             record_state(t_i, it_A, it_basis)
             if np.floor(t_i / step_N * 100) > progress:

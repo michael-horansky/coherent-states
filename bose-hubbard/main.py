@@ -7,7 +7,7 @@ M = 2
 BS2 = BH(1, 0.5, 2.0 * np.pi, 0.1, 0, 0, S, M)
 BS2.sample_CS(N, np.array([-np.sqrt(0.7), np.sqrt(0.3)], dtype=complex))
 
-t_space, A_evol, basis_evol, E_evol = BS2.iterate(0.008, 0.00001)
+t_space, A_evol, basis_evol, E_evol = BS2.iterate(0.08, 0.00002)
 
 psi_mag = np.zeros(len(t_space))
 avg_n_1 = np.zeros(len(t_space), dtype=complex)
@@ -17,7 +17,7 @@ for t_i in range(len(t_space)):
         for b in range(N):
             psi_mag[t_i] += np.conjugate(A_evol[t_i][a]) * A_evol[t_i][b] * CS(M, basis_evol[t_i][b]).overlap(CS(M, basis_evol[t_i][a]), S)
             avg_n_1[t_i] += np.conjugate(A_evol[t_i][a]) * A_evol[t_i][b] * np.conjugate(basis_evol[t_i][a][0]) * basis_evol[t_i][b][0] * CS(M, basis_evol[t_i][b]).overlap(CS(M, basis_evol[t_i][a]), S, reduction = 1)
-plt.plot(t_space, psi_mag, label="$\\langle \Psi | \Psi \\rangle}$")
+plt.plot(t_space, psi_mag, label="$\\langle \\Psi | \\Psi \\rangle}$")
 plt.plot(t_space, avg_n_1, label="$\\frac{\\langle N_1 \\rangle}{S}$")
 plt.legend()
 plt.show()

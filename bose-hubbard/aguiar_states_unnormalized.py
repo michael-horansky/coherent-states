@@ -7,6 +7,8 @@ import time
 import seaborn as sns
 import pandas as pd
 
+import csv
+
 # here we
 
 def bitfield(n, l):
@@ -373,7 +375,8 @@ class BH():
             #k2
             it_A_copy += (dt / 2) * k1[:N]
             for n in range(N):
-                it_basis_copy[n].z += (dt / 2) * k1[N + self.M * n:N + self.M * (n+1)]
+                for m in range(self.M-1):
+                    it_basis_copy[n].z[m] += (dt / 2) * k1[N + N * m + n]
             self.initialize_overlap_matrices(it_basis_copy, 3)
             cur_R = self.R(cur_t + dt / 2, it_A_copy, it_basis_copy)
             cur_Theta_inv = np.linalg.inv(self.Theta(cur_t + dt / 2, it_A_copy, it_basis_copy))
@@ -382,7 +385,8 @@ class BH():
             #k3
             it_A_copy += (dt / 2) * (k2[:N]-k1[:N])
             for n in range(N):
-                it_basis_copy[n].z += (dt / 2) * (k2[N + self.M * n:N + self.M * (n+1)]-k1[N + self.M * n:N + self.M * (n+1)])
+                for m in range(self.M-1):
+                    it_basis_copy[n].z += (dt / 2) * (k2[N + N * m + n]-k1[N + N * m + n])
             self.initialize_overlap_matrices(it_basis_copy, 3)
             cur_R = self.R(cur_t + dt / 2, it_A_copy, it_basis_copy)
             cur_Theta_inv = np.linalg.inv(self.Theta(cur_t + dt / 2, it_A_copy, it_basis_copy))
@@ -391,7 +395,8 @@ class BH():
             #k4
             it_A_copy += (dt / 2) * (2 * k3[:N]-k2[:N])
             for n in range(N):
-                it_basis_copy[n].z += (dt / 2) * (2 * k3[N + self.M * n:N + self.M * (n+1)]-k2[N + self.M * n:N + self.M * (n+1)])
+                for m in range(self.M-1):
+                    it_basis_copy[n].z += (dt / 2) * (2 * k3[N + N * m + n]-k2[N + N * m + n])
             self.initialize_overlap_matrices(it_basis_copy, 3)
             cur_R = self.R(cur_t + dt, it_A_copy, it_basis_copy)
             cur_Theta_inv = np.linalg.inv(self.Theta(cur_t + dt, it_A_copy, it_basis_copy))
@@ -399,7 +404,8 @@ class BH():
 
             it_A += (dt / 6) * (k1[:N] + 2 * k2[:N] + 2 * k3[:N] + k4[:N])
             for n in range(N):
-                it_basis[n].z += (dt / 6) * (k1[N + self.M * n:N + self.M * (n+1)] + 2 * k2[N + self.M * n:N + self.M * (n+1)] + 2 * k3[N + self.M * n:N + self.M * (n+1)] + k4[N + self.M * n:N + self.M * (n+1)])
+                for m in range(self.M-1):
+                    it_basis[n].z += (dt / 6) * (k1[N + N * m + n] + 2 * k2[N + N * m + n] + 2 * k3[N + N * m + n] + k4[N + N * m + n])
 
             record_state(t_i, it_A, it_basis)
             if np.floor(t_i / step_N * 100) > progress:
@@ -420,10 +426,45 @@ class BH():
 
 
 
+def save_outputs(t_space, A_evol, basis_evol, E_evol):
+
+    output_filename = "changename"
+
+    print("  Writing outputs into outputs/" + output_filename + ".csv", end='', flush=True)
+
+    output_file = open("outputs/" + output_filename + ".csv", "w")
+    output_writer = csv.writer(output_file)
+
+    N = len(A_evol[0])
+    M = len(basis_evol[0][0])+1
+
+    # number of string lengths (max int is 10^fill -1)
+    N_fill = 4
+    M_fill = 2
+
+    # header
+    header_row = ["t"]
+    for n in range(N):
+        header_row.append("A_" + str(n).zfill(N_fill))
+    for n in range(N):
+        for m in range(M - 1):
+            header_row.append("z_" + str(n).zfill(N_fill) + "_" + str(m).zfill(M_fill))
+    header_row.append("E")
+    output_writer.writerow(header_row)
+
+
+
+    output_file.close()
+    print(" Done!")
+
+
 z_0 = 0.0+ 1j * 0.0
 
+
+
 lol = BH(1, 0.5, 2 * np.pi, 0.1, 0, 0, 5, 2)
-lol.sample_gridlike(5, np.array([z_0], dtype=complex), 0.3)
+lol.sample_gridlike(4, np.array([z_0], dtype=complex), 0.4)
+N = len(lol.basis)
 
 x_vals = []
 y_vals = []
@@ -431,7 +472,7 @@ y_vals = []
 for basis_element in lol.basis:
     x_vals.append(round(basis_element.z[0].real - z_0.real, 3))
     y_vals.append(round(basis_element.z[0].imag - z_0.imag, 3))
-t_space, A_evol, basis_evol, E_evol = lol.iterate(5, 0.001)
+t_space, A_evol, basis_evol, E_evol = lol.iterate(0.008, 0.00002)
 #lol.iterate(5, 0.001)
 
 """Psi_mag = 0.0
@@ -440,13 +481,28 @@ for i in range(lol.N):
         Psi_mag += np.conjugate(A_vals[i]) * A_vals[j] * lol.basis[j].overlap(lol.basis[i])
 print("< Psi | Psi > =", Psi_mag.real)"""
 
-A_vals = A_evol[0]
+psi_mag = np.zeros(len(t_space))
+avg_n_1 = np.zeros(len(t_space), dtype=complex)
+
+for t_i in range(len(t_space)):
+    for a in range(N):
+        for b in range(N):
+            psi_mag[t_i] += np.conjugate(A_evol[t_i][a]) * A_evol[t_i][b] * CS(lol.S, lol.M, basis_evol[t_i][b]).overlap(CS(lol.S, lol.M, basis_evol[t_i][a]))
+            avg_n_1[t_i] += np.conjugate(A_evol[t_i][a]) * A_evol[t_i][b] * np.conjugate(basis_evol[t_i][a][0]) * basis_evol[t_i][b][0] * CS(lol.S, lol.M, basis_evol[t_i][b]).overlap(CS(lol.S, lol.M, basis_evol[t_i][a]), reduction = 1)
+plt.plot(t_space, psi_mag, label="$\\langle \\Psi | \\Psi \\rangle}$")
+plt.plot(t_space, avg_n_1, label="$\\frac{\\langle N_1 \\rangle}{S}$")
+plt.legend()
+plt.show()
+
+save_outputs(t_space, A_evol, basis_evol, E_evol)
+
+"""A_vals = A_evol[0]
 
 df = pd.DataFrame({"Y" : y_vals, "X" : x_vals, "A" : np.sqrt(A_vals.real * A_vals.real + A_vals.imag * A_vals.imag)})
 table = df.pivot(index='Y', columns='X', values='A')
 ax = sns.heatmap(table)
 ax.invert_yaxis()
-plt.show()
+plt.show()"""
 
 #TODO check at t=0 if <n_1> is a sensible number (between 0 and 1)
 

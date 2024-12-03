@@ -621,8 +621,8 @@ class BH():
                 y_vals = []
 
                 for basis_element in self.basis:
-                    x_vals.append(round(basis_element.z[0].real - z_0.real, 3))
-                    y_vals.append(round(basis_element.z[0].imag - z_0.imag, 3))
+                    x_vals.append(round(basis_element.z[0].real - self.z_0.z[0].real, 3))
+                    y_vals.append(round(basis_element.z[0].imag - self.z_0.z[0].imag, 3))
                 A_vals = self.A_evol[0]
 
                 df = pd.DataFrame({"Y" : y_vals, "X" : x_vals, "A" : np.sqrt(A_vals.real * A_vals.real + A_vals.imag * A_vals.imag)})
@@ -673,50 +673,5 @@ class BH():
         plt.show()
 
 
-z_0 = -0.0+ 1j * 0.0
 
-
-
-lol = BH("kerek")
-
-lol.load_recent_data()
-
-
-"""lol.set_global_parameters(S = 5, M = 2, J_0 = 1, J_1 = 0.5, omega = 2 * np.pi, U = 0.1, K = 0, j_zero = 0)
-lol.sample_gridlike(4, np.array([z_0], dtype=complex), 0.35)
-N = len(lol.basis)
-
-lol.iterate(max_t = 0.04, dt = 0.00001, N_dtp = 100)
-lol.save_recent_data()"""
-
-lol.plot_recent_data(graph_list = ["expected_mode_occupancy", "initial_basis_heatmap"])
-
-
-#t_space, A_evol, basis_evol, E_evol = lol.iterate(0.008, 0.00002)
-#lol.iterate(5, 0.001)
-
-"""Psi_mag = 0.0
-for i in range(lol.N):
-    for j in range(lol.N):
-        Psi_mag += np.conjugate(A_vals[i]) * A_vals[j] * lol.basis[j].overlap(lol.basis[i])
-print("< Psi | Psi > =", Psi_mag.real)"""
-
-"""
-psi_mag = np.zeros(len(t_space))
-avg_n_1 = np.zeros(len(t_space), dtype=complex)
-
-for t_i in range(len(t_space)):
-    for a in range(N):
-        for b in range(N):
-            psi_mag[t_i] += np.conjugate(A_evol[t_i][a]) * A_evol[t_i][b] * CS(lol.S, lol.M, basis_evol[t_i][b]).overlap(CS(lol.S, lol.M, basis_evol[t_i][a]))
-            avg_n_1[t_i] += np.conjugate(A_evol[t_i][a]) * A_evol[t_i][b] * np.conjugate(basis_evol[t_i][a][0]) * basis_evol[t_i][b][0] * CS(lol.S, lol.M, basis_evol[t_i][b]).overlap(CS(lol.S, lol.M, basis_evol[t_i][a]), reduction = 1)
-plt.plot(t_space, psi_mag, label="$\\langle \\Psi | \\Psi \\rangle}$")
-plt.plot(t_space, avg_n_1, label="$\\frac{\\langle N_1 \\rangle}{S}$")
-plt.legend()
-plt.show()"""
-
-#save_outputs(t_space, A_evol, basis_evol, E_evol)
-
-
-#TODO check at t=0 if <n_1> is a sensible number (between 0 and 1)
 

@@ -10,6 +10,8 @@ import pandas as pd
 
 import csv
 
+from numerical_integration_methods import *
+
 # here we
 
 def bitfield(n, l):
@@ -139,6 +141,10 @@ class BH():
         self.ID = ID
 
         print("---------------------------- " + str(ID) + " -----------------------------")
+
+        # Semaphors are initialised here to null values for safety
+        self.semaphor_t_space = np.array([0.0])
+        self.semaphor_next_flag_t_i = 1
 
 
     def save_recent_data(self):
@@ -472,6 +478,7 @@ class BH():
         for i in range(self.N):
             for j in range(self.N):
                 base_inner_product = 1 + np.sum(np.conjugate(y[self.N + i : self.N + i + self.N * self.M : self.N]) * y[self.N + j : self.N + j + self.N * self.M : self.N])
+                #print(base_inner_product)
 
                 X[max_reduction][i][j] = np.power(base_inner_product, self.S - max_reduction)
                 for delta_r in range(max_reduction):
@@ -501,19 +508,19 @@ class BH():
                 sum1 = 0.0
                 for i in range(self.M-1):
                     sum1 += np.conjugate(y_std[self.N + self.N * i + k]) * y_std[self.N + self.N * (i+1) + j] + np.conjugate(y_std[self.N + self.N * (i+1) + k]) * y_std[self.N + self.N * i + j]
-                sum1 *= (- self.J(t) * self.S) * X[1][k][j]
+                #sum1 *= (- self.J(t) * self.S) * X[1][k][j]
 
                 sum2 = 0.0
                 for i in range(self.M):
                     sum2 += np.conjugate(y_std[self.N + self.N * i + k]) * np.conjugate(y_std[self.N + self.N * i + k]) * y_std[self.N + self.N * i + j] * y_std[self.N + self.N * i + j]
-                sum2 *= (self.U * self.S * (self.S - 1) / 2) * X[2][k][j]
+                #sum2 *= (self.U * self.S * (self.S - 1) / 2) * X[2][k][j]
 
                 sum3 = 0.0
                 for i in range(self.M):
                     sum3 += (1 + i - self.j_zero) * (1 + i - self.j_zero) * (np.conjugate(y_std[self.N + self.N * i + k]) * y_std[self.N + self.N * i + j])
-                sum3 *= (self.S * self.K / 2) * X[1][k][j]
+                #sum3 *= (self.S * self.K / 2) * X[1][k][j]
 
-                R[k] += y_std[j] * (sum1 + sum2 + sum3)
+                R[k] += y_std[j] * ((- self.J(t) * self.S) * X[1][k][j] * sum1 + (self.U * self.S * (self.S - 1) / 2) * X[2][k][j] * sum2 + (self.S * self.K / 2) * X[1][k][j] * sum3)
 
                 # Then, we fill in R_2
                 for m in range(self.M-1):
@@ -561,12 +568,36 @@ class BH():
 
         # Finally, we calculate y dot
         m_Theta_inv = np.linalg.inv(m_Theta)
+
+        # Semaphor
+        self.update_semaphor(t)
+
         return( - 1j * m_Theta_inv.dot(R))
 
 
 
 
     # ---------------- Runtime routine methods ----------------
+
+    def update_semaphor(self, t):
+        """if np.floor(t_i / (step_N-1) * 100) > progress:
+            progress = int(np.floor(t_i / (step_N-1) * 100))
+            ETA = time.strftime("%H:%M:%S", time.localtime( (time.time()-start_time) * 100 / progress + start_time ))"""
+        # check if semaphor finished
+        if self.semaphor_next_flag_t_i >= len(self.semaphor_t_space):
+            print("  Semaphor reached the final flagged timestamp. No further semaphor update necessary.", end='\r')
+            return(0)
+        if t >= self.semaphor_t_space[self.semaphor_next_flag_t_i]:
+            # We find the next smallest unreached semaphor flag
+            t_i_new = self.semaphor_next_flag_t_i
+            while(self.semaphor_t_space[t_i_new] < t):
+                t_i_new += 1
+                if t_i_new >= len(self.semaphor_t_space):
+                    break
+            self.semaphor_next_flag_t_i = t_i_new
+            progress_fraction = (self.semaphor_t_space[t_i_new - 1] - self.semaphor_t_space[0]) / (self.semaphor_t_space[-1] - self.semaphor_t_space[0])
+            ETA = time.strftime("%H:%M:%S", time.localtime( (time.time()-self.semaphor_start_time) / progress_fraction + self.semaphor_start_time ))
+            print("  " + str(int(100 * progress_fraction)).zfill(2) + "% done; est. time of finish: " + ETA, end='\r')
 
     def old_iterate(self, max_t, dt, N_dtp):
 
@@ -653,8 +684,9 @@ class BH():
                 it_basis_copy.append(CS(self.S, self.M, it_basis[i].z.copy()))
             self.initialize_overlap_matrices(it_basis_copy, 3)
             cur_R = self.R(cur_t, it_A_copy, it_basis_copy)
+            cur_Theta = self.Theta(cur_t, it_A_copy, it_basis_copy)
 
-            cur_Theta_inv = np.linalg.inv(self.Theta(cur_t, it_A_copy, it_basis_copy))
+            cur_Theta_inv = np.linalg.inv(cur_Theta)
             k1 = - 1j * cur_Theta_inv.dot(cur_R)
 
             #k2
@@ -714,8 +746,74 @@ class BH():
         #print(" Done!")
 
 
-    def iterate(self, max_t, N_dtp, rtol = 1e-3):
+    def iterate(self, max_t, N_dtp, rtol = 1e-3, N_semaphor = 100):
 
+        # max_t is the terminal simulation time, dt is the timestep, N_dtp is the number of datapoints equidistant in time which are saved
+
+        # everything is in natural units (hbar=1)
+        # maximum time will actually be J_0 * max_t, which will also be the units we display it in
+
+        # TODO read the start time off of the loaded data so you can resume
+
+        # Output data bins
+        self.output_table = []#np.zeros((N_dtp, 2 + self.N * self.M), dtype=complex) # here we'll store all the results smashed together
+        self.t_space = np.zeros(N_dtp)
+        self.A_evol = np.zeros((N_dtp, self.N), dtype=complex)
+        self.basis_evol = np.zeros((N_dtp, self.N, self.M-1), dtype=complex)
+        self.E_evol = np.zeros(N_dtp, dtype=complex)
+
+
+        # We initialize dynamical variables
+
+        # Output table = [t, A_k, z_k_m, E]
+
+        print("  Calculating initial decomposition coefficients...", end='', flush=True)
+        identity_prefactor = math.factorial(self.S + self.M - 1) / math.factorial(self.S)
+        # First, we find A(t=0)
+        it_A = np.zeros(self.N, dtype=complex)
+        for i in range(self.N):
+            it_A[i] = (identity_prefactor / np.power(1.0 + np.sum(np.conjugate(self.basis[i].z) * self.basis[i].z), self.M + self.S)) * np.power(self.beta * self.beta / np.pi, self.M - 1) * self.z_0.overlap(self.basis[i])
+
+        Psi_mag = 0.0
+        for i in range(self.N):
+            for j in range(self.N):
+                Psi_mag += np.conjugate(it_A[i]) * it_A[j] * self.basis[j].overlap(self.basis[i])
+        print(f" Done! The direct wavefunction normalization is {Psi_mag.real:.4f}")
+
+        y_0 = self.standardise_dynamic_variables(it_A, self.basis)
+
+        # TODO sort out the semaphors
+        self.semaphor_t_space = np.linspace(0.0, self.J_0 * max_t, N_semaphor + 1)
+        self.semaphor_start_time = time.time()
+        self.semaphor_next_flag_t_i = 1
+        self.semaphor_ETA = "???"
+
+        print(f"Iterative simulation of the Bose-Hubbard model on a timescale of t_max = {self.J_0 * max_t}, rtol = {rtol} at {time.strftime("%H:%M:%S", time.localtime( self.semaphor_start_time))}")
+
+        iterated_solution = sp.integrate.solve_ivp(self.y_dot, [0, self.J_0 * max_t], y_0, method = 'RK45', t_eval = np.linspace(0, self.J_0 * max_t, N_dtp), rtol = rtol)
+
+        # Saving datapoints
+
+        for t_i in range(N_dtp):
+            self.t_space[t_i] = iterated_solution.t[t_i]
+            for i in range(self.N):
+                self.A_evol[t_i][i] = iterated_solution.y[i][t_i]
+                for j in range(self.M-1):
+                    self.basis_evol[t_i][i][j] = iterated_solution.y[self.N + self.N * j + i][t_i]
+            self.E_evol[t_i] = 0.0 # TODO calculate from standardised y #self.H(t_i * dt, cur_it_A, cur_it_basis)
+            # we save everything to the output table
+            self.output_table.append([])
+            self.output_table[t_i].append(iterated_solution.t[t_i])
+            for i in range(self.N):
+                self.output_table[t_i].append(iterated_solution.y[i][t_i])
+            for i in range(self.N):
+                for j in range(self.M-1):
+                    self.output_table[t_i].append(iterated_solution.y[self.N + self.N * j + i][t_i])
+            self.output_table[t_i].append(0.0) #TODO H
+
+        print("  Simulation finished at " + time.strftime("%H:%M:%S", time.localtime(time.time())) + "; " + str(N_dtp) + " datapoints saved.                  ")
+
+    def iterate_rk4(self, max_t, dt, N_dtp):
         # max_t is the terminal simulation time, dt is the timestep, N_dtp is the number of datapoints equidistant in time which are saved
         N = len(self.basis)
 
@@ -756,31 +854,31 @@ class BH():
         progress = 0
         ETA = "???"
 
-        print(f"Iterative simulation of the Bose-Hubbard model on a timescale of t_max = {self.J_0 * max_t}, rtol = TODO at {time.strftime("%H:%M:%S", time.localtime( start_time))}")
+        print(f"Iterative simulation of the Bose-Hubbard model on a timescale of t_max = {self.J_0 * max_t}, dt = {dt} at {time.strftime("%H:%M:%S", time.localtime( start_time))}")
 
-        iterated_solution = sp.integrate.solve_ivp(self.y_dot, [0, self.J_0 * max_t], y_0, method = 'RK45', t_eval = np.linspace(0, self.J_0 * max_t, N_dtp), rtol = rtol)
+        iterated_solution = explicit_runge_kutta(self.y_dot, [0, self.J_0 * max_t, dt], y_0, rk4_tableau, N_dtp)
+        #iterated_solution = sp.integrate.solve_ivp(self.y_dot, [0, self.J_0 * max_t], y_0, method = 'RK45', t_eval = np.linspace(0, self.J_0 * max_t, N_dtp), rtol = rtol)
 
         # Saving datapoints
 
         for t_i in range(N_dtp):
             self.t_space[t_i] = iterated_solution.t[t_i]
             for i in range(self.N):
-                self.A_evol[t_i][i] = iterated_solution.y[t_i][i]
+                self.A_evol[t_i][i] = iterated_solution.values[t_i][i]
                 for j in range(self.M-1):
-                    self.basis_evol[t_i][i][j] = iterated_solution.y[t_i][self.N + self.N * j + i]
+                    self.basis_evol[t_i][i][j] = iterated_solution.values[t_i][self.N + self.N * j + i]
             self.E_evol[t_i] = 0.0 # TODO calculate from standardised y #self.H(t_i * dt, cur_it_A, cur_it_basis)
             # we save everything to the output table
             self.output_table.append([])
             self.output_table[t_i].append(iterated_solution.t[t_i])
             for i in range(self.N):
-                self.output_table[t_i].append(iterated_solution.y[t_i][i])
+                self.output_table[t_i].append(iterated_solution.values[t_i][i])
             for i in range(self.N):
                 for j in range(self.M-1):
-                    self.output_table[t_i].append(iterated_solution.y[t_i][self.N + self.N * j + i])
+                    self.output_table[t_i].append(iterated_solution.values[t_i][self.N + self.N * j + i])
             self.output_table[t_i].append(0.0) #TODO H
 
-        print("  Simulation finished at " + time.strftime("%H:%M:%S", time.localtime(time.time())) + "; " + str(self.N_dtp_saved) + " datapoints saved.                  ")
-
+        print("  Simulation finished at " + time.strftime("%H:%M:%S", time.localtime(time.time())) + "; " + str(N_dtp) + " datapoints saved.                  ")
 
 
     def plot_recent_data(self, graph_list = ["expected_mode_occupancy", "initial_basis_heatmap"], save_graph=True):

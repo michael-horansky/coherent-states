@@ -142,8 +142,16 @@ class BH():
 
         print("---------------------------- " + str(ID) + " -----------------------------")
 
+        # Data bins are initialized
+        self.output_table = []#np.zeros((N_dtp, 2 + self.N * self.M), dtype=complex) # here we'll store all the results smashed together
+        self.t_space = []
+        self.A_evol = []#np.zeros((N_dtp, self.N), dtype=complex)
+        self.basis_evol = []#np.zeros((N_dtp, self.N, self.M-1), dtype=complex)
+        self.E_evol = []#np.zeros(N_dtp, dtype=complex)
+
         # Semaphors are initialised here to null values for safety
         self.semaphor_t_space = np.array([0.0])
+        self.semaphor_simulation_start_time = 0.0
         self.semaphor_next_flag_t_i = 1
 
 
@@ -178,8 +186,8 @@ class BH():
         header_row = ["t"]
         for n in range(N):
             header_row.append("A_" + str(n).zfill(N_fill))
-        for n in range(N):
-            for m in range(self.M - 1):
+        for m in range(self.M - 1):
+            for n in range(N):
                 header_row.append("z_" + str(n).zfill(N_fill) + "_" + str(m).zfill(M_fill))
         header_row.append("E")
         output_writer.writerow(header_row)
@@ -236,23 +244,30 @@ class BH():
         header_row = simulation_rows[0]
 
         N_dtp = len(simulation_rows) - 1
-        self.output_table = np.zeros((N_dtp, 2 + self.N * self.M), dtype=complex) # here we'll store all the results smashed together
-        self.t_space = np.zeros(N_dtp)
-        self.A_evol = np.zeros((N_dtp, self.N), dtype=complex)
-        self.basis_evol = np.zeros((N_dtp, self.N, self.M-1), dtype=complex)
-        self.E_evol = np.zeros(N_dtp, dtype=complex)
+        self.output_table = []#np.zeros((N_dtp, 2 + self.N * self.M), dtype=complex) # here we'll store all the results smashed together
+        self.t_space = []#np.zeros(N_dtp)
+        self.A_evol = []#np.zeros((N_dtp, self.N), dtype=complex)
+        self.basis_evol = []#np.zeros((N_dtp, self.N, self.M-1), dtype=complex)
+        self.E_evol = []#np.zeros(N_dtp, dtype=complex)
 
         for i in range(N_dtp):
-            self.t_space[i] = float(simulation_rows[i+1][0])
-            self.output_table[i][0] = float(simulation_rows[i+1][0])
+            # we append the empty ndarrays
+            self.output_table.append([])
+            self.A_evol.append(np.zeros(self.N, dtype = complex))
+            self.basis_evol.append(np.zeros((self.N, self.M - 1), dtype = complex))
+
+            self.t_space.append(float(simulation_rows[i+1][0]))
+            self.output_table[i].append(float(simulation_rows[i+1][0]))
             for n in range(self.N):
                 self.A_evol[i][n] = complex(simulation_rows[i+1][1+n])
-                self.output_table[i][1+n] = complex(simulation_rows[i+1][1+n])
-                for m in range(self.M-1):
+                self.output_table[i].append(complex(simulation_rows[i+1][1+n]))
+
+            for m in range(self.M-1):
+                for n in range(self.N):
                     self.basis_evol[i][n][m] = complex(simulation_rows[i+1][1 + self.N + (self.M - 1) * n + m])
-                    self.output_table[i][1 + self.N + (self.M - 1) * n + m] = complex(simulation_rows[i+1][1 + self.N + (self.M - 1) * n + m])
-            self.E_evol[i] = float(simulation_rows[i+1][1 + self.M * self.N])
-            self.output_table[i][1 + self.M * self.N] = float(simulation_rows[i+1][1 + self.M * self.N])
+                    self.output_table[i].append(complex(simulation_rows[i+1][1 + self.N + (self.M - 1) * n + m]))
+            self.E_evol.append(float(simulation_rows[i+1][1 + self.M * self.N]))
+            self.output_table[i].append(float(simulation_rows[i+1][1 + self.M * self.N]))
 
         simulation_file.close()
         print(" Done! " + str(N_dtp) + " datapoints loaded.")
@@ -283,6 +298,63 @@ class BH():
 
     # ------------------- Sampling methods --------------------
 
+    def maximal_amplitude_from_pure_z(self, z_0):
+        # Finds z_1 such that if | z_0 } is decomposed as A_i(z) | z }, A_i will be maximal at z_1
+
+        """
+        def amplitude_gradient(z):
+            # z = [x_1, x_2 ... x_(M - 1), y_1, y_2 ... y_(M-1)] where z_i = x_i + j.y_i
+            result = np.zeros(2 * (self.M - 1))
+            x_dot_x = np.sum(z[:self.M - 1] * z[:self.M - 1])
+            y_dot_y = np.sum(z[self.M - 1:] * z[self.M - 1:])
+            x_dot_x_0 = np.sum(z[:self.M - 1] * z_0_std[:self.M - 1])
+            x_dot_y_0 = np.sum(z[:self.M - 1] * z_0_std[self.M - 1:])
+            y_dot_x_0 = np.sum(z[self.M - 1:] * z_0_std[:self.M - 1])
+            y_dot_y_0 = np.sum(z[self.M - 1:] * z_0_std[self.M - 1:])
+
+            A = (1+x_dot_x_0+y_dot_y_0)
+            B = (x_dot_y_0 - y_dot_x_0)
+            C = (1 + x_dot_x + y_dot_y)
+
+            for m in range(self.M - 1):
+                result[m             ] = A * z_0_std[m             ] + B * z_0_std[self.M - 1 + m] - 2 * self.M * (A * A + B * B) * z[m             ] / C
+                result[self.M - 1 + m] = A * z_0_std[self.M - 1 + m] - B * z_0_std[m             ] - 2 * self.M * (A * A + B * B) * z[self.M - 1 + m] / C
+            return(result)
+
+        initial_guess = z_0_std.copy()
+
+        eqn_root = sp.optimize.root(amplitude_gradient, x0 = initial_guess)
+
+        sanitised_result = np.zeros(self.M - 1, dtype=complex)
+        for m in range(self.M - 1):
+            sanitised_result = eqn_root.x[m] + eqn_root.x[self.M - 1 + m] + 1j
+        return(sanitised_result)"""
+        z_0_std = np.zeros(2 * (self.M - 1))
+        for m in range(self.M - 1):
+            z_0_std[m] = z_0[m].real
+            z_0_std[self.M - 1 + m] = z_0[m].imag
+
+        def neg_amp(z):
+            x_dot_x = np.sum(z[:self.M - 1] * z[:self.M - 1])
+            y_dot_y = np.sum(z[self.M - 1:] * z[self.M - 1:])
+            x_dot_x_0 = np.sum(z[:self.M - 1] * z_0_std[:self.M - 1])
+            x_dot_y_0 = np.sum(z[:self.M - 1] * z_0_std[self.M - 1:])
+            y_dot_x_0 = np.sum(z[self.M - 1:] * z_0_std[:self.M - 1])
+            y_dot_y_0 = np.sum(z[self.M - 1:] * z_0_std[self.M - 1:])
+
+            A = (1+x_dot_x_0+y_dot_y_0)
+            B = (x_dot_y_0 - y_dot_x_0)
+            C = (1 + x_dot_x + y_dot_y)
+
+            return(-(A * A + B * B) / np.power(C, 2 * self.M))
+        solution = sp.optimize.minimize(neg_amp, x0 = z_0_std)
+        sanitised_result = np.zeros(self.M - 1, dtype=complex)
+        for m in range(self.M - 1):
+            sanitised_result[m] = solution.x[m] + solution.x[self.M - 1 + m] * 1j
+        return(sanitised_result)
+
+
+
     def sample_gridlike(self, max_rect_dist, z_0 = np.array([]), beta = np.sqrt(np.pi)):
 
         # This is the approach of a 2(M-1)-dimensional complex grid with spacing beta centered around z_0,
@@ -293,7 +365,11 @@ class BH():
         self.basis = []
         self.beta = beta
 
-        print("Sampling the neighbourhood of z_0 in a gridlike fashion...", end='', flush=True)
+        print("Sampling the neighbourhood of z_0 in a gridlike fashion...")#, end='', flush=True)
+
+        # Here we calculate the centre of the sampling
+        z_max_A = self.maximal_amplitude_from_pure_z(z_0)
+        print("  Decomposition amplitude maximal at z =", z_max_A)
 
         for rect_dist in range(max_rect_dist+1):
             deviations = N_tuple_sum_K(2 * (self.M-1), rect_dist)
@@ -310,13 +386,14 @@ class BH():
                     for j in range(len(nonzero_indices)):
                         if sign_flip_configuration[j] == 1:
                             deviation_copy[nonzero_indices[j]] *= -1
-                    cur_z = z_0.copy()
+                    cur_z = z_max_A.copy()
                     for j in range(self.M - 1):
                         cur_z[j] += deviation_copy[j] * beta + 1j * deviation_copy[j + self.M - 1] * beta
                     self.basis.append(CS(self.S, self.M, cur_z))
 
         self.N = len(self.basis)
         self.z_0 = CS(self.S, self.M, z_0)
+        self.basis_grid_centre = z_max_A
         self.basis_distance = max_rect_dist
         self.basis_spacing = beta
 
@@ -324,7 +401,7 @@ class BH():
 
         #TODO calculate <z_j | z_i> and their reductions here
 
-        print(f"  A sample of N = {self.N} basis vectors around z_0 = {z_0} with rectangular radius of {max_rect_dist} and spacing of {beta:.2f} has been initialized.")
+        print(f"  A sample of N = {self.N} basis vectors around z_0 = {z_max_A} with rectangular radius of {max_rect_dist} and spacing of {beta:.2f} has been initialized.")
 
     # ----------------- Dynamical descriptors -----------------
 
@@ -459,12 +536,16 @@ class BH():
 
     def standardise_dynamic_variables(self, cur_A, cur_basis):
         # y is the same format as R, so [A_1, A_2 ... A_N, z_1,1, z_2,1 ... z_N,1 ... ]
+        # cur_basis can either be a list of CS() or a list of lists [n][m]
         N = len(cur_A)
         y = np.zeros(N * self.M, dtype = complex)
         for n in range(N):
             y[n] = cur_A[n]
             for m in range(self.M-1):
-                y[N + N * m + n] = cur_basis[n].z[m]
+                if type(cur_basis[n]) == CS:
+                    y[N + N * m + n] = cur_basis[n].z[m]
+                else:
+                    y[N + N * m + n] = cur_basis[n][m]
         return(y)
 
     def calculate_overlap_matrices(self, y, max_reduction = 3):
@@ -595,7 +676,7 @@ class BH():
                 if t_i_new >= len(self.semaphor_t_space):
                     break
             self.semaphor_next_flag_t_i = t_i_new
-            progress_fraction = (self.semaphor_t_space[t_i_new - 1] - self.semaphor_t_space[0]) / (self.semaphor_t_space[-1] - self.semaphor_t_space[0])
+            progress_fraction = (self.semaphor_t_space[t_i_new - 1] - self.semaphor_simulation_start_time) / (self.semaphor_t_space[-1] - self.semaphor_simulation_start_time)
             ETA = time.strftime("%H:%M:%S", time.localtime( (time.time()-self.semaphor_start_time) / progress_fraction + self.semaphor_start_time ))
             print("  " + str(int(100 * progress_fraction)).zfill(2) + "% done; est. time of finish: " + ETA, end='\r')
 
@@ -756,62 +837,99 @@ class BH():
         # TODO read the start time off of the loaded data so you can resume
 
         # Output data bins
-        self.output_table = []#np.zeros((N_dtp, 2 + self.N * self.M), dtype=complex) # here we'll store all the results smashed together
+        """self.output_table = []#np.zeros((N_dtp, 2 + self.N * self.M), dtype=complex) # here we'll store all the results smashed together
         self.t_space = np.zeros(N_dtp)
         self.A_evol = np.zeros((N_dtp, self.N), dtype=complex)
         self.basis_evol = np.zeros((N_dtp, self.N, self.M-1), dtype=complex)
-        self.E_evol = np.zeros(N_dtp, dtype=complex)
+        self.E_evol = np.zeros(N_dtp, dtype=complex)"""
+
+        if len(self.t_space) == 0:
+            simulation_start_time = 0.0
+            # We initialize dynamical variables
+
+            # Output table = [t, A_k, z_k_m, E]
+
+            print("  Calculating initial decomposition coefficients...", end='', flush=True)
+            identity_prefactor = math.factorial(self.S + self.M - 1) / math.factorial(self.S)
+            # First, we find A(t=0)
+            # TODO make the integral discretisation more sane (not just midle value but trapezoids?)
+            it_A = np.zeros(self.N, dtype=complex)
+            for i in range(self.N):
+                it_A[i] = (identity_prefactor / np.power(1.0 + np.sum(np.conjugate(self.basis[i].z) * self.basis[i].z), self.M + self.S)) * np.power(self.beta * self.beta / np.pi, self.M - 1) * self.z_0.overlap(self.basis[i])
+
+            Psi_mag = 0.0
+            for i in range(self.N):
+                for j in range(self.N):
+                    Psi_mag += np.conjugate(it_A[i]) * it_A[j] * self.basis[j].overlap(self.basis[i])
+            print(f"  Done! The direct wavefunction normalization is {Psi_mag.real:.4f}")
+
+            y_0 = self.standardise_dynamic_variables(it_A, self.basis)
+
+            # We fill out the first datapoint manually
+            self.output_table = [[]]
+            self.t_space = [simulation_start_time]
+            self.output_table[0].append(simulation_start_time)
+            self.A_evol = [it_A]
+            for i in range(self.N):
+                self.output_table[0].append(it_A[i])
+            self.basis_evol = [np.zeros((self.N, self.M-1), dtype=complex)]
+            for j in range(self.M-1):
+                for i in range(self.N):
+                    self.basis_evol[0][i][j] = self.basis[i].z[j]
+                    self.output_table[0].append(self.basis[i].z[j])
+            self.E_evol = [0.0] #TODO add H
+            self.output_table[0].append(0.0)
+
+        else:
+            # By loading or previous call of the iterate routine, there is data saved already
+            print(f"  We will resume the simulation from the timestamp it terminated at previously.")
+            simulation_start_time = self.t_space[-1]
+
+            y_0 = self.standardise_dynamic_variables(self.A_evol[-1], self.basis_evol[-1])
+
+            debug_X = self.calculate_overlap_matrices(y_0, 0)
+
+            Psi_mag = 0.0
+            for i in range(self.N):
+                for j in range(self.N):
+                    Psi_mag += np.conjugate(y_0[i]) * y_0[j] * debug_X[0][i][j]
+            print(f"  Data loaded! The direct wavefunction normalization is {Psi_mag.real:.4f}")
+            print(y_0)
 
 
-        # We initialize dynamical variables
 
-        # Output table = [t, A_k, z_k_m, E]
 
-        print("  Calculating initial decomposition coefficients...", end='', flush=True)
-        identity_prefactor = math.factorial(self.S + self.M - 1) / math.factorial(self.S)
-        # First, we find A(t=0)
-        it_A = np.zeros(self.N, dtype=complex)
-        for i in range(self.N):
-            it_A[i] = (identity_prefactor / np.power(1.0 + np.sum(np.conjugate(self.basis[i].z) * self.basis[i].z), self.M + self.S)) * np.power(self.beta * self.beta / np.pi, self.M - 1) * self.z_0.overlap(self.basis[i])
-
-        Psi_mag = 0.0
-        for i in range(self.N):
-            for j in range(self.N):
-                Psi_mag += np.conjugate(it_A[i]) * it_A[j] * self.basis[j].overlap(self.basis[i])
-        print(f" Done! The direct wavefunction normalization is {Psi_mag.real:.4f}")
-
-        y_0 = self.standardise_dynamic_variables(it_A, self.basis)
 
         # TODO sort out the semaphors
-        self.semaphor_t_space = np.linspace(0.0, self.J_0 * max_t, N_semaphor + 1)
+        self.semaphor_t_space = np.linspace(simulation_start_time, self.J_0 * max_t, N_semaphor + 1)
+        self.semaphor_simulation_start_time = simulation_start_time
         self.semaphor_start_time = time.time()
         self.semaphor_next_flag_t_i = 1
         self.semaphor_ETA = "???"
 
-        print(f"Iterative simulation of the Bose-Hubbard model on a timescale of t_max = {self.J_0 * max_t}, rtol = {rtol} at {time.strftime("%H:%M:%S", time.localtime( self.semaphor_start_time))}")
+        print(f"Iterative simulation of the Bose-Hubbard model on a timescale of t = ({simulation_start_time} - {self.J_0 * max_t}), rtol = {rtol} at {time.strftime("%H:%M:%S", time.localtime( self.semaphor_start_time))}")
 
-        iterated_solution = sp.integrate.solve_ivp(self.y_dot, [0, self.J_0 * max_t], y_0, method = 'RK45', t_eval = np.linspace(0, self.J_0 * max_t, N_dtp), rtol = rtol)
-
-        # Saving datapoints
-
-        for t_i in range(N_dtp):
-            self.t_space[t_i] = iterated_solution.t[t_i]
-            for i in range(self.N):
-                self.A_evol[t_i][i] = iterated_solution.y[i][t_i]
-                for j in range(self.M-1):
-                    self.basis_evol[t_i][i][j] = iterated_solution.y[self.N + self.N * j + i][t_i]
-            self.E_evol[t_i] = 0.0 # TODO calculate from standardised y #self.H(t_i * dt, cur_it_A, cur_it_basis)
-            # we save everything to the output table
-            self.output_table.append([])
-            self.output_table[t_i].append(iterated_solution.t[t_i])
-            for i in range(self.N):
-                self.output_table[t_i].append(iterated_solution.y[i][t_i])
-            for i in range(self.N):
-                for j in range(self.M-1):
-                    self.output_table[t_i].append(iterated_solution.y[self.N + self.N * j + i][t_i])
-            self.output_table[t_i].append(0.0) #TODO H
-
+        iterated_solution = sp.integrate.solve_ivp(self.y_dot, [simulation_start_time, self.J_0 * max_t], y_0, method = 'RK45', t_eval = np.linspace(simulation_start_time, self.J_0 * max_t, N_dtp+1), rtol = rtol)
         print("  Simulation finished at " + time.strftime("%H:%M:%S", time.localtime(time.time())) + "; " + str(N_dtp) + " datapoints saved.                  ")
+
+        # Saving datapoints except for the first one
+
+        for t_i in range(1, N_dtp+1):
+            self.output_table.append([iterated_solution.t[t_i]])
+            self.t_space.append(iterated_solution.t[t_i])
+            self.A_evol.append(np.zeros(self.N, dtype=complex))
+            for i in range(self.N):
+                self.A_evol[-1][i] = iterated_solution.y[i][t_i]
+                self.output_table[-1].append(iterated_solution.y[i][t_i])
+            self.basis_evol.append(np.zeros((self.N, self.M-1), dtype=complex))
+            for j in range(self.M-1):
+                for i in range(self.N):
+                    self.basis_evol[-1][i][j] = iterated_solution.y[self.N + self.N * j + i][t_i]
+                    self.output_table[-1].append(iterated_solution.y[self.N + self.N * j + i][t_i])
+            self.E_evol.append(0.0) # TODO calculate from standardised y #self.H(t_i * dt, cur_it_A, cur_it_basis)
+            self.output_table[-1].append(0.0)
+
+        #print(self.output_table)
 
     def iterate_rk4(self, max_t, dt, N_dtp):
         # max_t is the terminal simulation time, dt is the timestep, N_dtp is the number of datapoints equidistant in time which are saved

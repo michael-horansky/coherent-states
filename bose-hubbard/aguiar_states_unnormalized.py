@@ -129,6 +129,81 @@ class CS():
         coef_product = 1 + np.sum(np.conjugate(other.z) * self.z)
         return(np.power(coef_product, self.S - reduction)) # notice no N(z)
 
+
+# ---------------------- two-mode solution ----------------------
+def two_mode_solution(t_space, S, U, J, c_0 = False):
+
+    # If J is callable, we just solve the ivp in a silly way
+    if callable(J):
+        def c_dot(t, c):
+            sussy_matrix = np.zeros((S+1, S+1), dtype=complex)
+            for i in range(S + 1):
+                sussy_matrix[i][i  ] = - 1j * U / 2 * (i * (i + 1) + (S - i) * (S - i - 1))
+                if i != S:
+                    sussy_matrix[i][i+1] = 1j * J(t) * np.sqrt(i + 1) * np.sqrt(S - i)
+                if i != 0:
+                    sussy_matrix[i][i-1] = 1j * J(t) * np.sqrt(i) * np.sqrt(S - i + 1)
+            return(np.matmul(sussy_matrix, c))
+        sol = sp.integrate.solve_ivp(c_dot, [t_space[0], t_space[-1]], c_0, method = 'RK45', t_eval = t_space)
+        N_space = np.zeros(len(t_space)) # N_space[t] = <N_1>/S at t
+
+        for t_i in range(len(t_space)):
+            t = t_space[t_i]
+            cur_c = np.zeros(S+1, dtype=complex)
+            for i in range(S + 1):
+                cur_c[i] = sol.y[i][t_i]
+
+            for i in range(S + 1):
+                N_space[t_i] += i * (cur_c[i].real * cur_c[i].real + cur_c[i].imag * cur_c[i].imag) / S
+        return(N_space)
+
+    if type(c_0) == bool:
+        c_0 = np.zeros(S + 1, dtype = complex)
+        c_0[0] = 1.0
+
+    sussy_matrix = np.zeros((S+1, S+1), dtype=complex)
+
+    for i in range(S + 1):
+        sussy_matrix[i][i  ] = - 1j * U / 2 * (i * (i + 1) + (S - i) * (S - i - 1))
+        if i != S:
+            sussy_matrix[i][i+1] = 1j * J * np.sqrt(i + 1) * np.sqrt(S - i)
+        if i != 0:
+            sussy_matrix[i][i-1] = 1j * J * np.sqrt(i) * np.sqrt(S - i + 1)
+
+    # diagonalize
+
+    sussy_eigenvalues, sussy_eigenvectors = np.linalg.eig(sussy_matrix)
+
+    S_mat = sussy_eigenvectors.copy()
+    #print(type(S))
+    Lambda = np.zeros((S + 1, S + 1), dtype=complex)
+    for i in range(S + 1):
+        Lambda[i][i] = sussy_eigenvalues[i]
+
+    S_mat_inv = np.linalg.inv(S_mat)
+
+    print("sussy matrix =", sussy_matrix)
+    print("S . Lambda . S^-1 =", np.matmul(np.matmul(S_mat, Lambda), S_mat_inv))
+
+    N_space = np.zeros(len(t_space)) # N_space[t] = <N_1>/S at t
+
+    for t_i in range(len(t_space)):
+        t = t_space[t_i]
+
+        f_Lambda = np.zeros((S + 1, S + 1), dtype=complex)
+        for i in range(S + 1):
+            f_Lambda[i][i] = np.exp( t * sussy_eigenvalues[i] )
+
+        cur_transformation = np.matmul(np.matmul(S_mat, f_Lambda), S_mat_inv)
+
+        cur_c = np.matmul(cur_transformation, c_0)
+
+        for i in range(S + 1):
+            N_space[t_i] += i * (cur_c[i].real * cur_c[i].real + cur_c[i].imag * cur_c[i].imag) / S
+    return(N_space)
+
+
+
 class BH():
     #driven Bose-Hubbard model
 
@@ -165,7 +240,7 @@ class BH():
         config_file = open("outputs/" + config_filename + ".txt", "w")
         config_file.write(", ".join(str(x) for x in [self.S, self.M, self.N]) + "\n")
         config_file.write(", ".join(str(x) for x in [self.J_0, self.J_1, self.omega, self.U, self.K, self.j_zero]) + "\n")
-        config_file.write(", ".join(str(x) for x in self.z_0.z) + "\n")
+        config_file.write(", ".join(str(x) for x in self.basis_grid_centre) + "\n")
         config_file.write(", ".join(str(x) for x in [self.basis_distance, self.basis_spacing]) + "\n")
         config_file.close()
         print(" Done!")
@@ -298,7 +373,7 @@ class BH():
 
     # ------------------- Sampling methods --------------------
 
-    def maximal_amplitude_from_pure_z(self, z_0):
+    def maximal_amplitude_from_pure_z(self, z_0, z_0_type):
         # Finds z_1 such that if | z_0 } is decomposed as A_i(z) | z }, A_i will be maximal at z_1
 
         """
@@ -329,12 +404,8 @@ class BH():
         for m in range(self.M - 1):
             sanitised_result = eqn_root.x[m] + eqn_root.x[self.M - 1 + m] + 1j
         return(sanitised_result)"""
-        z_0_std = np.zeros(2 * (self.M - 1))
-        for m in range(self.M - 1):
-            z_0_std[m] = z_0[m].real
-            z_0_std[self.M - 1 + m] = z_0[m].imag
 
-        def neg_amp(z):
+        def neg_amp_aguiar(z):
             x_dot_x = np.sum(z[:self.M - 1] * z[:self.M - 1])
             y_dot_y = np.sum(z[self.M - 1:] * z[self.M - 1:])
             x_dot_x_0 = np.sum(z[:self.M - 1] * z_0_std[:self.M - 1])
@@ -347,7 +418,38 @@ class BH():
             C = (1 + x_dot_x + y_dot_y)
 
             return(-(A * A + B * B) / np.power(C, 2 * self.M))
-        solution = sp.optimize.minimize(neg_amp, x0 = z_0_std)
+
+        def neg_amp_grossmann(z):
+            x_dot_x = np.sum(z[:self.M - 1] * z[:self.M - 1])
+            y_dot_y = np.sum(z[self.M - 1:] * z[self.M - 1:])
+            x_dot_x_0 = np.sum(z[:self.M - 1] * x_0)
+            x_dot_y_0 = np.sum(z[:self.M - 1] * y_0)
+            y_dot_x_0 = np.sum(z[self.M - 1:] * x_0)
+            y_dot_y_0 = np.sum(z[self.M - 1:] * y_0)
+
+            A = (1+x_dot_x_0+y_dot_y_0)
+            B = (x_dot_y_0 - y_dot_x_0)
+            C = (1 + x_dot_x + y_dot_y)
+
+            return(-(A * A + B * B) / np.power(C, 2 * (1 + self.M / self.S)))
+
+        z_0_std = np.zeros(2 * (self.M - 1))
+
+        if z_0_type == "aguiar":
+            for m in range(self.M - 1):
+                z_0_std[m] = z_0[m].real
+                z_0_std[self.M - 1 + m] = z_0[m].imag
+            solution = sp.optimize.minimize(neg_amp_aguiar, x0 = z_0_std)
+        if z_0_type == "grossmann":
+            x_0 = np.zeros(self.M - 1)
+            y_0 = np.zeros(self.M - 1)
+            for i in range(self.M - 1):
+                x_0 = z_0[i].real
+                y_0 = z_0[i].imag
+            p = z_0[self.M - 1].real
+            q = z_0[self.M - 1].imag
+            solution = sp.optimize.minimize(neg_amp_grossmann, x0 = np.zeros(2 * (self.M - 1)))
+
         sanitised_result = np.zeros(self.M - 1, dtype=complex)
         for m in range(self.M - 1):
             sanitised_result[m] = solution.x[m] + solution.x[self.M - 1 + m] * 1j
@@ -355,20 +457,28 @@ class BH():
 
 
 
-    def sample_gridlike(self, max_rect_dist, z_0 = np.array([]), beta = np.sqrt(np.pi)):
+    def sample_gridlike(self, max_rect_dist, z_0 = np.array([]), beta = np.sqrt(np.pi), z_0_type = "aguiar"):
 
         # This is the approach of a 2(M-1)-dimensional complex grid with spacing beta centered around z_0,
         # which ensures that we can locally approximate identity integrals with riemann sums with measure beta^(2M-2)
-        if len(z_0) == 0:
-            z_0 = np.zeros(self.M-1, dtype=complex)
 
         self.basis = []
         self.beta = beta
 
         print("Sampling the neighbourhood of z_0 in a gridlike fashion...")#, end='', flush=True)
 
-        # Here we calculate the centre of the sampling
-        z_max_A = self.maximal_amplitude_from_pure_z(z_0)
+        # if z_0_type == "grossmann", we take it as an array of length M which represents a Grossmann coherent state
+        if len(z_0) == 0:
+            z_0 = np.zeros(self.M-1, dtype=complex)
+            z_max_A = np.zeros(self.M-1, dtype=complex)
+        elif z_0_type in ["aguiar", "grossmann"]:
+            # Here we calculate the centre of the sampling
+            z_max_A = self.maximal_amplitude_from_pure_z(z_0, z_0_type)
+        else:
+            print("  Type of initial basis vector unrecognised. Aborting.")
+            return(-1)
+
+
         print("  Decomposition amplitude maximal at z =", z_max_A)
 
         for rect_dist in range(max_rect_dist+1):
@@ -392,7 +502,8 @@ class BH():
                     self.basis.append(CS(self.S, self.M, cur_z))
 
         self.N = len(self.basis)
-        self.z_0 = CS(self.S, self.M, z_0)
+        self.z_0 = z_0 #CS(self.S, self.M, z_0)
+        self.z_0_type = z_0_type
         self.basis_grid_centre = z_max_A
         self.basis_distance = max_rect_dist
         self.basis_spacing = beta
@@ -566,7 +677,7 @@ class BH():
                     X[max_reduction - (delta_r + 1)][i][j] = X[max_reduction - delta_r][i][j] * base_inner_product
         return(X)
 
-    def y_dot(self, t, y):
+    def y_dot(self, t, y, reg_timescale = -1):
         # y is the same format as R, so [A_1, A_2 ... A_N, z_1,1, z_2,1 ... z_N,1 ... z_1,(M-1) ... z_N,(M-1)]
 
         # We also create a standardised y which includes z_n,M = 1
@@ -646,6 +757,11 @@ class BH():
                         if i == j:
                             m_Theta[self.N + i * self.N + a][self.N + j * self.N + b] += self.S * X[1][a][b]
                         m_Theta[self.N + i * self.N + a][self.N + j * self.N + b] *= np.conjugate(y_std[a]) * y_std[b]
+
+        # Regularisation
+        if reg_timescale != -1:
+            for i in range(self.M * self.N):
+                m_Theta[i][i] += reg_timescale
 
         # Finally, we calculate y dot
         m_Theta_inv = np.linalg.inv(m_Theta)
@@ -827,7 +943,7 @@ class BH():
         #print(" Done!")
 
 
-    def iterate(self, max_t, N_dtp, rtol = 1e-3, N_semaphor = 100):
+    def iterate(self, max_t, N_dtp, rtol = 1e-3, reg_timescale = -1, N_semaphor = 100):
 
         # max_t is the terminal simulation time, dt is the timestep, N_dtp is the number of datapoints equidistant in time which are saved
 
@@ -850,18 +966,36 @@ class BH():
             # Output table = [t, A_k, z_k_m, E]
 
             print("  Calculating initial decomposition coefficients...", end='', flush=True)
-            identity_prefactor = math.factorial(self.S + self.M - 1) / math.factorial(self.S)
+            identity_prefactor = (math.factorial(self.S + self.M - 1) / math.factorial(self.S)) * np.power(self.beta * self.beta / np.pi, self.M - 1)
             # First, we find A(t=0)
             # TODO make the integral discretisation more sane (not just midle value but trapezoids?)
             it_A = np.zeros(self.N, dtype=complex)
             for i in range(self.N):
-                it_A[i] = (identity_prefactor / np.power(1.0 + np.sum(np.conjugate(self.basis[i].z) * self.basis[i].z), self.M + self.S)) * np.power(self.beta * self.beta / np.pi, self.M - 1) * self.z_0.overlap(self.basis[i])
+                if self.z_0_type == "aguiar":
+                    cur_overlap = np.power(1 + np.sum(np.conjugate(self.basis[i].z) * self.z_0), self.S)
+                    it_A[i] = (identity_prefactor / np.power(1.0 + np.sum(np.conjugate(self.basis[i].z) * self.basis[i].z), self.M + self.S)) * cur_overlap
+                elif self.z_0_type == "grossmann":
+
+                    X = np.zeros((self.N, self.N), dtype = complex)
+                    for m in range(self.N):
+                        for n in range(self.N):
+                            X[m][n] = np.power(1 + np.sum(np.conjugate(self.basis[m].z) * self.basis[n].z), self.S)
+                    inverse_overlap = np.linalg.inv(X)
+
+                    for b in range(self.N):
+                        it_A[i] += np.power( (self.z_0[self.M - 1] + np.sum(np.conjugate(self.basis[b].z) * self.z_0[:self.M - 1] ) ), self.S ) * inverse_overlap[i][b]
+                    #cur_overlap = np.power( (self.z_0[self.M - 1] + np.sum(np.conjugate(self.basis[i].z) * self.z_0[:self.M - 1] ) ), self.S )
+                    #it_A[i] = (identity_prefactor / np.power(1.0 + np.sum(np.conjugate(self.basis[i].z) * self.basis[i].z), self.M + self.S)) * cur_overlap
 
             Psi_mag = 0.0
             for i in range(self.N):
                 for j in range(self.N):
                     Psi_mag += np.conjugate(it_A[i]) * it_A[j] * self.basis[j].overlap(self.basis[i])
             print(f"  Done! The direct wavefunction normalization is {Psi_mag.real:.4f}")
+
+            # Naive renormalization
+            for i in range(self.N):
+                it_A[i] /= np.sqrt(Psi_mag.real)
 
             y_0 = self.standardise_dynamic_variables(it_A, self.basis)
 
@@ -909,7 +1043,7 @@ class BH():
 
         print(f"Iterative simulation of the Bose-Hubbard model on a timescale of t = ({simulation_start_time} - {self.J_0 * max_t}), rtol = {rtol} at {time.strftime("%H:%M:%S", time.localtime( self.semaphor_start_time))}")
 
-        iterated_solution = sp.integrate.solve_ivp(self.y_dot, [simulation_start_time, self.J_0 * max_t], y_0, method = 'RK45', t_eval = np.linspace(simulation_start_time, self.J_0 * max_t, N_dtp+1), rtol = rtol)
+        iterated_solution = sp.integrate.solve_ivp(self.y_dot, [simulation_start_time, self.J_0 * max_t], y_0, method = 'RK45', t_eval = np.linspace(simulation_start_time, self.J_0 * max_t, N_dtp+1), args = (reg_timescale,), rtol = rtol)
         print("  Simulation finished at " + time.strftime("%H:%M:%S", time.localtime(time.time())) + "; " + str(N_dtp) + " datapoints saved.                  ")
 
         # Saving datapoints except for the first one
@@ -1019,13 +1153,17 @@ class BH():
             plt.subplot(superplot_shape_y, superplot_shape_x, i + 1)
             if graph_list[i] == 'initial_basis_heatmap':
                 print("  Plotting the heatmap of initial basis decomposition coefficient magnitudes...", end='', flush=True)
+                if self.M != 2:
+                    print("    This graph can only be plotted for a two-mode system.")
+                    continue
+
                 plt.title("Initial basis decomposition coefficient magnitudes")
                 x_vals = []
                 y_vals = []
 
                 for basis_element in self.basis:
-                    x_vals.append(round(basis_element.z[0].real - self.z_0.z[0].real, 3))
-                    y_vals.append(round(basis_element.z[0].imag - self.z_0.z[0].imag, 3))
+                    x_vals.append(round(basis_element.z[0].real - self.basis_grid_centre[0].real, 3))
+                    y_vals.append(round(basis_element.z[0].imag - self.basis_grid_centre[0].imag, 3))
                 A_vals = self.A_evol[0]
 
                 df = pd.DataFrame({"Y" : y_vals, "X" : x_vals, "A" : np.sqrt(A_vals.real * A_vals.real + A_vals.imag * A_vals.imag)})
@@ -1057,6 +1195,23 @@ class BH():
                             for m in range(self.M-1):
                                 avg_n[m][t_i] += (np.conjugate(self.A_evol[t_i][a]) * self.A_evol[t_i][b] * np.conjugate(self.basis_evol[t_i][a][m]) * self.basis_evol[t_i][b][m] * cur_X_1).real
                             avg_n[self.M-1][t_i] += (np.conjugate(self.A_evol[t_i][a]) * self.A_evol[t_i][b] * cur_X_1).real
+
+                # if two-mode, we insert the algebraic solution
+                if self.M == 2:
+                    cur_c_0 = np.zeros(self.S + 1, dtype = complex)
+                    for i in range(self.S + 1):
+                        for a in range(self.N):
+                            cur_c_0[i] += self.A_evol[0][a] * np.power(self.basis_evol[0][a], i)
+                        cur_c_0[i] *= np.sqrt( math.factorial(self.S) / (math.factorial(i) * math.factorial(self.S-i)) )
+
+                    N_space_t_space = np.linspace(self.t_space[0], self.t_space[-1], 200)
+                    res_N_space = two_mode_solution(N_space_t_space, self.S, self.U, self.J, cur_c_0)
+
+                    plt.plot(N_space_t_space, res_N_space, linestyle = "dashed", label = "theor. $\\langle N_1 \\rangle/S$")
+                    plt.plot(N_space_t_space, res_N_space * (-1) + 1, linestyle = "dashed", label = "theor. $\\langle N_2 \\rangle/S$")
+
+
+
                 plt.plot(self.t_space, psi_mag, label="$\\langle \\Psi | \\Psi \\rangle$")
                 for m in range(self.M):
                     plt.plot(self.t_space, avg_n[m], label="$\\langle N_" + str(m+1) + " \\rangle/S$")

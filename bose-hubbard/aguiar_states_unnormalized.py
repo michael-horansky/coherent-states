@@ -3,6 +3,8 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 
+
+from copy import deepcopy
 import time
 
 import seaborn as sns
@@ -229,20 +231,35 @@ class BH():
         self.semaphor_simulation_start_time = 0.0
         self.semaphor_next_flag_t_i = 1
 
+        # Sampling configuration initialised
+        self.sampling_method = "no sampling"
+
 
     def save_recent_data(self):
 
         print("Recording of recent data onto local memory unit initialized.")
         output_filename = "BH_" + str(self.ID)
         config_filename = "BH_" + str(self.ID) + "_config"
+        sample_filename = "BH_" + str(self.ID) + "_config_sampling"
 
         print("  Writing config info into outputs/" + config_filename + ".txt...", end='', flush=True)
         config_file = open("outputs/" + config_filename + ".txt", "w")
         config_file.write(", ".join(str(x) for x in [self.S, self.M, self.N]) + "\n")
         config_file.write(", ".join(str(x) for x in [self.J_0, self.J_1, self.omega, self.U, self.K, self.j_zero]) + "\n")
-        config_file.write(", ".join(str(x) for x in self.basis_grid_centre) + "\n")
-        config_file.write(", ".join(str(x) for x in [self.basis_distance, self.basis_spacing]) + "\n")
         config_file.close()
+
+        print("  Writing config sampling info into outputs/" + sample_filename + ".txt...", end='', flush=True)
+        sample_file = open("outputs/" + sample_filename + ".txt", "w")
+        sample_file.write(self.sampling_method)
+        if self.sampling_methods == "gridlike":
+            sample_file.write(", ".join(str(x) for x in self.z_0) + "\n")
+            sample_file.write(", ".join(str(x) for x in [self.z_0_type, self.basis_distance, self.basis_spacing]) + "\n")
+        elif self.sampling_method == "gaussian":
+            sample_file.write(str(self.sampling_width))
+            # We just save the entire basis, since sampling here is stochastic
+            for basis_vector in self.basis:
+                sample_file.write(", ".join(str(x) for x in basis_vector) + "\n")
+        sample_file.close()
         print(" Done!")
 
 
@@ -277,10 +294,11 @@ class BH():
         print("Initializing simulation object from local memory unit initialized.")
         simulation_filename = "BH_" + str(self.ID)
         config_filename = "BH_" + str(self.ID) + "_config"
+        sample_filename = "BH_" + str(self.ID) + "_config_sampling"
 
         # Reading config
-        init_config_file = open("outputs/" + config_filename + ".txt", 'r')
-        config_lines = [line.rstrip('\n') for line in init_config_file]
+        config_file = open("outputs/" + config_filename + ".txt", 'r')
+        config_lines = [line.rstrip('\n') for line in config_file]
 
         first_line_list = config_lines[0].split(", ")
         self.S = int(first_line_list[0])
@@ -300,14 +318,32 @@ class BH():
         print(f"    | U = {self.U}                       (on-site interaction)")
         print(f"    | K = {self.K}, j_0 = {self.j_zero}                (harmonic trapping potential)")
 
-        third_line_list = config_lines[2].split(", ")
-        z_0 = np.array([complex(x) for x in third_line_list], dtype=complex)
-        fourth_line_list = config_lines[3].split(", ")
-        basis_distance = int(fourth_line_list[0])
-        basis_spacing  = float(fourth_line_list[1])
-        self.sample_gridlike(basis_distance, z_0, basis_spacing)
+        config_file.close()
 
-        init_config_file.close()
+        # Reading sampling config
+
+        sample_file = open("outputs/" + sample_filename + ".txt", 'r')
+        sample_lines = [line.rstrip('\n') for line in sample_file]
+
+        self.sampling_method = sample_lines[0]
+        if self.sampling_method == "gridlike":
+
+            z_0_list = sample_lines[1].split(", ")
+            z_0 = np.array([complex(x) for x in z_0_list], dtype=complex)
+            gridlike_param_list = sample_lines[2].split(", ")
+            z_0_type = gridlike_param_list[0]
+            basis_distance = int(gridlike_param_list[1])
+            basis_spacing  = float(gridlike_param_list[2])
+            self.sample_gridlike(basis_distance, z_0, basis_spacing, z_0_type)
+
+        if self.sampling_method == "gaussian":
+
+            self.basis = []
+            self.sampling_width = float(sample_lines[1])
+            for basis_vec_line in sample_lines[2:]:
+                self.basis.append(np.array([complex(x) for x in basis_vec_line.split(", ")], dtype=complex)) #TODO maybe use np.fromstring()
+
+
 
         print("Reading recent iterated evolution...", end='', flush=True)
 
@@ -461,11 +497,12 @@ class BH():
 
         # This is the approach of a 2(M-1)-dimensional complex grid with spacing beta centered around z_0,
         # which ensures that we can locally approximate identity integrals with riemann sums with measure beta^(2M-2)
+        self.sampling_method = "gridlike"
 
         self.basis = []
         self.beta = beta
 
-        print("Sampling the neighbourhood of z_0 in a gridlike fashion...")#, end='', flush=True)
+        print(f"Sampling the neighbourhood of z_0 = {z_0} in a gridlike fashion...")#, end='', flush=True)
 
         # if z_0_type == "grossmann", we take it as an array of length M which represents a Grossmann coherent state
         if len(z_0) == 0:
@@ -512,7 +549,69 @@ class BH():
 
         #TODO calculate <z_j | z_i> and their reductions here
 
-        print(f"  A sample of N = {self.N} basis vectors around z_0 = {z_max_A} with rectangular radius of {max_rect_dist} and spacing of {beta:.2f} has been initialized.")
+        print(f"  A sample of N = {self.N} basis vectors around z_max_A = {z_max_A} with rectangular radius of {max_rect_dist} and spacing of {beta:.2f} has been initialized.")
+
+    def sample_gaussian(self, z_0 = np.array([]), width = 1.0, conditioning_limit = -1, N_max = 50, max_saturation_steps = 50):
+
+        # z_0 must be of the Aguiar variety
+        self.sampling_method = "gaussian"
+        self.sampling_width = width
+
+        if len(z_0) == 0:
+            z_0 = np.zeros(self.M-1, dtype=complex)
+
+        self.basis = [z_0]
+
+        print(f"Sampling the neighbourhood of z_0 = {z_0} with a normal distribution of width {width}...")
+        steps_since_last_addition = 0
+
+        norm_factors = [np.power(1 / np.sqrt(1 + np.sum(z_0.real * z_0.real + z_0.imag * z_0.imag)), self.S)]
+        overlap_matrix = [[1.0]] # These are the overlaps of NORMALIZED basis vectors!!!
+        # Complex positive-definite Hermitian matrix with positive real eigenvalues
+        while(len(self.basis) < N_max):
+            # Grab a new candidate
+            candidate_basis_vector = np.random.normal(z_0, width)
+
+            # If conditioning factor specified, see if satisfies
+            satisfying = True
+            if conditioning_limit != -1:
+                candidate_basis = self.basis + [candidate_basis_vector]
+                candidate_norm_factors = norm_factors + [np.power(1 / np.sqrt(1 + np.sum(candidate_basis_vector.real * candidate_basis_vector.real + candidate_basis_vector.imag * candidate_basis_vector.imag)), self.S)]
+                candidate_overlap_matrix = deepcopy(overlap_matrix)
+                candidate_overlap_matrix.append([0] * len(candidate_basis))
+                for a in range(len(candidate_basis)):
+                    cur_overlap = np.power(1 + np.sum(np.conjugate(candidate_basis[a]) * candidate_basis_vector), self.S) * candidate_norm_factors[a] * candidate_norm_factors[-1]
+                    candidate_overlap_matrix[a].append(cur_overlap)
+                    candidate_overlap_matrix[-1][a] = np.conjugate(cur_overlap)
+                candidate_overlap_matrix[-1][-1] = 1.0
+
+                eigenvals, eigenvecs = np.linalg.eig(candidate_overlap_matrix)
+                epsilon = np.absolute(max(eigenvals, key=np.absolute)) / np.absolute(min(eigenvals, key=np.absolute))
+                if epsilon > conditioning_limit:
+                    # Reject
+                    satisfying = False
+            if satisfying:
+                # Accept!
+                steps_since_last_addition = 0
+                self.basis = candidate_basis
+                norm_factors = candidate_norm_factors
+                overlap_matrix = candidate_overlap_matrix
+            else:
+                steps_since_last_addition += 1
+
+            # Check if saturated
+            if max_saturation_steps != -1 and steps_since_last_addition > max_saturation_steps:
+                print("  Sampling procedure saturated!")
+
+        self.N = len(self.basis)
+        self.z_0 = z_0
+        self.z_0_type = "aguiar"
+        print(f"  A sample of N = {self.N} basis vectors around z_0 = {z_0} drawn from a normal distribution of width {self.sampling_width} has been initialized.")
+
+
+
+
+
 
     # ----------------- Dynamical descriptors -----------------
 
@@ -1195,6 +1294,23 @@ class BH():
                             for m in range(self.M-1):
                                 avg_n[m][t_i] += (np.conjugate(self.A_evol[t_i][a]) * self.A_evol[t_i][b] * np.conjugate(self.basis_evol[t_i][a][m]) * self.basis_evol[t_i][b][m] * cur_X_1).real
                             avg_n[self.M-1][t_i] += (np.conjugate(self.A_evol[t_i][a]) * self.A_evol[t_i][b] * cur_X_1).real
+
+                # We insert horizontal lines indicating occupancies calculated from z_0
+                initial_occupancy = np.zeros(self.M)
+                if self.z_0_type == "aguiar":
+
+                    for m in range(self.M - 1):
+                        initial_occupancy[m] = (self.z_0[m].real * self.z_0[m].real + self.z_0[m].imag * self.z_0[m].imag) / (1 + np.sum(np.conjugate(self.z_0) * self.z_0).real)
+                    initial_occupancy[self.M - 1] = 1 / (1 + np.sum(np.conjugate(self.z_0) * self.z_0).real)
+                elif self.z_0_type == "grossmann":
+                    z_0_reduced_overlap = np.power(np.sum(np.conjugate(self.z_0) * self.z_0), self.S - 1).real
+                    for m in range(self.M):
+                        initial_occupancy[m] = (self.z_0[m].real * self.z_0[m].real + self.z_0[m].imag * self.z_0[m].imag) * z_0_reduced_overlap
+                for m in range(self.M):
+                    print(f"    Expected initial occupancy of mode {m+1}: {initial_occupancy[m]}")
+                    plt.axhline(y = initial_occupancy[m], linestyle = "dotted", label = "init. $\\langle N_" + str(m+1) + " \\rangle/S$")
+
+
 
                 # if two-mode, we insert the algebraic solution
                 if self.M == 2:

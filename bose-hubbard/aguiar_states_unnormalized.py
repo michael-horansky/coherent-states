@@ -247,18 +247,19 @@ class BH():
         config_file.write(", ".join(str(x) for x in [self.S, self.M, self.N]) + "\n")
         config_file.write(", ".join(str(x) for x in [self.J_0, self.J_1, self.omega, self.U, self.K, self.j_zero]) + "\n")
         config_file.close()
+        print(" Done!")
 
         print("  Writing config sampling info into outputs/" + sample_filename + ".txt...", end='', flush=True)
         sample_file = open("outputs/" + sample_filename + ".txt", "w")
-        sample_file.write(self.sampling_method)
-        if self.sampling_methods == "gridlike":
+        sample_file.write(self.sampling_method + "\n")
+        if self.sampling_method == "gridlike":
             sample_file.write(", ".join(str(x) for x in self.z_0) + "\n")
             sample_file.write(", ".join(str(x) for x in [self.z_0_type, self.basis_distance, self.basis_spacing]) + "\n")
         elif self.sampling_method == "gaussian":
-            sample_file.write(str(self.sampling_width))
+            sample_file.write(str(self.sampling_width) + "\n")
             # We just save the entire basis, since sampling here is stochastic
             for basis_vector in self.basis:
-                sample_file.write(", ".join(str(x) for x in basis_vector) + "\n")
+                sample_file.write(", ".join(str(x) for x in basis_vector.z) + "\n")
         sample_file.close()
         print(" Done!")
 
@@ -327,6 +328,7 @@ class BH():
 
         self.sampling_method = sample_lines[0]
         if self.sampling_method == "gridlike":
+            print("Gridlike basis vector sample loading...")
 
             z_0_list = sample_lines[1].split(", ")
             z_0 = np.array([complex(x) for x in z_0_list], dtype=complex)
@@ -337,12 +339,17 @@ class BH():
             self.sample_gridlike(basis_distance, z_0, basis_spacing, z_0_type)
 
         if self.sampling_method == "gaussian":
+            print("Normally distributed basis vector sample loading...", end='', flush=True)
 
             self.basis = []
             self.sampling_width = float(sample_lines[1])
             for basis_vec_line in sample_lines[2:]:
-                self.basis.append(np.array([complex(x) for x in basis_vec_line.split(", ")], dtype=complex)) #TODO maybe use np.fromstring()
-
+                self.basis.append(CS(self.S, self.M, np.array([complex(x) for x in basis_vec_line.split(", ")], dtype=complex))) #TODO maybe use np.fromstring()
+            # TODO z_0 should be specifiable in iterate()
+            self.z_0 = self.basis[0].z
+            self.z_0_type = "aguiar"
+            self.N = len(self.basis)
+            print(f" Done! Basis of size N = {self.N} initialized.")
 
 
         print("Reading recent iterated evolution...", end='', flush=True)
@@ -560,7 +567,7 @@ class BH():
         if len(z_0) == 0:
             z_0 = np.zeros(self.M-1, dtype=complex)
 
-        self.basis = [z_0]
+        new_basis = [z_0]
 
         print(f"Sampling the neighbourhood of z_0 = {z_0} with a normal distribution of width {width}...")
         steps_since_last_addition = 0
@@ -568,18 +575,28 @@ class BH():
         norm_factors = [np.power(1 / np.sqrt(1 + np.sum(z_0.real * z_0.real + z_0.imag * z_0.imag)), self.S)]
         overlap_matrix = [[1.0]] # These are the overlaps of NORMALIZED basis vectors!!!
         # Complex positive-definite Hermitian matrix with positive real eigenvalues
-        while(len(self.basis) < N_max):
+
+        z_0_std = np.zeros(2 * (self.M - 1))
+        for m in range(self.M - 1):
+            z_0_std[m] = z_0[m].real
+            z_0_std[self.M - 1 + m] = z_0[m].imag
+
+        while(len(new_basis) < N_max):
             # Grab a new candidate
-            candidate_basis_vector = np.random.normal(z_0, width)
+
+            candidate_basis_vector_std = np.random.normal(z_0_std, width)
+            candidate_basis_vector = np.zeros(self.M - 1, dtype=complex)
+            for m in range(self.M - 1):
+                candidate_basis_vector[m] = candidate_basis_vector_std[m] + candidate_basis_vector_std[self.M - 1 + m] * 1j
 
             # If conditioning factor specified, see if satisfies
             satisfying = True
             if conditioning_limit != -1:
-                candidate_basis = self.basis + [candidate_basis_vector]
+                candidate_basis = new_basis + [candidate_basis_vector]
                 candidate_norm_factors = norm_factors + [np.power(1 / np.sqrt(1 + np.sum(candidate_basis_vector.real * candidate_basis_vector.real + candidate_basis_vector.imag * candidate_basis_vector.imag)), self.S)]
                 candidate_overlap_matrix = deepcopy(overlap_matrix)
                 candidate_overlap_matrix.append([0] * len(candidate_basis))
-                for a in range(len(candidate_basis)):
+                for a in range(len(candidate_basis)-1):
                     cur_overlap = np.power(1 + np.sum(np.conjugate(candidate_basis[a]) * candidate_basis_vector), self.S) * candidate_norm_factors[a] * candidate_norm_factors[-1]
                     candidate_overlap_matrix[a].append(cur_overlap)
                     candidate_overlap_matrix[-1][a] = np.conjugate(cur_overlap)
@@ -593,7 +610,7 @@ class BH():
             if satisfying:
                 # Accept!
                 steps_since_last_addition = 0
-                self.basis = candidate_basis
+                new_basis = candidate_basis
                 norm_factors = candidate_norm_factors
                 overlap_matrix = candidate_overlap_matrix
             else:
@@ -602,6 +619,11 @@ class BH():
             # Check if saturated
             if max_saturation_steps != -1 and steps_since_last_addition > max_saturation_steps:
                 print("  Sampling procedure saturated!")
+                break
+
+        self.basis = []
+        for basis_vec in new_basis:
+            self.basis.append(CS(self.S, self.M, basis_vec))
 
         self.N = len(self.basis)
         self.z_0 = z_0
@@ -1065,16 +1087,16 @@ class BH():
             # Output table = [t, A_k, z_k_m, E]
 
             print("  Calculating initial decomposition coefficients...", end='', flush=True)
-            identity_prefactor = (math.factorial(self.S + self.M - 1) / math.factorial(self.S)) * np.power(self.beta * self.beta / np.pi, self.M - 1)
             # First, we find A(t=0)
             # TODO make the integral discretisation more sane (not just midle value but trapezoids?)
             it_A = np.zeros(self.N, dtype=complex)
             for i in range(self.N):
-                if self.z_0_type == "aguiar":
+                if False and self.z_0_type == "aguiar" and self.sampling_method == "gridlike":
+                    identity_prefactor = (math.factorial(self.S + self.M - 1) / math.factorial(self.S)) * np.power(self.beta * self.beta / np.pi, self.M - 1)
                     cur_overlap = np.power(1 + np.sum(np.conjugate(self.basis[i].z) * self.z_0), self.S)
                     it_A[i] = (identity_prefactor / np.power(1.0 + np.sum(np.conjugate(self.basis[i].z) * self.basis[i].z), self.M + self.S)) * cur_overlap
-                elif self.z_0_type == "grossmann":
-
+                else:
+                    # NOTE this correctly preserves <N> for an aguiar pure initial state, but doesn't agree well with gridlike sampling!
                     X = np.zeros((self.N, self.N), dtype = complex)
                     for m in range(self.N):
                         for n in range(self.N):
@@ -1082,7 +1104,11 @@ class BH():
                     inverse_overlap = np.linalg.inv(X)
 
                     for b in range(self.N):
-                        it_A[i] += np.power( (self.z_0[self.M - 1] + np.sum(np.conjugate(self.basis[b].z) * self.z_0[:self.M - 1] ) ), self.S ) * inverse_overlap[i][b]
+                        if self.z_0_type == "aguiar":
+                            cur_overlap = np.power(1 + np.sum(np.conjugate(self.basis[b].z) * self.z_0), self.S)
+                        elif self.z_0_type == "grossmann":
+                            cur_overlap = np.power(self.z_0[self.M - 1] + np.sum(np.conjugate(self.basis[b].z) * self.z_0[:self.M - 1]), self.S )
+                        it_A[i] += cur_overlap * inverse_overlap[i][b]
                     #cur_overlap = np.power( (self.z_0[self.M - 1] + np.sum(np.conjugate(self.basis[i].z) * self.z_0[:self.M - 1] ) ), self.S )
                     #it_A[i] = (identity_prefactor / np.power(1.0 + np.sum(np.conjugate(self.basis[i].z) * self.basis[i].z), self.M + self.S)) * cur_overlap
 
@@ -1251,6 +1277,11 @@ class BH():
         for i in range(len(graph_list)):
             plt.subplot(superplot_shape_y, superplot_shape_x, i + 1)
             if graph_list[i] == 'initial_basis_heatmap':
+                # NOTE this is only for gridlike samples!!
+                if self.sampling_method != "gridlike":
+                    print("  ERROR: Attempting to plot 'initial_basis_heatmap' when sample is not gridlike. Did you mean to plot 'initial_decomposition' instead?")
+                    continue
+
                 print("  Plotting the heatmap of initial basis decomposition coefficient magnitudes...", end='', flush=True)
                 if self.M != 2:
                     print("    This graph can only be plotted for a two-mode system.")
@@ -1275,6 +1306,27 @@ class BH():
                 plt.gca().set_aspect("equal")
                 include_legend = False
                 print(" Done!")
+
+            elif graph_list[i] == "initial_decomposition":
+                if self.M != 2:
+                    print("  ERROR: Attempting to plot 'initial_decomposition' with unsuitable mode number.")
+                    continue
+                x_vals = np.zeros(self.N)
+                y_vals = np.zeros(self.N)
+                s_vals = np.zeros(self.N)
+
+                for n in range(self.N):
+                    x_vals[n] = self.basis_evol[0][n][0].real
+                    y_vals[n] = self.basis_evol[0][n][0].imag
+                    s_vals[n] = np.absolute(self.A_evol[0][n])
+
+                plt.xlabel("$\\Re\\left(z_n\\right)$")
+                plt.ylabel("$\\Im\\left(z_n\\right)$")
+
+                plt.scatter(x_vals, y_vals, 5 + np.power(s_vals, 1/10) * 450)
+                include_legend = False
+
+
 
             elif graph_list[i] == 'expected_mode_occupancy':
                 print("  Plotting the time evolution of expected mode occupancy...", end='', flush=True)

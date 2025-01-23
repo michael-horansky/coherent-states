@@ -572,9 +572,10 @@ class BH():
         print(f"Sampling the neighbourhood of z_0 = {z_0} with a normal distribution of width {width}...")
         steps_since_last_addition = 0
 
-        norm_factors = [np.power(1 / np.sqrt(1 + np.sum(z_0.real * z_0.real + z_0.imag * z_0.imag)), self.S)]
-        overlap_matrix = [[1.0]] # These are the overlaps of NORMALIZED basis vectors!!!
         # Complex positive-definite Hermitian matrix with positive real eigenvalues
+        overlap_matrix = [[np.power(1 + np.sum(z_0.real * z_0.real + z_0.imag * z_0.imag), self.S)]]
+
+        # we omit the normalizations, since what we really care about is the properties of X_ab = {z_a | z_b}, NOT the normalized version
 
         z_0_std = np.zeros(2 * (self.M - 1))
         for m in range(self.M - 1):
@@ -593,14 +594,13 @@ class BH():
             satisfying = True
             if conditioning_limit != -1:
                 candidate_basis = new_basis + [candidate_basis_vector]
-                candidate_norm_factors = norm_factors + [np.power(1 / np.sqrt(1 + np.sum(candidate_basis_vector.real * candidate_basis_vector.real + candidate_basis_vector.imag * candidate_basis_vector.imag)), self.S)]
                 candidate_overlap_matrix = deepcopy(overlap_matrix)
                 candidate_overlap_matrix.append([0] * len(candidate_basis))
                 for a in range(len(candidate_basis)-1):
-                    cur_overlap = np.power(1 + np.sum(np.conjugate(candidate_basis[a]) * candidate_basis_vector), self.S) * candidate_norm_factors[a] * candidate_norm_factors[-1]
+                    cur_overlap = np.power(1 + np.sum(np.conjugate(candidate_basis[a]) * candidate_basis_vector), self.S)
                     candidate_overlap_matrix[a].append(cur_overlap)
                     candidate_overlap_matrix[-1][a] = np.conjugate(cur_overlap)
-                candidate_overlap_matrix[-1][-1] = 1.0
+                candidate_overlap_matrix[-1][-1] = np.power(1 + np.sum(candidate_basis_vector.real * candidate_basis_vector.real + candidate_basis_vector.imag * candidate_basis_vector.imag), self.S)
 
                 eigenvals, eigenvecs = np.linalg.eig(candidate_overlap_matrix)
                 epsilon = np.absolute(max(eigenvals, key=np.absolute)) / np.absolute(min(eigenvals, key=np.absolute))
@@ -611,7 +611,6 @@ class BH():
                 # Accept!
                 steps_since_last_addition = 0
                 new_basis = candidate_basis
-                norm_factors = candidate_norm_factors
                 overlap_matrix = candidate_overlap_matrix
             else:
                 steps_since_last_addition += 1
@@ -1359,7 +1358,6 @@ class BH():
                     for m in range(self.M):
                         initial_occupancy[m] = (self.z_0[m].real * self.z_0[m].real + self.z_0[m].imag * self.z_0[m].imag) * z_0_reduced_overlap
                 for m in range(self.M):
-                    print(f"    Expected initial occupancy of mode {m+1}: {initial_occupancy[m]}")
                     plt.axhline(y = initial_occupancy[m], linestyle = "dotted", label = "init. $\\langle N_" + str(m+1) + " \\rangle/S$")
 
 

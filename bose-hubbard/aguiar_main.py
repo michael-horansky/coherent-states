@@ -11,12 +11,12 @@ plt.plot(N_space_t_space, res_N_space)
 plt.show()"""
 
 
-double_mode = BH("gaussian_sample_large_large")
+double_mode = BH("gaussian_sample")
 #double_mode.load_recent_data()
 
-z_0 = np.array([1.00+ 1j * 1.00], dtype=complex)
+z_0 = np.array([0.00+ 1j * 0.00], dtype=complex)
 double_mode.set_global_parameters(S = 10, M = 2, J_0 = 1, J_1 = 0.5, omega = 2 * np.pi, U = 0.1, K = 0, j_zero = 0)
-double_mode.sample_gaussian(z_0, width = 1.0, conditioning_limit = 10e14, N_max = 30, max_saturation_steps = 50000)
+double_mode.sample_gaussian(z_0, width = 1.0, conditioning_limit = 10e11, N_max = 30, max_saturation_steps = 5000)
 
 double_mode.iterate(max_t = 2, N_dtp = 200, rtol = 2e-3, reg_timescale = 1e-4)
 double_mode.save_recent_data()

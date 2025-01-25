@@ -280,7 +280,7 @@ class BH():
         for n in range(N):
             header_row.append("A_" + str(n).zfill(N_fill))
         for m in range(self.M - 1):
-            for n in range(N):
+            for n in range(N): #TODO shouldn't this be the other way around?
                 header_row.append("z_" + str(n).zfill(N_fill) + "_" + str(m).zfill(M_fill))
         header_row.append("E")
         output_writer.writerow(header_row)
@@ -344,7 +344,7 @@ class BH():
             self.basis = []
             self.sampling_width = float(sample_lines[1])
             for basis_vec_line in sample_lines[2:]:
-                self.basis.append(CS(self.S, self.M, np.array([complex(x) for x in basis_vec_line.split(", ")], dtype=complex))) #TODO maybe use np.fromstring()
+                self.basis.append(CS(self.S, self.M, np.array([complex(x) for x in basis_vec_line.split(", ")], dtype=complex)))
             # TODO z_0 should be specifiable in iterate()
             self.z_0 = self.basis[0].z
             self.z_0_type = "aguiar"
@@ -383,7 +383,7 @@ class BH():
             for m in range(self.M-1):
                 for n in range(self.N):
                     self.basis_evol[i][n][m] = complex(simulation_rows[i+1][1 + self.N + (self.M - 1) * n + m])
-                    self.output_table[i].append(complex(simulation_rows[i+1][1 + self.N + (self.M - 1) * n + m]))
+                    self.output_table[i].append(complex(simulation_rows[i+1][1 + self.N + (self.M - 1) * n + m])) # TODO is this the correct format?
             self.E_evol.append(float(simulation_rows[i+1][1 + self.M * self.N]))
             self.output_table[i].append(float(simulation_rows[i+1][1 + self.M * self.N]))
 

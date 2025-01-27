@@ -1,0 +1,7 @@
+def B_BH(t, a, b, c, d):
+    BH_params = {
+        "U" : 0.1
+    }
+    if a == b and a == c and a == d:
+        return(BH_params["U"])
+    return(0.0)

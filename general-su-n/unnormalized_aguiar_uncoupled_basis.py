@@ -10,8 +10,27 @@ import time
 
 import csv
 
-from numerical_integration_methods import *
-
+def subplot_dimensions(number_of_plots):
+    # 1x1, 2x1, 3x1, 2x2, 3x2, 4x2, 3x3, 4x3, 5x3
+    if number_of_plots == 1:
+        return(1, 1)
+    if number_of_plots == 2:
+        return(2, 1)
+    if number_of_plots == 3:
+        return(3, 1)
+    if number_of_plots == 4:
+        return(2, 2)
+    if number_of_plots <= 6:
+        return(3, 2)
+    if number_of_plots <= 8:
+        return(4, 2)
+    if number_of_plots <= 9:
+        return(3, 3)
+    if number_of_plots <= 12:
+        return(4, 3)
+    if number_of_plots <= 15:
+        return(5, 3)
+    return(int(np.ceil(np.sqrt(number_of_plots))), int(np.ceil(np.sqrt(number_of_plots))))
 
 # -------------------- Coherent state functions --------------------
 # We _deliberately_ do not implement instances of coherent states as
@@ -158,6 +177,127 @@ class bosonic_su_n():
         # TODO more precisely, we can avoid using finite differences by directly feeding the interpolated value
         # into uncoupled_basis_y_dot. But is it still fast enough? And does it make a difference?
 
+    def two_mode_solution(self, t_space, c_0 = False):
+        # General solution to be plotted when M = 2 :))
+
+        # First, we find H_ij(t)
+        def func_H_matrix(t):
+            H_matrix = np.zeros((self.S+1, self.S+1), dtype=complex)
+            for i in range(self.S + 1):
+                for j in range(self.S + 1):
+                    # Calculating H_ij
+
+                    # First order
+                    for a in range(self.M):
+                        for b in range(self.M):
+                            a_i = i
+                            b_i = self.S - i
+                            a_j = j
+                            b_j = self.S - j
+                            coef = 1.0
+                            if a == 0:
+                                if a_i == 0:
+                                    continue
+                                coef *= np.sqrt(a_i)
+                                a_i -= 1
+                            elif a == 1:
+                                if b_i == 0:
+                                    continue
+                                coef *= np.sqrt(b_i)
+                                b_i -= 1
+                            if b == 0:
+                                if a_j == 0:
+                                    continue
+                                coef *= np.sqrt(a_j)
+                                a_j -= 1
+                            elif b == 1:
+                                if b_j == 0:
+                                    continue
+                                coef *= np.sqrt(b_j)
+                                b_j -= 1
+                            if a_i == a_j and b_i == b_j:
+                                H_matrix[i][j] += self.H_A(t, a, b) * coef
+
+                    # Second order
+                    for a in range(self.M):
+                        for b in range(self.M):
+                            for c in range(self.M):
+                                for d in range(self.M):
+                                    a_i = i
+                                    b_i = self.S - i
+                                    a_j = j
+                                    b_j = self.S - j
+                                    coef = 1.0
+                                    if a == 0:
+                                        if a_i == 0:
+                                            continue
+                                        coef *= np.sqrt(a_i)
+                                        a_i -= 1
+                                    elif a == 1:
+                                        if b_i == 0:
+                                            continue
+                                        coef *= np.sqrt(b_i)
+                                        b_i -= 1
+                                    if b == 0:
+                                        if a_i == 0:
+                                            continue
+                                        coef *= np.sqrt(a_i)
+                                        a_i -= 1
+                                    elif b == 1:
+                                        if b_i == 0:
+                                            continue
+                                        coef *= np.sqrt(b_i)
+                                        b_i -= 1
+                                    if c == 0:
+                                        if a_j == 0:
+                                            continue
+                                        coef *= np.sqrt(a_j)
+                                        a_j -= 1
+                                    elif c == 1:
+                                        if b_j == 0:
+                                            continue
+                                        coef *= np.sqrt(b_j)
+                                        b_j -= 1
+                                    if d == 0:
+                                        if a_j == 0:
+                                            continue
+                                        coef *= np.sqrt(a_j)
+                                        a_j -= 1
+                                    elif d == 1:
+                                        if b_j == 0:
+                                            continue
+                                        coef *= np.sqrt(b_j)
+                                        b_j -= 1
+                                    if a_i == a_j and b_i == b_j:
+                                        H_matrix[i][j] += self.H_B(t, a, b, c, d) * coef
+            return(H_matrix)
+
+        def c_dot(t, c):
+            H_matrix = func_H_matrix(t)
+            return( - 1j * H_matrix.dot(c))
+
+
+        if type(c_0) == bool:
+            c_0 = np.zeros(S + 1, dtype = complex)
+            c_0[0] = 1.0
+
+        sol = sp.integrate.solve_ivp(c_dot, [t_space[0], t_space[-1]], c_0, method = 'RK45', t_eval = t_space)
+        N_space = np.zeros(len(t_space)) # N_space[t] = <N_1>/S at t
+
+        for t_i in range(len(t_space)):
+            t = t_space[t_i]
+            cur_c = np.zeros(self.S+1, dtype=complex)
+            for i in range(self.S + 1):
+                cur_c[i] = sol.y[i][t_i]
+
+            for i in range(self.S + 1):
+                N_space[t_i] += i * (cur_c[i].real * cur_c[i].real + cur_c[i].imag * cur_c[i].imag) / self.S
+        return(N_space)
+
+
+
+
+
     # ---------------- Uncoupled basis methods ----------------
 
     def uncoupled_basis_y_dot(self, t, y, reg_timescale = -1):
@@ -283,6 +423,139 @@ class bosonic_su_n():
         return(M_inv.dot(R))
 
 
+    # --------------- Fully variational methods ---------------
+
+    def standardise_dynamic_variables(self, cur_basis, cur_wavef):
+        # y is the same format as R, so [A_1, A_2 ... A_N, z_1,1, z_2,1 ... z_N,1 ... ]
+        # cur_basis is a list of lists [n][m]
+        y = np.zeros(self.N * self.M, dtype = complex)
+        for n in range(N):
+            y[n] = cur_wavef[n]
+            for m in range(self.M-1):
+                y[self.N + self.N * m + n] = cur_basis[n][m]
+        return(y)
+
+    def destandardise_dynamic_variables(self, y):
+        cur_basis = np.zeros((self.N, self.M - 1), dtype=complex)
+        cur_wavef = np.zeros(self.N, dtype=complex)
+        for n in range(N):
+            cur_wavef[n] = y[n]
+            for m in range(self.M-1):
+                cur_basis[n][m] = y[self.N + self.N * m + n]
+        return(cur_basis, cur_wavef)
+
+
+    def calculate_overlap_matrices(self, y, max_reduction = 3):
+        # we note that z_n,m = y[N + N * m + n]
+        # therefore z_n as a list is = y[N + n : N + n + N * M : N], where n goes from 0 to N-1 inclusive
+        X = np.zeros((self.N, self.N, max_reduction + 1), dtype=complex) # X[i][j][r] = { z_i^(r) | z_j^(r) }
+
+        # We optimize the number of operations by noting that { z_i^(r) | z_j^(r) } = { z_i^(r+1) | z_j^(r+1) } * (1+z_i*.z_j)
+        for i in range(self.N):
+            for j in range(self.N):
+                base_inner_product = 1 + np.sum(np.conjugate(y[self.N + i : self.N + i + self.N * self.M : self.N]) * y[self.N + j : self.N + j + self.N * self.M : self.N])
+                X[i][j][max_reduction] = np.power(base_inner_product, self.S - max_reduction)
+                for delta_r in range(max_reduction):
+                    X[i][j][max_reduction - (delta_r + 1)] = X[i][j][max_reduction - delta_r] * base_inner_product
+        return(X)
+
+    def calculate_hamiltonian_tensors(self, t):
+        cur_H_A = np.zeros((self.M, self.M), dtype=complex)
+        cur_H_B = np.zeros((self.M, self.M, self.M, self.M), dtype=complex)
+        for a in range(self.M):
+            for b in range(self.M):
+                cur_H_A[a][b] = self.H_A(t, a, b)
+        for a in range(self.M):
+            for b in range(self.M):
+                for c in range(self.M):
+                    for d in range(self.M):
+                        cur_H_B[a][b][c][d] = self.H_B(t, a, b, c, d)
+        return(cur_H_A, cur_H_B)
+
+
+    def variational_y_dot(self, t, y, reg_timescale = -1):
+        # y is the same format as R, so [A_1, A_2 ... A_N, z_1,1, z_2,1 ... z_N,1 ... z_1,(M-1) ... z_N,(M-1)]
+
+        # We also create a standardised y which includes z_n,M = 1
+        # we note that z_n,m = y_std[N + N * m + n]
+
+        y_std = np.ones(self.N * (self.M + 1), dtype = complex)
+        y_std[:self.N * self.M] = y
+
+        # we want to read the semaphor right here in this function
+
+        X = self.calculate_overlap_matrices(y, 3)
+        cur_H_A, cur_H_B = self.calculate_hamiltonian_tensors(t)
+
+        R = np.zeros(self.M * self.N, dtype=complex)
+        m_Theta = np.zeros((self.M*self.N, self.M*self.N), dtype=complex)
+
+        # First we calculate R
+        for k in range(self.N):
+            for j in range(self.N):
+                # First, the Hamiltonian matrix element { z_k | H | z_j }
+                H_mel_s1 = 0.0
+                for a in range(self.M):
+                    for b in range(self.M):
+                        H_mel_s1 += cur_H_A[a][b] * np.conjugate(y_std[self.N + self.N * a + k]) * y_std[self.N + self.N * b + j]
+                H_mel_s2 = 0.0
+                for a in range(self.M):
+                    for b in range(self.M):
+                        for c in range(self.M):
+                            for d in range(self.M):
+                                H_mel_s2 += cur_H_B[a][b][c][d] * np.conjugate(y_std[self.N + self.N * a + k]) * np.conjugate(y_std[self.N + self.N * b + k]) * y_std[self.N + self.N * c + j] * y_std[self.N + self.N * d + j]
+                H_mel = self.S * X[k][j][1] * H_mel_s1 + 0.5 * self.S * (self.S - 1) * X[k][j][2] * H_mel_s2
+
+                R[k] += y_std[j] * H_mel
+
+                for m in range(self.M-1):
+                    H_mel_diff = self.S * (self.S - 1) * X[k][j][2] * y_std[self.N + self.N * m + j] * H_mel_s1 + 0.5 * self.S * (self.S - 1) * (self.S - 2) * X[k][j][3] * y_std[self.N + self.N * m + j] * H_mel_s2
+                    term3 = 0.0
+                    for b in range(self.M):
+                        term3 += cur_H_A[m][b] * y_std[self.N + self.N * b + j]
+                    term4 = 0.0
+                    for b in range(self.M):
+                        for c in range(self.M):
+                            for d in range(self.M):
+                                term4 += (cur_H_B[m][b][c][d] + cur_H_B[b][m][c][d]) * np.conjugate(y_std[self.N + self.N * b + k]) * y_std[self.N + self.N * c + j] * y_std[self.N + self.N * d + j]
+                    H_mel_diff += self.S * X[k][j][1] * term3 + 0.5 * self.S * (self.S - 1) * X[k][j][2] * term4
+
+                    R[self.N + self.N * m + k] += np.conjugate(y_std[k]) * y_std[j] * H_mel_diff
+
+        # Then, we calculate Theta
+        # First, we fill in X
+        for i in range(self.N):
+            for j in range(self.N):
+                m_Theta[i][j] = X[i][j][0]
+        # Then, we fill in Y and Y^h.c.
+        for a in range(self.N):
+            for b in range(self.M-1):
+                for d in range(self.N):
+                    m_Theta[a][self.N + b * self.N + d] = self.S * np.conjugate(y_std[self.N + self.N * b + a]) * y_std[d] * X[a][d][1]
+                    m_Theta[self.N + b * self.N + d][a] = np.conjugate(m_Theta[a][self.N + b * self.N + d])
+        # Then, we fill in Z
+        for i in range(self.M-1):
+            for j in range(self.M-1):
+                for a in range(self.N):
+                    for b in range(self.N):
+                        # first, we evaluate (F_ij)_ab
+                        m_Theta[self.N + i * self.N + a][self.N + j * self.N + b] = self.S * (self.S - 1) * X[a][b][2] * np.conjugate(y_std[self.N + self.N * j + a]) * y_std[self.N + self.N * i + b]
+                        if i == j:
+                            m_Theta[self.N + i * self.N + a][self.N + j * self.N + b] += self.S * X[a][b][1]
+                        m_Theta[self.N + i * self.N + a][self.N + j * self.N + b] *= np.conjugate(y_std[a]) * y_std[b]
+
+        # Regularisation
+        if reg_timescale != -1:
+            for i in range(self.M * self.N):
+                m_Theta[i][i] += reg_timescale
+
+        # Finally, we calculate y dot
+        m_Theta_inv = np.linalg.inv(m_Theta)
+
+        # Semaphor
+        self.update_semaphor(t)
+
+        return( - 1j * m_Theta_inv.dot(R))
 
 
     # ---------------------------------------------------------
@@ -374,7 +647,7 @@ class bosonic_su_n():
             return(-1)
 
 
-        A_signature = inspect.signature(A)
+        """A_signature = inspect.signature(A)
         if len(A_signature.parameters) != 3:
             print("ERROR: A should be a callable which takes 3 arguments (time and 2 indices).")
             return(-1)
@@ -382,7 +655,7 @@ class bosonic_su_n():
         B_signature = inspect.signature(B)
         if len(A_signature.parameters) != 4:
             print("ERROR: A should be a callable which takes 5 arguments (time and 4 indices).")
-            return(-1)
+            return(-1)"""
 
         # Test the symmetry
         for a in range(self.M):
@@ -460,7 +733,7 @@ class bosonic_su_n():
                 candidate_overlap_matrix = deepcopy(overlap_matrix)
                 candidate_overlap_matrix.append([0] * len(candidate_basis))
                 for a in range(len(candidate_basis)-1):
-                    cur_overlap = overlap(candidate_basis[a], candidate_basis_vector, S)
+                    cur_overlap = overlap(candidate_basis[a], candidate_basis_vector, self.S)
                     candidate_overlap_matrix[a].append(cur_overlap)
                     candidate_overlap_matrix[-1][a] = np.conjugate(cur_overlap)
                 candidate_overlap_matrix[-1][-1] = square_norm(candidate_basis_vector, self.S)
@@ -624,7 +897,7 @@ class bosonic_su_n():
                 if n == 0:
                     # If this is the first one, we initialize self.t_space
                     self.t_space.append(iterated_solution.t[t_i])
-            self.update_semaphor(n)
+            #self.update_semaphor(n)
 
         print("  Basis propagation finished at " + time.strftime("%H:%M:%S", time.localtime(time.time())) + "; " + str(N_dtp) + " datapoints saved.                  ")
         self.is_basis_evol = True
@@ -664,6 +937,119 @@ class bosonic_su_n():
     # --------------- Graphical output methods ----------------
     # ---------------------------------------------------------
 
+    def plot_data(self, graph_list = ["expected_mode_occupancy", "initial_decomposition"], save_graph=True):
+
+        print("Graphical output plotting routine initialized.")
+        # create a superplot
+        superplot_shape_x, superplot_shape_y = subplot_dimensions(len(graph_list))
+
+        plt.figure(figsize=(15, 8))
+
+        # initialize lims; if changed, apply them afterwards
+        x_left = -1
+        x_right = -1
+        y_left = -1
+        y_right = -1
+
+        include_legend = True
+
+        for i in range(len(graph_list)):
+            plt.subplot(superplot_shape_y, superplot_shape_x, i + 1)
+            if graph_list[i] == "initial_decomposition":
+                if self.M != 2:
+                    print("  ERROR: Attempting to plot 'initial_decomposition' with unsuitable mode number.")
+                    continue
+                x_vals = np.zeros(self.N)
+                y_vals = np.zeros(self.N)
+                s_vals = np.zeros(self.N)
+
+                for n in range(self.N):
+                    x_vals[n] = self.basis_evol[0][n][0].real
+                    y_vals[n] = self.basis_evol[0][n][0].imag
+                    s_vals[n] = np.absolute(self.wavef_evol[0][n])
+
+                plt.xlabel("$\\Re\\left(z_n\\right)$")
+                plt.ylabel("$\\Im\\left(z_n\\right)$")
+
+                plt.scatter(x_vals, y_vals, 5 + np.power(s_vals, 1/10) * 450)
+                include_legend = False
+            elif graph_list[i] == 'expected_mode_occupancy':
+                print("  Plotting the time evolution of expected mode occupancy...")#, end='', flush=True)
+                plt.title("Expected mode occupancy")
+                plt.xlabel("t")
+
+                print("    Plotting measured wavefunction magnitude and mode occupancies...")
+                psi_mag = np.zeros(len(self.t_space))
+
+                avg_n = []
+                for m in range(self.M):
+                    avg_n.append(np.zeros(len(self.t_space)))
+
+                for t_i in range(len(self.t_space)):
+                    for a in range(self.N):
+                        for b in range(self.N):
+                            cur_X_1 = overlap(self.basis_evol[t_i][a], self.basis_evol[t_i][b], self.S, r = 1)
+                            psi_mag[t_i] += (np.conjugate(self.wavef_evol[t_i][a]) * self.wavef_evol[t_i][b] * overlap(self.basis_evol[t_i][a], self.basis_evol[t_i][b], self.S)).real
+                            for m in range(self.M-1):
+                                avg_n[m][t_i] += (np.conjugate(self.wavef_evol[t_i][a]) * self.wavef_evol[t_i][b] * np.conjugate(self.basis_evol[t_i][a][m]) * self.basis_evol[t_i][b][m] * cur_X_1).real
+                            avg_n[self.M-1][t_i] += (np.conjugate(self.wavef_evol[t_i][a]) * self.wavef_evol[t_i][b] * cur_X_1).real
+
+                # We insert horizontal lines indicating occupancies calculated from z_0
+                initial_occupancy = np.zeros(self.M)
+                if self.wavef_message == "aguiar":
+                    z_0 = np.array(self.wavef_initial_wavefunction)
+                    for m in range(self.M - 1):
+                        initial_occupancy[m] = (z_0[m].real * z_0[m].real + z_0[m].imag * z_0[m].imag) / (1 + np.sum(np.conjugate(z_0) * z_0).real)
+                    initial_occupancy[self.M - 1] = 1 / (1 + np.sum(np.conjugate(z_0) * z_0).real)
+                elif self.wavef_message == "grossmann":
+                    xi_0 = np.array(self.wavef_initial_wavefunction)
+                    xi_0_reduced_overlap = np.power(np.sum(np.conjugate(xi_0) * xi_0), self.S - 1).real
+                    for m in range(self.M):
+                        initial_occupancy[m] = (xi_0[m].real * xi_0[m].real + xi_0[m].imag * xi_0[m].imag) * xi_0_reduced_overlap
+                elif self.wavef_message == "NONE":
+                    z_0 = self.basis[0]
+                    for m in range(self.M - 1):
+                        initial_occupancy[m] = (z_0[m].real * z_0[m].real + z_0[m].imag * z_0[m].imag) / (1 + np.sum(np.conjugate(z_0) * z_0).real)
+                    initial_occupancy[self.M - 1] = 1 / (1 + np.sum(np.conjugate(z_0) * z_0).real)
+                for m in range(self.M):
+                    plt.axhline(y = initial_occupancy[m], linestyle = "dotted", label = "init. $\\langle N_" + str(m+1) + " \\rangle/S$")
+
+
+
+                # if two-mode, we insert the algebraic solution
+                if self.M == 2:
+                    print("    Plotting theoretical wavefunction magnitude and mode occupancies for the two-mode solution...")
+                    cur_c_0 = np.zeros(self.S + 1, dtype = complex)
+                    for i in range(self.S + 1):
+                        for a in range(self.N):
+                            cur_c_0[i] += self.wavef_evol[0][a] * np.power(self.basis_evol[0][a], i)
+                        cur_c_0[i] *= np.sqrt( math.factorial(self.S) / (math.factorial(i) * math.factorial(self.S-i)) )
+
+                    N_space_t_space = np.linspace(self.t_space[0], self.t_space[-1], 200)
+                    res_N_space = self.two_mode_solution(N_space_t_space, cur_c_0)
+
+                    plt.plot(N_space_t_space, res_N_space, linestyle = "dashed", label = "theor. $\\langle N_1 \\rangle/S$")
+                    plt.plot(N_space_t_space, res_N_space * (-1) + 1, linestyle = "dashed", label = "theor. $\\langle N_2 \\rangle/S$")
+
+
+                plt.plot(self.t_space, psi_mag, label="$\\langle \\Psi | \\Psi \\rangle$")
+                for m in range(self.M):
+                    plt.plot(self.t_space, avg_n[m], label="$\\langle N_" + str(m+1) + " \\rangle/S$")
+                #print(" Done!")
+
+            if x_left != -1:
+                plt.xlim(x_left, x_right)
+            if y_left != -1:
+                plt.ylim(y_left, y_right)
+
+            if include_legend:
+                plt.legend()
+
+        plt.tight_layout()
+        if save_graph:
+            Path(f"outputs/{self.output_subfolder_name}").mkdir(parents=True, exist_ok=True)
+            plt.savefig(f"outputs/{self.output_subfolder_name}/" + str(self.ID) + "_graph_output.png")
+        plt.show()
 
 
 
@@ -679,8 +1065,8 @@ class bosonic_su_n():
         # able to save e.g. configuration only, no evolution needed.)
 
         # Create subfolder if not exists
-        Path(f"/outputs/{self.output_subfolder_name}").mkdir(parents=True, exist_ok=True)
-        dir_path = f"/outputs/{self.output_subfolder_name}/"
+        Path(f"outputs/{self.output_subfolder_name}").mkdir(parents=True, exist_ok=True)
+        dir_path = f"outputs/{self.output_subfolder_name}/"
 
 
         # Saves configuration
@@ -689,7 +1075,7 @@ class bosonic_su_n():
         # The following lines dynamically describe the aforementioned initializations
         if self.is_phys_init:
             config_file.write(", ".join(str(x) for x in [self.M, self.S]) + "\n")
-        if self.if_basis_init:
+        if self.is_basis_init:
             if self.sampling_method == "gaussian":
                 config_file.write(", ".join(str(x) for x in [self.sampling_method, self.sampling_width, self.sampling_conditioning_limit, self.sampling_N_max, self.sampling_max_saturation_steps]) + "\n")
                 config_file.write(", ".join(str(x) for x in self.sampling_z_0) + "\n")
@@ -728,14 +1114,14 @@ class bosonic_su_n():
             basis_evol_writer = csv.writer(basis_evol_file)
             header_row = ["t"]
 
-            for n in range(N):
+            for n in range(self.N):
                 for m in range(self.M - 1):
                     header_row.append("z_" + str(n).zfill(self.N_fill) + "_" + str(m).zfill(self.M_fill))
             basis_evol_writer.writerow(header_row)
 
             for t_i in range(len(self.t_space)):
                 cur_row = [self.t_space[t_i]]
-                for n in range(N):
+                for n in range(self.N):
                     for m in range(self.M - 1):
                         cur_row.append(self.basis_evol[t_i][n][m])
                 basis_evol_writer.writerow(cur_row)
@@ -746,13 +1132,13 @@ class bosonic_su_n():
             wavef_evol_writer = csv.writer(wavef_evol_file)
             header_row = ["t"]
 
-            for n in range(N):
+            for n in range(self.N):
                 header_row.append("A_" + str(n).zfill(self.N_fill))
             wavef_evol_writer.writerow(header_row)
 
             for t_i in range(len(self.t_space)):
                 cur_row = [self.t_space[t_i]]
-                for n in range(N):
+                for n in range(self.N):
                     cur_row.append(self.wavef_evol[t_i][n])
                 # TODO add physical descriptors such as <E> here?
                 wavef_evol_writer.writerow(cur_row)
@@ -763,7 +1149,7 @@ class bosonic_su_n():
         # for basis_evol, if we pass config_load = [True, True, True, False, False], only
         # H_A, H_B, and basis_init and wavef_init will load.
 
-        dir_path = f"/outputs/{self.output_subfolder_name}/"
+        dir_path = f"outputs/{self.output_subfolder_name}/"
         # First, we load the config
         config_file = open(dir_path + self.output_config_filename + ".txt", 'r')
         config_lines = [line.rstrip('\n') for line in config_file]
@@ -908,7 +1294,7 @@ class bosonic_su_n():
                 print("ERROR: You cannot load wavefunction evolution without loading the basis initialization.")
                 return(-1)
 
-            # Load basis evol
+            # Load wavef evol
             wavef_evol_file = open(dir_path + self.output_wavef_evol_filename + ".csv", newline='')
             wavef_evol_reader = csv.reader(wavef_evol_file, delimiter=',', quotechar='"')
             wavef_evol_rows = list(wavef_evol_reader)
@@ -926,10 +1312,10 @@ class bosonic_su_n():
             for i in range(N_dtp):
                 # we append the empty ndarrays
                 self.wavef_evol.append(np.zeros(self.N, dtype = complex))
-                self.t_space.append(float(basis_evol_rows[i+1][0]))
+                self.t_space.append(float(wavef_evol_rows[i+1][0]))
 
                 for n in range(self.N):
-                    self.wavef_evol[i][n] = complex(basis_evol_rows[i+1][1 + n])
+                    self.wavef_evol[i][n] = complex(wavef_evol_rows[i+1][1 + n])
 
             self.is_wavef_evol = True
             print(f"  Wavefunction evolution ({N_dtp} datapoints) loaded.")

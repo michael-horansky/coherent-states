@@ -64,6 +64,9 @@ class Semaphor():
         return(new_ID)
 
     def finish_event(self, event_ID, final_message = None):
+        if event_ID not in self.tau_space.keys():
+            print(f"  ERROR: Semaphor {event_ID} does not exist.")
+            return(-1)
         if final_message is None:
             final_message = self.message[event_ID]
 
@@ -83,6 +86,9 @@ class Semaphor():
         del self.newline[event_ID]
 
     def update(self, event_ID, tau):
+        if event_ID not in self.tau_space.keys():
+            print(f"  ERROR: Semaphor {event_ID} does not exist.")
+            return(-1)
         # check if semaphor finished
         if self.next_flag_tau_index[event_ID] >= len(self.tau_space[event_ID]):
             if self.newline[event_ID]:

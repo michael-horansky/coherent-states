@@ -56,22 +56,35 @@ def B_BH(t, a, b, c, d):
 
 #AF_sig = inspect.signature(A_Frank_wrapper)
 #print(AF_sig.parameters)
+"""
+bose_hubbard = bosonic_su_n("bose_hubbard_M=2_max_t=2")
+#bose_hubbard.load_data()
 
-bose_hubbard = bosonic_su_n("bose_hubbard_M=2")
-bose_hubbard.load_data() #TODO eh???
-
-#print(bose_hubbard.basis)
-#print(bose_hubbard.wavef_evol)
-
-
-#bose_hubbard.set_global_parameters(M = 2, S = 15)
-#bose_hubbard.set_hamiltonian_tensors(A_BH, B_BH)
+bose_hubbard.set_global_parameters(M = 2, S = 15)
+bose_hubbard.set_hamiltonian_tensors(A_BH, B_BH)
 
 # Note: to get more basis vectors in a sample, increase particle number! It makes saturation less probable :)
-#bose_hubbard.sample_gaussian(z_0 = np.array([0.00+ 1j * 0.50], dtype=complex), width = 1.0, conditioning_limit = 10e10, N_max = 30, max_saturation_steps = 500)
-#bose_hubbard.set_initial_wavefunction()
+bose_hubbard.sample_gaussian(z_0 = np.array([0.00+ 1j * 0.50], dtype=complex), width = 1.0, conditioning_limit = 10e10, N_max = 30, max_saturation_steps = 500)
+bose_hubbard.set_initial_wavefunction()
 
-#bose_hubbard.simulate_uncoupled_basis(max_t = 1.0, N_dtp = 200, rtol = 2e-3, reg_timescale = (-1, 1e-4))
-#bose_hubbard.save_data()
+bose_hubbard.simulate_uncoupled_basis(max_t = 2.0, N_dtp = 200, rtol = (2e-3, 2e-3), reg_timescale = (-1, 1e-6))
+bose_hubbard.save_data()
+
+bose_hubbard.plot_data()"""
+
+
+
+bose_hubbard = bosonic_su_n("bose_hubbard_M=2_variational")
+#bose_hubbard.load_data()
+
+bose_hubbard.set_global_parameters(M = 2, S = 10)
+bose_hubbard.set_hamiltonian_tensors(A_BH, B_BH)
+
+# Note: to get more basis vectors in a sample, increase particle number! It makes saturation less probable :)
+bose_hubbard.sample_gaussian(z_0 = np.array([0.00+ 1j * 0.00], dtype=complex), width = 1.0, conditioning_limit = 10e11, N_max = 30, max_saturation_steps = 5000)
+bose_hubbard.set_initial_wavefunction()
+
+bose_hubbard.simulate_variational(max_t = 2.0, N_dtp = 200, rtol = 2e-3, reg_timescale = 1e-4)
+bose_hubbard.save_data()
 
 bose_hubbard.plot_data()

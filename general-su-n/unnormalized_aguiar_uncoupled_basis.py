@@ -7,6 +7,7 @@ from pathlib import Path
 import inspect # callable handling
 from copy import deepcopy
 import time
+from class_Semaphor import Semaphor
 
 import csv
 
@@ -75,10 +76,8 @@ class bosonic_su_n():
         self.basis_evol = []#np.zeros((N_dtp, self.N, self.M-1), dtype=complex)
         self.E_evol = []#np.zeros(N_dtp, dtype=complex)
 
-        # Semaphors are initialised here to null values for safety
-        self.semaphor_t_space = np.array([0.0])
-        self.semaphor_simulation_start_time = 0.0
-        self.semaphor_next_flag_t_i = 1
+        # Semaphor
+        self.semaphor = Semaphor(time_format = "%H:%M:%S")
 
         # State booleans are initialized; useful when choosing savedata format
         self.is_phys_init = False # Are physical properties initialized?
@@ -269,7 +268,7 @@ class bosonic_su_n():
                                         coef *= np.sqrt(b_j)
                                         b_j -= 1
                                     if a_i == a_j and b_i == b_j:
-                                        H_matrix[i][j] += self.H_B(t, a, b, c, d) * coef
+                                        H_matrix[i][j] += 0.5 * self.H_B(t, a, b, c, d) * coef
             return(H_matrix)
 
         def c_dot(t, c):
@@ -359,7 +358,7 @@ class bosonic_su_n():
 
         return(M_inv.dot(R))
 
-    def uncoupled_wavef_y_dot(self, t, y, reg_timescale = -1):
+    def uncoupled_wavef_y_dot(self, t, y, reg_timescale = -1, semaphor_event_ID = None):
         # Here y = A_i, y.shape = (N)
 
         cur_basis, cur_basis_dot = self.basis_state_at_time(t)
@@ -418,7 +417,7 @@ class bosonic_su_n():
         M_inv = np.linalg.inv(M)
 
         # Semaphor
-        self.update_semaphor(t)
+        self.semaphor.update(semaphor_event_ID, t)
 
         return(M_inv.dot(R))
 
@@ -429,7 +428,7 @@ class bosonic_su_n():
         # y is the same format as R, so [A_1, A_2 ... A_N, z_1,1, z_2,1 ... z_N,1 ... ]
         # cur_basis is a list of lists [n][m]
         y = np.zeros(self.N * self.M, dtype = complex)
-        for n in range(N):
+        for n in range(self.N):
             y[n] = cur_wavef[n]
             for m in range(self.M-1):
                 y[self.N + self.N * m + n] = cur_basis[n][m]
@@ -438,7 +437,7 @@ class bosonic_su_n():
     def destandardise_dynamic_variables(self, y):
         cur_basis = np.zeros((self.N, self.M - 1), dtype=complex)
         cur_wavef = np.zeros(self.N, dtype=complex)
-        for n in range(N):
+        for n in range(self.N):
             cur_wavef[n] = y[n]
             for m in range(self.M-1):
                 cur_basis[n][m] = y[self.N + self.N * m + n]
@@ -473,7 +472,7 @@ class bosonic_su_n():
         return(cur_H_A, cur_H_B)
 
 
-    def variational_y_dot(self, t, y, reg_timescale = -1):
+    def variational_y_dot(self, t, y, reg_timescale = -1, semaphor_event_ID = None):
         # y is the same format as R, so [A_1, A_2 ... A_N, z_1,1, z_2,1 ... z_N,1 ... z_1,(M-1) ... z_N,(M-1)]
 
         # We also create a standardised y which includes z_n,M = 1
@@ -553,31 +552,9 @@ class bosonic_su_n():
         m_Theta_inv = np.linalg.inv(m_Theta)
 
         # Semaphor
-        self.update_semaphor(t)
+        self.semaphor.update(semaphor_event_ID, t)
 
         return( - 1j * m_Theta_inv.dot(R))
-
-
-    # ---------------------------------------------------------
-    # ------------------- Semaphor methods --------------------
-    # ---------------------------------------------------------
-
-    def update_semaphor(self, t):
-        # check if semaphor finished
-        if self.semaphor_next_flag_t_i >= len(self.semaphor_t_space):
-            print("  Semaphor reached the final flagged timestamp. No further semaphor update necessary.", end='\r')
-            return(0)
-        if t >= self.semaphor_t_space[self.semaphor_next_flag_t_i]:
-            # We find the next smallest unreached semaphor flag
-            t_i_new = self.semaphor_next_flag_t_i
-            while(self.semaphor_t_space[t_i_new] < t):
-                t_i_new += 1
-                if t_i_new >= len(self.semaphor_t_space):
-                    break
-            self.semaphor_next_flag_t_i = t_i_new
-            progress_fraction = (self.semaphor_t_space[t_i_new - 1] - self.semaphor_simulation_start_time) / (self.semaphor_t_space[-1] - self.semaphor_simulation_start_time)
-            ETA = time.strftime("%H:%M:%S", time.localtime( (time.time()-self.semaphor_start_time) / progress_fraction + self.semaphor_start_time ))
-            print("  " + str(int(100 * progress_fraction)).zfill(2) + "% done; est. time of finish: " + ETA, end='\r')
 
 
 
@@ -596,6 +573,10 @@ class bosonic_su_n():
     def set_global_parameters(self, M, S):
         self.M = M
         self.S = S
+
+        # Sample a color scheme for the modes
+        self.mode_colors = plt.cm.rainbow(np.linspace(0, 1, self.M))
+
         print("A driven Bose-Hubbard model with %i bosons over %i modes has been initialized." % (self.S, self.M))
 
     # The general SU(N) Hamiltonian is fully described by the tensors A_a,b and B_a,b,c,d
@@ -845,7 +826,13 @@ class bosonic_su_n():
 
     def simulate_uncoupled_basis(self, max_t, N_dtp, rtol = 1e-3, reg_timescale = -1, N_semaphor = 100):
 
-        # reg_timescale may be a tuple, in which case the first element is the basis timescale and the second element the wavef timescale
+        # rtol/reg_timescale may be a tuple, in which case the first element is the basis timescale and the second element the wavef timescale
+        if isinstance(rtol, tuple):
+            rtol_basis, rtol_wavef = rtol
+        else:
+            rtol_basis = rtol
+            rtol_wavef = rtol
+
         if isinstance(reg_timescale, tuple):
             reg_timescale_basis, reg_timescale_wavef = reg_timescale
         else:
@@ -867,14 +854,14 @@ class bosonic_su_n():
             print("ERROR: You have attempted to simulate state evolution before specifying the initial wavefunction state. You can do this by calling set_initial_wavefunction(initial_wavefunction, message).")
             return(-1)
 
-        # We propagate each basis vector one by one
+        # We propagate each basis vector one by one TODO
 
         # Set up semaphor for basis propagation
-        self.semaphor_t_space = np.arange(self.N)
+        """self.semaphor_t_space = np.arange(self.N)
         self.semaphor_simulation_start_time = 0
         self.semaphor_start_time = time.time()
         self.semaphor_next_flag_t_i = 1
-        self.semaphor_ETA = "???"
+        self.semaphor_ETA = "???"""
 
         simulation_start_time = 0.0 # TODO is data loaded, this should be the last timestamp
         self.t_space = [simulation_start_time]
@@ -886,11 +873,11 @@ class bosonic_su_n():
         for t_i in range(1, N_dtp+1):
             self.basis_evol.append(np.zeros((self.N, self.M-1), dtype=complex))
 
-        print(f"Uncoupled basis propagation on a timescale of t = ({simulation_start_time} - {max_t}), rtol = {rtol} at {time.strftime("%H:%M:%S", time.localtime( self.semaphor_start_time))}")
+        print(f"Uncoupled basis propagation on a timescale of t = ({simulation_start_time} - {max_t}), rtol = {rtol_basis} at {time.strftime("%H:%M:%S", time.localtime(time.time()))}")
 
         for n in range(self.N):
             y_0 = self.basis[n].copy()
-            iterated_solution = sp.integrate.solve_ivp(self.uncoupled_basis_y_dot, [simulation_start_time, max_t], y_0, method = 'RK45', t_eval = np.linspace(simulation_start_time, max_t, N_dtp+1), args = (reg_timescale_basis,), rtol = rtol)
+            iterated_solution = sp.integrate.solve_ivp(self.uncoupled_basis_y_dot, [simulation_start_time, max_t], y_0, method = 'RK45', t_eval = np.linspace(simulation_start_time, max_t, N_dtp+1), args = (reg_timescale_basis,), rtol = rtol_basis)
             for t_i in range(1, N_dtp+1):
                 for m in range(self.M - 1):
                     self.basis_evol[t_i][n][m] = iterated_solution.y[m][t_i]
@@ -911,25 +898,69 @@ class bosonic_su_n():
         for t_i in range(1, N_dtp+1):
             self.wavef_evol.append(np.zeros(self.N, dtype=complex))
 
-        # Set up semaphor for basis propagation
-        self.semaphor_t_space = np.linspace(self.t_space[0], self.t_space[-1], N_semaphor + 1)
-        self.semaphor_simulation_start_time = self.t_space[0]
-        self.semaphor_start_time = time.time()
-        self.semaphor_next_flag_t_i = 1
-        self.semaphor_ETA = "???"
-
-        print(f"Wavefunction propagation over the evolved uncoupled basis on a timescale of t = ({self.t_space[0]} - {self.t_space[-1]}), rtol = {rtol} at {time.strftime("%H:%M:%S", time.localtime( self.semaphor_start_time))}")
+        # Set up semaphor event
+        msg = f"Wavefunction propagation over the evolved uncoupled basis on a timescale of t = ({self.t_space[0]} - {self.t_space[-1]}), rtol = {rtol_wavef}"
+        new_sem_ID = self.semaphor.create_event(np.linspace(self.t_space[0], self.t_space[-1], N_semaphor + 1), msg)
 
         y_0 = self.wavef.copy()
-        iterated_solution = sp.integrate.solve_ivp(self.uncoupled_wavef_y_dot, [self.t_space[0], max_t], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale_wavef,), rtol = rtol)
+        iterated_solution = sp.integrate.solve_ivp(self.uncoupled_wavef_y_dot, [self.t_space[0], max_t], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale_wavef, new_sem_ID), rtol = rtol_wavef)
 
         for t_i in range(1, N_dtp+1):
             for n in range(self.N):
                 self.wavef_evol[t_i][n] = iterated_solution.y[n][t_i]
 
-        print("  Simulation finished at " + time.strftime("%H:%M:%S", time.localtime(time.time())) + "; " + str(N_dtp) + " datapoints saved.                  ")
+        self.semaphor.finish_event(new_sem_ID, "  Simulation")
         self.is_wavef_evol = True
 
+
+    def simulate_variational(self, max_t, N_dtp, rtol = 1e-3, reg_timescale = -1, N_semaphor = 100):
+        print("Simulating state evolution by propagating both the basis vectors and the wavefunction decomposition coefficients coupled in a fully variational method.")
+
+        if not self.is_phys_init:
+            print("ERROR: You have attempted to simulate state evolution before specifying the system hamiltonian. You can do this by calling set_hamiltonian_tensors(A, B).")
+            return(-1)
+
+        if not self.is_basis_init:
+            print("ERROR: You have attempted to simulate state evolution before sampling a basis set. You can do this by calling one of the many basis-sampling methods listed below.")
+            for m, desc in bosonic_su_n.basis_sampling_methods.items():
+                print(f"{m} [{desc}]")
+            return(-1)
+        if not self.is_wavef_init:
+            print("ERROR: You have attempted to simulate state evolution before specifying the initial wavefunction state. You can do this by calling set_initial_wavefunction(initial_wavefunction, message).")
+            return(-1)
+
+        simulation_start_time = 0.0 # TODO is data loaded, this should be the last timestamp
+        self.t_space = np.linspace(simulation_start_time, max_t, N_dtp+1)
+
+        # Initialize basis_evol and wavef_evol from initial conditions
+        self.basis_evol = [np.zeros((self.N, self.M-1), dtype=complex)]
+        for i in range(self.N):
+            for j in range(self.M-1):
+                self.basis_evol[0][i][j] = self.basis[i][j]
+        for t_i in range(1, N_dtp+1):
+            self.basis_evol.append(np.zeros((self.N, self.M-1), dtype=complex))
+        self.wavef_evol = [np.zeros(self.N, dtype=complex)]
+        for i in range(self.N):
+            self.wavef_evol[0][i] = self.wavef[i]
+        for t_i in range(1, N_dtp+1):
+            self.wavef_evol.append(np.zeros(self.N, dtype=complex))
+
+        # Set up semaphor event
+        msg = f"Fully variational basis and wavefunction propagation on a timescale of t = ({self.t_space[0]} - {self.t_space[-1]}), rtol = {rtol}"
+        new_sem_ID = self.semaphor.create_event(np.linspace(self.t_space[0], self.t_space[-1], N_semaphor + 1), msg)
+
+        y_0 = self.standardise_dynamic_variables(self.basis, self.wavef)
+        iterated_solution = sp.integrate.solve_ivp(self.variational_y_dot, [self.t_space[0], max_t], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale, new_sem_ID), rtol = rtol)
+
+        for t_i in range(1, N_dtp+1):
+            for n in range(self.N):
+                self.wavef_evol[t_i][n] = iterated_solution.y[n][t_i]
+                for m in range(self.M-1):
+                    self.basis_evol[t_i][n][m] = iterated_solution.y[self.N + self.N * m + n][t_i]
+
+        self.semaphor.finish_event(new_sem_ID, "  Simulation")
+        self.is_basis_evol = True
+        self.is_wavef_evol = True
 
 
 
@@ -977,6 +1008,7 @@ class bosonic_su_n():
                 print("  Plotting the time evolution of expected mode occupancy...")#, end='', flush=True)
                 plt.title("Expected mode occupancy")
                 plt.xlabel("t")
+                plt.ylim([-0.1, 1.5])
 
                 print("    Plotting measured wavefunction magnitude and mode occupancies...")
                 psi_mag = np.zeros(len(self.t_space))
@@ -1012,7 +1044,7 @@ class bosonic_su_n():
                         initial_occupancy[m] = (z_0[m].real * z_0[m].real + z_0[m].imag * z_0[m].imag) / (1 + np.sum(np.conjugate(z_0) * z_0).real)
                     initial_occupancy[self.M - 1] = 1 / (1 + np.sum(np.conjugate(z_0) * z_0).real)
                 for m in range(self.M):
-                    plt.axhline(y = initial_occupancy[m], linestyle = "dotted", label = "init. $\\langle N_" + str(m+1) + " \\rangle/S$")
+                    plt.axhline(y = initial_occupancy[m], linestyle = "dotted", label = "init. $\\langle N_" + str(m+1) + " \\rangle/S$", color = self.mode_colors[m])
 
 
 
@@ -1028,13 +1060,13 @@ class bosonic_su_n():
                     N_space_t_space = np.linspace(self.t_space[0], self.t_space[-1], 200)
                     res_N_space = self.two_mode_solution(N_space_t_space, cur_c_0)
 
-                    plt.plot(N_space_t_space, res_N_space, linestyle = "dashed", label = "theor. $\\langle N_1 \\rangle/S$")
-                    plt.plot(N_space_t_space, res_N_space * (-1) + 1, linestyle = "dashed", label = "theor. $\\langle N_2 \\rangle/S$")
+                    plt.plot(N_space_t_space, res_N_space, linestyle = "dashed", label = "theor. $\\langle N_1 \\rangle/S$", color = self.mode_colors[0])
+                    plt.plot(N_space_t_space, res_N_space * (-1) + 1, linestyle = "dashed", label = "theor. $\\langle N_2 \\rangle/S$", color = self.mode_colors[1])
 
 
                 plt.plot(self.t_space, psi_mag, label="$\\langle \\Psi | \\Psi \\rangle$")
                 for m in range(self.M):
-                    plt.plot(self.t_space, avg_n[m], label="$\\langle N_" + str(m+1) + " \\rangle/S$")
+                    plt.plot(self.t_space, avg_n[m], label="$\\langle N_" + str(m+1) + " \\rangle/S$", color = self.mode_colors[m])
                 #print(" Done!")
 
             if x_left != -1:

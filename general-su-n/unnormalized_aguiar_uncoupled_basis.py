@@ -67,14 +67,18 @@ class bosonic_su_n():
         # Data bins are initialized
 
         # initial conditions. Unchanged when simulation occurs.
-        self.basis = []
-        self.wavef = [] # Initial decomposition coefficients
+        self.basis = [] # This is a LIST of bases, i.e. each element is a basis = np.array((self.N, self.M - 1), dtype=complex)
+        self.wavef = [] # This is a LIST of initial decomposition coefficient arrays, one for each basis
 
-        self.output_table = []#np.zeros((N_dtp, 2 + self.N * self.M), dtype=complex) # here we'll store all the results smashed together
-        self.t_space = [] # np.zeros(N_dtp)
-        self.wavef_evol = []#np.zeros((N_dtp, self.N), dtype=complex)
-        self.basis_evol = []#np.zeros((N_dtp, self.N, self.M-1), dtype=complex)
-        self.E_evol = []#np.zeros(N_dtp, dtype=complex)
+        self.N = [] # A list of basis lengths
+        self.inverse_overlap_matrix = [] # A list of overlap operators
+
+        self.t_space = [] # Initialized for the first basis and then used for each subsequent one. np.zeros(N_dtp)
+        self.wavef_evol = []# LIST of evolutions, where each element is a wavef evolution = np.zeros((N_dtp, self.N), dtype=complex)
+        self.basis_evol = []# LIST of evolutions, where each element is a basis evolution = np.zeros((N_dtp, self.N, self.M-1), dtype=complex)
+
+        # Config
+        self.basis_config = [] # Every element is a dictionary
 
         # Semaphor
         self.semaphor = Semaphor(time_format = "%H:%M:%S")
@@ -91,6 +95,7 @@ class bosonic_su_n():
 
         # Typographical constants
         # number of string lengths (max int is 10^fill -1)
+        self.B_fill = 2
         self.N_fill = 4
         self.M_fill = 2
 
@@ -118,7 +123,7 @@ class bosonic_su_n():
 
     # ------------------- Operator methods --------------------
 
-    def decompose_aguiar(self, z):
+    def decompose_aguiar(self, z, basis_index):
         # Returns a decomposition of z into self.basis
         if not self.is_basis_init:
             print("ERROR: You have attempted to calculate a wavefunction decomposition before sampling a basis set. You can do this by calling one of the many basis-sampling methods listed below.")
@@ -126,13 +131,13 @@ class bosonic_su_n():
                 print(f"{m} [{desc}]")
             return(-1)
 
-        decomposition = np.zeros(self.N, dtype=complex)
-        for i in range(self.N):
-            for a in range(self.N):
-                decomposition[i] += self.inverse_overlap_matrix[i][a] * overlap(self.basis[a], z, self.S)
+        decomposition = np.zeros(self.N[basis_index], dtype=complex)
+        for i in range(self.N[basis_index]):
+            for a in range(self.N[basis_index]):
+                decomposition[i] += self.inverse_overlap_matrix[basis_index][i][a] * overlap(self.basis[basis_index][a], z, self.S)
         return(decomposition)
 
-    def decompose_grossmann(self, xi):
+    def decompose_grossmann(self, xi, basis_index):
         # Returns a decomposition of xi into self.basis
         if not self.is_basis_init:
             print("ERROR: You have attempted to calculate a wavefunction decomposition before sampling a basis set. You can do this by calling one of the many basis-sampling methods listed below.")
@@ -140,16 +145,16 @@ class bosonic_su_n():
                 print(f"{m} [{desc}]")
             return(-1)
 
-        decomposition = np.zeros(self.N, dtype=complex)
-        for i in range(self.N):
-            for a in range(self.N):
-                cur_overlap = np.power(self.z[self.M - 1] + np.sum(np.conjugate(self.basis[a]) * self.z[:self.M - 1]), self.S )
-                decomposition[i] += cur_overlap * self.inverse_overlap_matrix[i][a]
+        decomposition = np.zeros(self.N[basis_index], dtype=complex)
+        for i in range(self.N[basis_index]):
+            for a in range(self.N[basis_index]):
+                cur_overlap = np.power(self.z[self.M - 1] + np.sum(np.conjugate(self.basis[basis_index][a]) * self.z[:self.M - 1]), self.S )
+                decomposition[i] += cur_overlap * self.inverse_overlap_matrix[basis_index][i][a]
         return(decomposition)
 
     # ----------------- Interpolation methods -----------------
 
-    def basis_state_at_time(self, t):
+    def basis_state_at_time(self, t, basis_index):
         # If basis and t_space are initialised, this will interpolate the basis state at any given time
         # and return both the state and the first time-derivative
         if not self.is_basis_evol:
@@ -163,16 +168,16 @@ class bosonic_su_n():
         for t_i in range(len(self.t_space)):
             if self.t_space[t_i] == t:
                 if t_i == 0:
-                    time_derivative = (self.basis_evol[t_i+1]-self.basis_evol[t_i]) / (self.t_space[t_i+1] - self.t_space[t_i])
+                    time_derivative = (self.basis_evol[basis_index][t_i+1]-self.basis_evol[basis_index][t_i]) / (self.t_space[t_i+1] - self.t_space[t_i])
                 else:
-                    time_derivative = (self.basis_evol[t_i]-self.basis_evol[t_i-1]) / (self.t_space[t_i] - self.t_space[t_i-1])
-                return(self.basis_evol[t_i], time_derivative)
+                    time_derivative = (self.basis_evol[basis_index][t_i]-self.basis_evol[basis_index][t_i-1]) / (self.t_space[t_i] - self.t_space[t_i-1])
+                return(self.basis_evol[basis_index][t_i], time_derivative)
             if self.t_space[t_i] > t:
                 break
         # t_i is now the index of the first datapoint at a time larger than t
-        time_derivative = (self.basis_evol[t_i]-self.basis_evol[t_i-1]) / (self.t_space[t_i] - self.t_space[t_i-1])
+        time_derivative = (self.basis_evol[basis_index][t_i]-self.basis_evol[basis_index][t_i-1]) / (self.t_space[t_i] - self.t_space[t_i-1])
         q = (t-self.t_space[t_i-1]) / (self.t_space[t_i]-self.t_space[t_i-1])
-        return(self.basis_evol[t_i - 1] + (self.basis_evol[t_i] - self.basis_evol[t_i - 1]) * q, time_derivative)
+        return(self.basis_evol[basis_index][t_i - 1] + (self.basis_evol[basis_index][t_i] - self.basis_evol[basis_index][t_i - 1]) * q, time_derivative)
         # TODO more precisely, we can avoid using finite differences by directly feeding the interpolated value
         # into uncoupled_basis_y_dot. But is it still fast enough? And does it make a difference?
 
@@ -358,13 +363,13 @@ class bosonic_su_n():
 
         return(M_inv.dot(R))
 
-    def uncoupled_wavef_y_dot(self, t, y, reg_timescale = -1, semaphor_event_ID = None):
+    def uncoupled_wavef_y_dot(self, t, y, reg_timescale, basis_index, semaphor_event_ID = None):
         # Here y = A_i, y.shape = (N)
 
-        cur_basis, cur_basis_dot = self.basis_state_at_time(t)
-        overlap_matrix = np.zeros((self.N, self.N, 3), dtype=complex) #[i][j][r] = { z^(r) | z^(r) }
-        for i in range(self.N):
-            for j in range(self.N):
+        cur_basis, cur_basis_dot = self.basis_state_at_time(t, basis_index)
+        overlap_matrix = np.zeros((self.N[basis_index], self.N[basis_index], 3), dtype=complex) #[i][j][r] = { z^(r) | z^(r) }
+        for i in range(self.N[basis_index]):
+            for j in range(self.N[basis_index]):
                 base_product = 1 + np.sum(np.conjugate(cur_basis[i]) * cur_basis[j])
                 overlap_matrix[i][j][2] = np.power(base_product, self.S - 2)
                 overlap_matrix[i][j][1] = overlap_matrix[i][j][2] * base_product
@@ -377,21 +382,21 @@ class bosonic_su_n():
                 return(1.0)
 
         # We now initialize M_ij
-        M = np.zeros((self.N, self.N), dtype=complex)
-        for i in range(self.N):
-            for j in range(self.N):
+        M = np.zeros((self.N[basis_index], self.N[basis_index]), dtype=complex)
+        for i in range(self.N[basis_index]):
+            for j in range(self.N[basis_index]):
                 M[i][j] = 1j * overlap_matrix[i][j][0]
 
         # Now we initialize R_i
-        R = np.zeros(self.N, dtype=complex)
-        for i in range(self.N):
+        R = np.zeros(self.N[basis_index], dtype=complex)
+        for i in range(self.N[basis_index]):
             sum1 = 0.0
-            for j in range(self.N):
+            for j in range(self.N[basis_index]):
                 sum1 += y[j] * overlap_matrix[i][j][1] * np.sum(np.conjugate(cur_basis[i]) * cur_basis_dot[j])
             sum1 *= -1j * self.S
 
             sum2 = 0.0
-            for j in range(self.N):
+            for j in range(self.N[basis_index]):
                 # We calculate the matrix element
                 first_order_element_sum = 0.0
                 for a in range(self.M):
@@ -427,32 +432,35 @@ class bosonic_su_n():
     def standardise_dynamic_variables(self, cur_basis, cur_wavef):
         # y is the same format as R, so [A_1, A_2 ... A_N, z_1,1, z_2,1 ... z_N,1 ... ]
         # cur_basis is a list of lists [n][m]
-        y = np.zeros(self.N * self.M, dtype = complex)
-        for n in range(self.N):
+        N = len(cur_basis)
+        y = np.zeros(N * self.M, dtype = complex)
+        for n in range(N):
             y[n] = cur_wavef[n]
             for m in range(self.M-1):
-                y[self.N + self.N * m + n] = cur_basis[n][m]
+                y[N + N * m + n] = cur_basis[n][m]
         return(y)
 
     def destandardise_dynamic_variables(self, y):
-        cur_basis = np.zeros((self.N, self.M - 1), dtype=complex)
-        cur_wavef = np.zeros(self.N, dtype=complex)
-        for n in range(self.N):
+        N = int(len(y) / self.M)
+        cur_basis = np.zeros((N, self.M - 1), dtype=complex)
+        cur_wavef = np.zeros(N, dtype=complex)
+        for n in range(N):
             cur_wavef[n] = y[n]
             for m in range(self.M-1):
-                cur_basis[n][m] = y[self.N + self.N * m + n]
+                cur_basis[n][m] = y[N + N * m + n]
         return(cur_basis, cur_wavef)
 
 
     def calculate_overlap_matrices(self, y, max_reduction = 3):
         # we note that z_n,m = y[N + N * m + n]
         # therefore z_n as a list is = y[N + n : N + n + N * M : N], where n goes from 0 to N-1 inclusive
-        X = np.zeros((self.N, self.N, max_reduction + 1), dtype=complex) # X[i][j][r] = { z_i^(r) | z_j^(r) }
+        N = int(len(y) / self.M)
+        X = np.zeros((N, N, max_reduction + 1), dtype=complex) # X[i][j][r] = { z_i^(r) | z_j^(r) }
 
         # We optimize the number of operations by noting that { z_i^(r) | z_j^(r) } = { z_i^(r+1) | z_j^(r+1) } * (1+z_i*.z_j)
-        for i in range(self.N):
-            for j in range(self.N):
-                base_inner_product = 1 + np.sum(np.conjugate(y[self.N + i : self.N + i + self.N * self.M : self.N]) * y[self.N + j : self.N + j + self.N * self.M : self.N])
+        for i in range(N):
+            for j in range(N):
+                base_inner_product = 1 + np.sum(np.conjugate(y[N + i : N + i + N * self.M : N]) * y[N + j : N + j + N * self.M : N])
                 X[i][j][max_reduction] = np.power(base_inner_product, self.S - max_reduction)
                 for delta_r in range(max_reduction):
                     X[i][j][max_reduction - (delta_r + 1)] = X[i][j][max_reduction - delta_r] * base_inner_product
@@ -477,75 +485,76 @@ class bosonic_su_n():
 
         # We also create a standardised y which includes z_n,M = 1
         # we note that z_n,m = y_std[N + N * m + n]
+        N = int(len(y) / self.M)
 
-        y_std = np.ones(self.N * (self.M + 1), dtype = complex)
-        y_std[:self.N * self.M] = y
+        y_std = np.ones(N * (self.M + 1), dtype = complex)
+        y_std[:N * self.M] = y
 
         # we want to read the semaphor right here in this function
 
         X = self.calculate_overlap_matrices(y, 3)
         cur_H_A, cur_H_B = self.calculate_hamiltonian_tensors(t)
 
-        R = np.zeros(self.M * self.N, dtype=complex)
-        m_Theta = np.zeros((self.M*self.N, self.M*self.N), dtype=complex)
+        R = np.zeros(self.M * N, dtype=complex)
+        m_Theta = np.zeros((self.M*N, self.M*N), dtype=complex)
 
         # First we calculate R
-        for k in range(self.N):
-            for j in range(self.N):
+        for k in range(N):
+            for j in range(N):
                 # First, the Hamiltonian matrix element { z_k | H | z_j }
                 H_mel_s1 = 0.0
                 for a in range(self.M):
                     for b in range(self.M):
-                        H_mel_s1 += cur_H_A[a][b] * np.conjugate(y_std[self.N + self.N * a + k]) * y_std[self.N + self.N * b + j]
+                        H_mel_s1 += cur_H_A[a][b] * np.conjugate(y_std[N + N * a + k]) * y_std[N + N * b + j]
                 H_mel_s2 = 0.0
                 for a in range(self.M):
                     for b in range(self.M):
                         for c in range(self.M):
                             for d in range(self.M):
-                                H_mel_s2 += cur_H_B[a][b][c][d] * np.conjugate(y_std[self.N + self.N * a + k]) * np.conjugate(y_std[self.N + self.N * b + k]) * y_std[self.N + self.N * c + j] * y_std[self.N + self.N * d + j]
+                                H_mel_s2 += cur_H_B[a][b][c][d] * np.conjugate(y_std[N + N * a + k]) * np.conjugate(y_std[N + N * b + k]) * y_std[N + N * c + j] * y_std[N + N * d + j]
                 H_mel = self.S * X[k][j][1] * H_mel_s1 + 0.5 * self.S * (self.S - 1) * X[k][j][2] * H_mel_s2
 
                 R[k] += y_std[j] * H_mel
 
                 for m in range(self.M-1):
-                    H_mel_diff = self.S * (self.S - 1) * X[k][j][2] * y_std[self.N + self.N * m + j] * H_mel_s1 + 0.5 * self.S * (self.S - 1) * (self.S - 2) * X[k][j][3] * y_std[self.N + self.N * m + j] * H_mel_s2
+                    H_mel_diff = self.S * (self.S - 1) * X[k][j][2] * y_std[N + N * m + j] * H_mel_s1 + 0.5 * self.S * (self.S - 1) * (self.S - 2) * X[k][j][3] * y_std[N + N * m + j] * H_mel_s2
                     term3 = 0.0
                     for b in range(self.M):
-                        term3 += cur_H_A[m][b] * y_std[self.N + self.N * b + j]
+                        term3 += cur_H_A[m][b] * y_std[N + N * b + j]
                     term4 = 0.0
                     for b in range(self.M):
                         for c in range(self.M):
                             for d in range(self.M):
-                                term4 += (cur_H_B[m][b][c][d] + cur_H_B[b][m][c][d]) * np.conjugate(y_std[self.N + self.N * b + k]) * y_std[self.N + self.N * c + j] * y_std[self.N + self.N * d + j]
+                                term4 += (cur_H_B[m][b][c][d] + cur_H_B[b][m][c][d]) * np.conjugate(y_std[N + N * b + k]) * y_std[N + N * c + j] * y_std[N + N * d + j]
                     H_mel_diff += self.S * X[k][j][1] * term3 + 0.5 * self.S * (self.S - 1) * X[k][j][2] * term4
 
-                    R[self.N + self.N * m + k] += np.conjugate(y_std[k]) * y_std[j] * H_mel_diff
+                    R[N + N * m + k] += np.conjugate(y_std[k]) * y_std[j] * H_mel_diff
 
         # Then, we calculate Theta
         # First, we fill in X
-        for i in range(self.N):
-            for j in range(self.N):
+        for i in range(N):
+            for j in range(N):
                 m_Theta[i][j] = X[i][j][0]
         # Then, we fill in Y and Y^h.c.
-        for a in range(self.N):
+        for a in range(N):
             for b in range(self.M-1):
-                for d in range(self.N):
-                    m_Theta[a][self.N + b * self.N + d] = self.S * np.conjugate(y_std[self.N + self.N * b + a]) * y_std[d] * X[a][d][1]
-                    m_Theta[self.N + b * self.N + d][a] = np.conjugate(m_Theta[a][self.N + b * self.N + d])
+                for d in range(N):
+                    m_Theta[a][N + b * N + d] = self.S * np.conjugate(y_std[N + N * b + a]) * y_std[d] * X[a][d][1]
+                    m_Theta[N + b * N + d][a] = np.conjugate(m_Theta[a][N + b * N + d])
         # Then, we fill in Z
         for i in range(self.M-1):
             for j in range(self.M-1):
-                for a in range(self.N):
-                    for b in range(self.N):
+                for a in range(N):
+                    for b in range(N):
                         # first, we evaluate (F_ij)_ab
-                        m_Theta[self.N + i * self.N + a][self.N + j * self.N + b] = self.S * (self.S - 1) * X[a][b][2] * np.conjugate(y_std[self.N + self.N * j + a]) * y_std[self.N + self.N * i + b]
+                        m_Theta[N + i * N + a][N + j * N + b] = self.S * (self.S - 1) * X[a][b][2] * np.conjugate(y_std[N + N * j + a]) * y_std[N + N * i + b]
                         if i == j:
-                            m_Theta[self.N + i * self.N + a][self.N + j * self.N + b] += self.S * X[a][b][1]
-                        m_Theta[self.N + i * self.N + a][self.N + j * self.N + b] *= np.conjugate(y_std[a]) * y_std[b]
+                            m_Theta[N + i * N + a][N + j * N + b] += self.S * X[a][b][1]
+                        m_Theta[N + i * N + a][N + j * N + b] *= np.conjugate(y_std[a]) * y_std[b]
 
         # Regularisation
         if reg_timescale != -1:
-            for i in range(self.M * self.N):
+            for i in range(self.M * N):
                 m_Theta[i][i] += reg_timescale
 
         # Finally, we calculate y dot
@@ -573,9 +582,6 @@ class bosonic_su_n():
     def set_global_parameters(self, M, S):
         self.M = M
         self.S = S
-
-        # Sample a color scheme for the modes
-        self.mode_colors = plt.cm.rainbow(np.linspace(0, 1, self.M))
 
         print("A driven Bose-Hubbard model with %i bosons over %i modes has been initialized." % (self.S, self.M))
 
@@ -674,12 +680,14 @@ class bosonic_su_n():
             return(-1)
 
         # z_0 must be of the Aguiar variety
-        self.sampling_method = "gaussian"
-        self.sampling_z_0 = z_0
-        self.sampling_width = width
-        self.sampling_conditioning_limit = conditioning_limit
-        self.sampling_N_max = N_max
-        self.sampling_max_saturation_steps = max_saturation_steps
+        self.basis_config.append({
+                "method" : "gaussian",
+                "z_0" : z_0,
+                "width" : width,
+                "conditioning_limit" : conditioning_limit,
+                "N_max" : N_max,
+                "max_saturation_steps" : max_saturation_steps
+            })
 
         if len(z_0) == 0:
             z_0 = np.zeros(self.M-1, dtype=complex)
@@ -737,17 +745,17 @@ class bosonic_su_n():
                 print("  Sampling procedure saturated!")
                 break
 
-        self.basis = new_basis
+        self.basis.append(new_basis)
 
-        self.N = len(self.basis)
-        print(f"  A sample of N = {self.N} basis vectors around z_0 = {z_0} drawn from a normal distribution of width {self.sampling_width} has been initialized.")
+        self.N.append(len(new_basis))
+        print(f"  A sample of N = {self.N[-1]} basis vectors around z_0 = {z_0} drawn from a normal distribution of width {width} has been initialized.")
 
         # Create the identity operator matrix
-        X = np.zeros((self.N, self.N), dtype = complex)
-        for m in range(self.N):
-            for n in range(self.N):
-                X[m][n] = overlap(self.basis[m], self.basis[n], self.S)
-        self.inverse_overlap_matrix = np.linalg.inv(X)
+        X = np.zeros((self.N[-1], self.N[-1]), dtype = complex)
+        for m in range(self.N[-1]):
+            for n in range(self.N[-1]):
+                X[m][n] = overlap(self.basis[-1][m], self.basis[-1][n], self.S)
+        self.inverse_overlap_matrix.append(np.linalg.inv(X))
 
 
         self.is_basis_init = True
@@ -769,6 +777,7 @@ class bosonic_su_n():
 
         if message in ["manual", "A_vals"]:
             # initial_wavefunction is just directly equal to the initial decomposition coefficients of the wavefunction
+            return(-1) # TODO unsupported for multiple bases; maybe allow to set this manually for the first basis?
             candidate_initial_wavefunction = np.array(initial_wavefunction)
             if candidate_initial_wavefunction.shape != (self.N,):
                 print("ERROR: When using the 'manual' method, initial_wavefunction has to be an array of shape (N).")
@@ -780,7 +789,9 @@ class bosonic_su_n():
             if candidate_initial_wavefunction.shape != (self.M - 1,):
                 print("ERROR: When using the 'aguiar' method, initial_wavefunction has to be an array of shape (M-1).")
                 return(-1)
-            candidate_wavef = self.decompose_aguiar(candidate_initial_wavefunction)
+            candidate_wavef = []
+            for b_i in range(len(self.basis)):
+                candidate_wavef.append(self.decompose_aguiar(candidate_initial_wavefunction, b_i))
         elif message in ["grossmann", "frank"]:
             # initial_wavefunction describes a Grossmann normalized coherent state.
             candidate_initial_wavefunction = np.array(initial_wavefunction)
@@ -790,25 +801,30 @@ class bosonic_su_n():
             if np.round(np.sum(candidate_initial_wavefunction.real * candidate_initial_wavefunction.real + candidate_initial_wavefunction.imag * candidate_initial_wavefunction.imag), 2) != 1.0:
                 print("ERROR: When using the 'grossmann' method, initial_wavefunction has to have norm 1.")
                 return(-1)
-            candidate_wavef = self.decompose_grossmann(candidate_initial_wavefunction)
+            candidate_wavef = []
+            for b_i in range(len(self.basis)):
+                candidate_wavef.append(self.decompose_grossmann(candidate_initial_wavefunction, b_i))
         elif message in ["", "NONE"]:
             print("set_initial_wavefunction called without specifying the method of initialization.")
             print("Default option selected: initial wavefunction will be set to the first element of the basis set.")
-            candidate_wavef = self.decompose_aguiar(self.basis[0])
+            candidate_wavef = []
+            for b_i in range(len(self.basis)):
+                candidate_wavef.append(self.decompose_aguiar(self.basis[0][0], b_i))
             message = "NONE"
         else:
             print("ERROR: Unknown method of wavefunction initialization.")
             return(-1)
 
-        Psi_mag = 0.0
-        for i in range(self.N):
-            for j in range(self.N):
-                Psi_mag += np.conjugate(candidate_wavef[i]) * candidate_wavef[j] * overlap(self.basis[i], self.basis[j], self.S)
-        print(f"  Initial wavefunction normalized with magnitude {Psi_mag.real:.4f}. The final decomposition will be naively renormalized...")
+        for b_i in range(len(self.basis)):
+            Psi_mag = 0.0
+            for i in range(self.N[b_i]):
+                for j in range(self.N[b_i]):
+                    Psi_mag += np.conjugate(candidate_wavef[b_i][i]) * candidate_wavef[b_i][j] * overlap(self.basis[b_i][i], self.basis[b_i][j], self.S)
+            print(f"  In basis #{b_i + 1}: Initial wavefunction normalized with magnitude {Psi_mag.real:.4f}. The final decomposition will be naively renormalized...")
 
-        # Naive renormalization
-        for i in range(self.N):
-            candidate_wavef[i] /= np.sqrt(Psi_mag.real)
+            # Naive renormalization
+            for i in range(self.N[b_i]):
+                candidate_wavef[b_i][i] /= np.sqrt(Psi_mag.real)
         self.wavef = candidate_wavef
 
         self.wavef_initial_wavefunction = initial_wavefunction
@@ -857,59 +873,63 @@ class bosonic_su_n():
         # We propagate each basis vector one by one TODO
 
         # Set up semaphor for basis propagation
-        """self.semaphor_t_space = np.arange(self.N)
-        self.semaphor_simulation_start_time = 0
-        self.semaphor_start_time = time.time()
-        self.semaphor_next_flag_t_i = 1
-        self.semaphor_ETA = "???"""
+        # TODO
 
         simulation_start_time = 0.0 # TODO is data loaded, this should be the last timestamp
-        self.t_space = [simulation_start_time]
+        self.t_space = np.linspace(simulation_start_time, max_t, N_dtp+1)
 
-        self.basis_evol = [np.zeros((self.N, self.M-1), dtype=complex)]
-        for i in range(self.N):
-            for j in range(self.M-1):
-                self.basis_evol[0][i][j] = self.basis[i][j]
-        for t_i in range(1, N_dtp+1):
-            self.basis_evol.append(np.zeros((self.N, self.M-1), dtype=complex))
+        self.basis_evol = []
+        self.wavef_evol = []
 
-        print(f"Uncoupled basis propagation on a timescale of t = ({simulation_start_time} - {max_t}), rtol = {rtol_basis} at {time.strftime("%H:%M:%S", time.localtime(time.time()))}")
+        for b_i in range(len(self.basis)):
 
-        for n in range(self.N):
-            y_0 = self.basis[n].copy()
-            iterated_solution = sp.integrate.solve_ivp(self.uncoupled_basis_y_dot, [simulation_start_time, max_t], y_0, method = 'RK45', t_eval = np.linspace(simulation_start_time, max_t, N_dtp+1), args = (reg_timescale_basis,), rtol = rtol_basis)
+            print(f"# Analyzing basis no. {b_i + 1}")
+
+            cur_basis_evol = [np.zeros((self.N[b_i], self.M-1), dtype=complex)]
+            for i in range(self.N[b_i]):
+                for j in range(self.M-1):
+                    cur_basis_evol[0][i][j] = self.basis[b_i][i][j]
             for t_i in range(1, N_dtp+1):
-                for m in range(self.M - 1):
-                    self.basis_evol[t_i][n][m] = iterated_solution.y[m][t_i]
-                if n == 0:
-                    # If this is the first one, we initialize self.t_space
-                    self.t_space.append(iterated_solution.t[t_i])
-            #self.update_semaphor(n)
+                cur_basis_evol.append(np.zeros((self.N[b_i], self.M-1), dtype=complex))
 
-        print("  Basis propagation finished at " + time.strftime("%H:%M:%S", time.localtime(time.time())) + "; " + str(N_dtp) + " datapoints saved.                  ")
+            print(f"  Uncoupled basis propagation on a timescale of t = ({simulation_start_time} - {max_t}), rtol = {rtol_basis} at {time.strftime("%H:%M:%S", time.localtime(time.time()))}")
+
+            for n in range(self.N[b_i]):
+                y_0 = self.basis[b_i][n].copy()
+                iterated_solution = sp.integrate.solve_ivp(self.uncoupled_basis_y_dot, [simulation_start_time, max_t], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale_basis,), rtol = rtol_basis)
+                for t_i in range(1, N_dtp+1):
+                    for m in range(self.M - 1):
+                        cur_basis_evol[t_i][n][m] = iterated_solution.y[m][t_i]
+                #self.update_semaphor(n)
+
+            print("    Basis propagation finished at " + time.strftime("%H:%M:%S", time.localtime(time.time())) + "; " + str(N_dtp) + " datapoints saved.                  ")
+
+            # ---------------- wavef propagation ------------------
+            # We propagate the wavefunction
+            print("  Propagating wavefunction decomposition...")
+            cur_wavef_evol = [np.zeros(self.N[b_i], dtype=complex)]
+            for i in range(self.N[b_i]):
+                cur_wavef_evol[0][i] = self.wavef[b_i][i]
+            for t_i in range(1, N_dtp+1):
+                cur_wavef_evol.append(np.zeros(self.N[b_i], dtype=complex))
+
+            # Set up semaphor event
+            msg = f"  Wavefunction propagation over the evolved uncoupled basis on a timescale of t = ({self.t_space[0]} - {self.t_space[-1]}), rtol = {rtol_wavef}"
+            new_sem_ID = self.semaphor.create_event(np.linspace(self.t_space[0], self.t_space[-1], N_semaphor + 1), msg)
+
+            y_0 = self.wavef[b_i].copy()
+            iterated_solution = sp.integrate.solve_ivp(self.uncoupled_wavef_y_dot, [self.t_space[0], max_t], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale_wavef, b_i, new_sem_ID), rtol = rtol_wavef)
+
+            for t_i in range(1, N_dtp+1):
+                for n in range(self.N[b_i]):
+                    cur_wavef_evol[t_i][n] = iterated_solution.y[n][t_i]
+
+            self.semaphor.finish_event(new_sem_ID, "    Simulation")
+
+            self.basis_evol.append(cur_basis_evol)
+            self.wavef_evol.append(cur_wavef_evol)
+
         self.is_basis_evol = True
-
-        # ---------------- wavef propagation ------------------
-        # We propagate the wavefunction
-        print("  Propagating wavefunction decomposition...")
-        self.wavef_evol = [np.zeros(self.N, dtype=complex)]
-        for i in range(self.N):
-            self.wavef_evol[0][i] = self.wavef[i]
-        for t_i in range(1, N_dtp+1):
-            self.wavef_evol.append(np.zeros(self.N, dtype=complex))
-
-        # Set up semaphor event
-        msg = f"Wavefunction propagation over the evolved uncoupled basis on a timescale of t = ({self.t_space[0]} - {self.t_space[-1]}), rtol = {rtol_wavef}"
-        new_sem_ID = self.semaphor.create_event(np.linspace(self.t_space[0], self.t_space[-1], N_semaphor + 1), msg)
-
-        y_0 = self.wavef.copy()
-        iterated_solution = sp.integrate.solve_ivp(self.uncoupled_wavef_y_dot, [self.t_space[0], max_t], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale_wavef, new_sem_ID), rtol = rtol_wavef)
-
-        for t_i in range(1, N_dtp+1):
-            for n in range(self.N):
-                self.wavef_evol[t_i][n] = iterated_solution.y[n][t_i]
-
-        self.semaphor.finish_event(new_sem_ID, "  Simulation")
         self.is_wavef_evol = True
 
 
@@ -932,33 +952,44 @@ class bosonic_su_n():
         simulation_start_time = 0.0 # TODO is data loaded, this should be the last timestamp
         self.t_space = np.linspace(simulation_start_time, max_t, N_dtp+1)
 
-        # Initialize basis_evol and wavef_evol from initial conditions
-        self.basis_evol = [np.zeros((self.N, self.M-1), dtype=complex)]
-        for i in range(self.N):
-            for j in range(self.M-1):
-                self.basis_evol[0][i][j] = self.basis[i][j]
-        for t_i in range(1, N_dtp+1):
-            self.basis_evol.append(np.zeros((self.N, self.M-1), dtype=complex))
-        self.wavef_evol = [np.zeros(self.N, dtype=complex)]
-        for i in range(self.N):
-            self.wavef_evol[0][i] = self.wavef[i]
-        for t_i in range(1, N_dtp+1):
-            self.wavef_evol.append(np.zeros(self.N, dtype=complex))
+        self.basis_evol = []
+        self.wavef_evol = []
 
-        # Set up semaphor event
-        msg = f"Fully variational basis and wavefunction propagation on a timescale of t = ({self.t_space[0]} - {self.t_space[-1]}), rtol = {rtol}"
-        new_sem_ID = self.semaphor.create_event(np.linspace(self.t_space[0], self.t_space[-1], N_semaphor + 1), msg)
+        for b_i in range(len(self.basis)):
 
-        y_0 = self.standardise_dynamic_variables(self.basis, self.wavef)
-        iterated_solution = sp.integrate.solve_ivp(self.variational_y_dot, [self.t_space[0], max_t], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale, new_sem_ID), rtol = rtol)
+            print(f"# Analyzing basis no. {b_i + 1}")
 
-        for t_i in range(1, N_dtp+1):
-            for n in range(self.N):
-                self.wavef_evol[t_i][n] = iterated_solution.y[n][t_i]
-                for m in range(self.M-1):
-                    self.basis_evol[t_i][n][m] = iterated_solution.y[self.N + self.N * m + n][t_i]
+            # Initialize basis_evol and wavef_evol from initial conditions
+            cur_basis_evol = [np.zeros((self.N[b_i], self.M-1), dtype=complex)]
+            for i in range(self.N[b_i]):
+                for j in range(self.M-1):
+                    cur_basis_evol[0][i][j] = self.basis[b_i][i][j]
+            for t_i in range(1, N_dtp+1):
+                cur_basis_evol.append(np.zeros((self.N[b_i], self.M-1), dtype=complex))
+            cur_wavef_evol = [np.zeros(self.N[b_i], dtype=complex)]
+            for i in range(self.N[b_i]):
+                cur_wavef_evol[0][i] = self.wavef[b_i][i]
+            for t_i in range(1, N_dtp+1):
+                cur_wavef_evol.append(np.zeros(self.N[b_i], dtype=complex))
 
-        self.semaphor.finish_event(new_sem_ID, "  Simulation")
+            # Set up semaphor event
+            msg = f"Fully variational basis and wavefunction propagation on a timescale of t = ({self.t_space[0]} - {self.t_space[-1]}), rtol = {rtol}, reg_t = {reg_timescale}"
+            new_sem_ID = self.semaphor.create_event(np.linspace(self.t_space[0], self.t_space[-1], N_semaphor + 1), msg)
+
+            y_0 = self.standardise_dynamic_variables(self.basis[b_i], self.wavef[b_i])
+            iterated_solution = sp.integrate.solve_ivp(self.variational_y_dot, [self.t_space[0], self.t_space[-1]], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale, new_sem_ID), rtol = rtol)
+
+            for t_i in range(1, N_dtp+1):
+                for n in range(self.N[b_i]):
+                    cur_wavef_evol[t_i][n] = iterated_solution.y[n][t_i]
+                    for m in range(self.M-1):
+                        cur_basis_evol[t_i][n][m] = iterated_solution.y[self.N[b_i] + self.N[b_i] * m + n][t_i]
+
+            self.semaphor.finish_event(new_sem_ID, "  Simulation")
+
+            self.basis_evol.append(cur_basis_evol)
+            self.wavef_evol.append(cur_wavef_evol)
+
         self.is_basis_evol = True
         self.is_wavef_evol = True
 
@@ -971,6 +1002,19 @@ class bosonic_su_n():
     def plot_data(self, graph_list = ["expected_mode_occupancy", "initial_decomposition"], save_graph=True):
 
         print("Graphical output plotting routine initialized.")
+
+        # Sample a color scheme for the modes
+        mode_reference_points = np.linspace(0, 1, self.M + 2)[:-1]
+        mode_reference_spacing = mode_reference_points[1] - mode_reference_points[0]
+        mode_reference_spacing_fraction = 0.6
+
+        self.ref_color = [] # [b_i]
+        self.mode_colors = [] # [m][b_i]
+        self.ref_color = plt.cm.rainbow(np.linspace(mode_reference_points[-1], mode_reference_points[-1] + mode_reference_spacing * mode_reference_spacing_fraction, len(self.basis)))
+        for m in range(self.M):
+            self.mode_colors.append(plt.cm.rainbow(np.linspace(mode_reference_points[m], mode_reference_points[m] + mode_reference_spacing * mode_reference_spacing_fraction, len(self.basis) + 1)))
+
+
         # create a superplot
         superplot_shape_x, superplot_shape_y = subplot_dimensions(len(graph_list))
 
@@ -990,20 +1034,22 @@ class bosonic_su_n():
                 if self.M != 2:
                     print("  ERROR: Attempting to plot 'initial_decomposition' with unsuitable mode number.")
                     continue
-                x_vals = np.zeros(self.N)
-                y_vals = np.zeros(self.N)
-                s_vals = np.zeros(self.N)
 
-                for n in range(self.N):
-                    x_vals[n] = self.basis_evol[0][n][0].real
-                    y_vals[n] = self.basis_evol[0][n][0].imag
-                    s_vals[n] = np.absolute(self.wavef_evol[0][n])
+                for b_i in range(len(self.basis)):
+                    x_vals = np.zeros(self.N[b_i])
+                    y_vals = np.zeros(self.N[b_i])
+                    s_vals = np.zeros(self.N[b_i])
 
-                plt.xlabel("$\\Re\\left(z_n\\right)$")
-                plt.ylabel("$\\Im\\left(z_n\\right)$")
+                    for n in range(self.N[b_i]):
+                        x_vals[n] = self.basis_evol[b_i][0][n][0].real
+                        y_vals[n] = self.basis_evol[b_i][0][n][0].imag
+                        s_vals[n] = np.absolute(self.wavef_evol[b_i][0][n])
 
-                plt.scatter(x_vals, y_vals, 5 + np.power(s_vals, 1/10) * 450)
-                include_legend = False
+                    plt.xlabel("$\\Re\\left(z_n\\right)$")
+                    plt.ylabel("$\\Im\\left(z_n\\right)$")
+
+                    plt.scatter(x_vals, y_vals, 5 + np.power(s_vals, 1/10) * 450, label = f"Basis n. {b_i + 1}")
+                #include_legend = False
             elif graph_list[i] == 'expected_mode_occupancy':
                 print("  Plotting the time evolution of expected mode occupancy...")#, end='', flush=True)
                 plt.title("Expected mode occupancy")
@@ -1011,23 +1057,28 @@ class bosonic_su_n():
                 plt.ylim([-0.1, 1.5])
 
                 print("    Plotting measured wavefunction magnitude and mode occupancies...")
-                psi_mag = np.zeros(len(self.t_space))
-
+                psi_mag = []
                 avg_n = []
-                for m in range(self.M):
-                    avg_n.append(np.zeros(len(self.t_space)))
+                for b_i in range(len(self.basis)):
+                    psi_mag.append(np.zeros(len(self.t_space)))
 
-                for t_i in range(len(self.t_space)):
-                    for a in range(self.N):
-                        for b in range(self.N):
-                            cur_X_1 = overlap(self.basis_evol[t_i][a], self.basis_evol[t_i][b], self.S, r = 1)
-                            psi_mag[t_i] += (np.conjugate(self.wavef_evol[t_i][a]) * self.wavef_evol[t_i][b] * overlap(self.basis_evol[t_i][a], self.basis_evol[t_i][b], self.S)).real
-                            for m in range(self.M-1):
-                                avg_n[m][t_i] += (np.conjugate(self.wavef_evol[t_i][a]) * self.wavef_evol[t_i][b] * np.conjugate(self.basis_evol[t_i][a][m]) * self.basis_evol[t_i][b][m] * cur_X_1).real
-                            avg_n[self.M-1][t_i] += (np.conjugate(self.wavef_evol[t_i][a]) * self.wavef_evol[t_i][b] * cur_X_1).real
+                    avg_n.append([])
+                    for m in range(self.M):
+                        avg_n[b_i].append(np.zeros(len(self.t_space)))
+
+                    for t_i in range(len(self.t_space)):
+                        for a in range(self.N[b_i]):
+                            for b in range(self.N[b_i]):
+                                cur_X_1 = overlap(self.basis_evol[b_i][t_i][a], self.basis_evol[b_i][t_i][b], self.S, r = 1)
+                                psi_mag[b_i][t_i] += (np.conjugate(self.wavef_evol[b_i][t_i][a]) * self.wavef_evol[b_i][t_i][b] * overlap(self.basis_evol[b_i][t_i][a], self.basis_evol[b_i][t_i][b], self.S)).real
+                                for m in range(self.M-1):
+                                    avg_n[b_i][m][t_i] += (np.conjugate(self.wavef_evol[b_i][t_i][a]) * self.wavef_evol[b_i][t_i][b] * np.conjugate(self.basis_evol[b_i][t_i][a][m]) * self.basis_evol[b_i][t_i][b][m] * cur_X_1).real
+                                avg_n[b_i][self.M-1][t_i] += (np.conjugate(self.wavef_evol[b_i][t_i][a]) * self.wavef_evol[b_i][t_i][b] * cur_X_1).real
+
+
 
                 # We insert horizontal lines indicating occupancies calculated from z_0
-                initial_occupancy = np.zeros(self.M)
+                """initial_occupancy = np.zeros(self.M)
                 if self.wavef_message == "aguiar":
                     z_0 = np.array(self.wavef_initial_wavefunction)
                     for m in range(self.M - 1):
@@ -1044,29 +1095,40 @@ class bosonic_su_n():
                         initial_occupancy[m] = (z_0[m].real * z_0[m].real + z_0[m].imag * z_0[m].imag) / (1 + np.sum(np.conjugate(z_0) * z_0).real)
                     initial_occupancy[self.M - 1] = 1 / (1 + np.sum(np.conjugate(z_0) * z_0).real)
                 for m in range(self.M):
-                    plt.axhline(y = initial_occupancy[m], linestyle = "dotted", label = "init. $\\langle N_" + str(m+1) + " \\rangle/S$", color = self.mode_colors[m])
+                    plt.axhline(y = initial_occupancy[m], linestyle = "dotted", label = "init. $\\langle N_" + str(m+1) + " \\rangle/S$", color = self.mode_colors[m])"""
 
 
 
                 # if two-mode, we insert the algebraic solution
+                algebraic_t_space = []
+                algebraic_solution = []
                 if self.M == 2:
                     print("    Plotting theoretical wavefunction magnitude and mode occupancies for the two-mode solution...")
                     cur_c_0 = np.zeros(self.S + 1, dtype = complex)
                     for i in range(self.S + 1):
-                        for a in range(self.N):
-                            cur_c_0[i] += self.wavef_evol[0][a] * np.power(self.basis_evol[0][a], i)
+                        for a in range(self.N[0]):
+                            # TODO do this based on self.initial_wavefunction
+                            cur_c_0[i] += self.wavef_evol[0][0][a] * np.power(self.basis_evol[0][0][a], i)
                         cur_c_0[i] *= np.sqrt( math.factorial(self.S) / (math.factorial(i) * math.factorial(self.S-i)) )
 
-                    N_space_t_space = np.linspace(self.t_space[0], self.t_space[-1], 200)
-                    res_N_space = self.two_mode_solution(N_space_t_space, cur_c_0)
+                    algebraic_t_space = np.linspace(self.t_space[0], self.t_space[-1], 200)
+                    res_N_space = self.two_mode_solution(algebraic_t_space, cur_c_0)
 
-                    plt.plot(N_space_t_space, res_N_space, linestyle = "dashed", label = "theor. $\\langle N_1 \\rangle/S$", color = self.mode_colors[0])
-                    plt.plot(N_space_t_space, res_N_space * (-1) + 1, linestyle = "dashed", label = "theor. $\\langle N_2 \\rangle/S$", color = self.mode_colors[1])
+                    algebraic_solution.append(res_N_space)
+                    algebraic_solution.append(res_N_space * (-1) + 1)
+
+                    #plt.plot(algebraic_t_space, res_N_space, linestyle = "dashed", label = "theor. $\\langle N_1 \\rangle/S$", color = self.mode_colors[0])
+                    #plt.plot(algebraic_t_space, res_N_space * (-1) + 1, linestyle = "dashed", label = "theor. $\\langle N_2 \\rangle/S$", color = self.mode_colors[1])
 
 
-                plt.plot(self.t_space, psi_mag, label="$\\langle \\Psi | \\Psi \\rangle$")
+                for b_i in range(len(self.basis)):
+                    plt.plot(self.t_space, psi_mag[b_i], label=f"$\\langle \\Psi | \\Psi \\rangle$ (N = {self.N[b_i]})", color = self.ref_color[b_i])
                 for m in range(self.M):
-                    plt.plot(self.t_space, avg_n[m], label="$\\langle N_" + str(m+1) + " \\rangle/S$", color = self.mode_colors[m])
+                    for b_i in range(len(self.basis)):
+                        plt.plot(self.t_space, avg_n[b_i][m], label=f"$\\langle N_{m+1} \\rangle/S$ (N = {self.N[b_i]})", color = self.mode_colors[m][b_i])
+                    if len(algebraic_solution) > m:
+                        plt.plot(algebraic_t_space, algebraic_solution[m], linestyle = "dashed", label = "theor. $\\langle N_1 \\rangle/S$", color = self.mode_colors[m][-1])
+
                 #print(" Done!")
 
             if x_left != -1:
@@ -1089,6 +1151,16 @@ class bosonic_su_n():
     # ---------------------------------------------------------
     # ----------------- Data storage methods ------------------
     # ---------------------------------------------------------
+    # Encoders and decoders for .csv headers
+    def encode_basis_evol_header(self, b_i, n, m):
+        # Returns the name of the column for the b_i-th basis, n-th vector, m-th parameter
+        return("B" + str(b_i).zfill(self.B_fill) + "_z_" + str(n).zfill(self.N_fill) + "_" + str(m).zfill(self.M_fill))
+
+    def encode_wavef_evol_header(self, b_i, n):
+        # Returns the name of the column for the b_i-th basis, n-th decomposition coefficient
+        return("B" + str(b_i).zfill(self.B_fill) + "_A_" + str(n).zfill(self.N_fill))
+
+
     # Loading and saving
 
     def save_data(self):
@@ -1108,9 +1180,15 @@ class bosonic_su_n():
         if self.is_phys_init:
             config_file.write(", ".join(str(x) for x in [self.M, self.S]) + "\n")
         if self.is_basis_init:
-            if self.sampling_method == "gaussian":
-                config_file.write(", ".join(str(x) for x in [self.sampling_method, self.sampling_width, self.sampling_conditioning_limit, self.sampling_N_max, self.sampling_max_saturation_steps]) + "\n")
-                config_file.write(", ".join(str(x) for x in self.sampling_z_0) + "\n")
+            # For every basis set, we input two lines
+            # First, the number of basis sets
+            config_file.write(str(len(self.basis)) + "\n")
+
+            # Then, for each basis, we print the basis size + sampling config
+            for b_i in range(len(self.basis)):
+                if self.basis_config[b_i]["method"] == "gaussian":
+                    config_file.write(", ".join(str(x) for x in [self.basis_config[b_i]["method"], self.N[b_i], self.basis_config[b_i]["width"], self.basis_config[b_i]["conditioning_limit"], self.basis_config[b_i]["N_max"], self.basis_config[b_i]["max_saturation_steps"]]) + "\n")
+                    config_file.write(", ".join(str(x) for x in self.basis_config[b_i]["z_0"]) + "\n")
         if self.is_wavef_init:
             config_file.write(self.wavef_message + "\n")
             if self.wavef_message != "NONE":
@@ -1131,31 +1209,36 @@ class bosonic_su_n():
         # If they exist, stores basis and wavef initialization
         if self.is_basis_init:
             basis_init_file = open(dir_path + self.output_basis_init_filename + ".txt", "w")
-            for basis_vector in self.basis:
-                basis_init_file.write(", ".join(str(x) for x in basis_vector) + "\n")
+            for b_i in range(len(self.basis)):
+                for basis_vector in self.basis[b_i]:
+                    basis_init_file.write(", ".join(str(x) for x in basis_vector) + "\n")
             basis_init_file.close()
 
         if self.is_wavef_init:
             wavef_init_file = open(dir_path + self.output_wavef_init_filename + ".txt", "w")
-            wavef_init_file.write(", ".join(str(x) for x in self.wavef) + "\n")
+            for b_i in range(len(self.basis)):
+                wavef_init_file.write(", ".join(str(x) for x in self.wavef[b_i]) + "\n")
             wavef_init_file.close()
 
         # If they exist, stores basis and wavef evolution
+        # The evolutions are stored side by side for each basis
         if self.is_basis_evol:
             basis_evol_file = open(dir_path + self.output_basis_evol_filename + ".csv", "w")
             basis_evol_writer = csv.writer(basis_evol_file)
             header_row = ["t"]
 
-            for n in range(self.N):
-                for m in range(self.M - 1):
-                    header_row.append("z_" + str(n).zfill(self.N_fill) + "_" + str(m).zfill(self.M_fill))
+            for b_i in range(len(self.basis)):
+                for n in range(self.N[b_i]):
+                    for m in range(self.M - 1):
+                        header_row.append(self.encode_basis_evol_header(b_i, n, m))
             basis_evol_writer.writerow(header_row)
 
             for t_i in range(len(self.t_space)):
                 cur_row = [self.t_space[t_i]]
-                for n in range(self.N):
-                    for m in range(self.M - 1):
-                        cur_row.append(self.basis_evol[t_i][n][m])
+                for b_i in range(len(self.basis)):
+                    for n in range(self.N[b_i]):
+                        for m in range(self.M - 1):
+                            cur_row.append(self.basis_evol[b_i][t_i][n][m])
                 basis_evol_writer.writerow(cur_row)
             basis_evol_file.close()
 
@@ -1164,14 +1247,16 @@ class bosonic_su_n():
             wavef_evol_writer = csv.writer(wavef_evol_file)
             header_row = ["t"]
 
-            for n in range(self.N):
-                header_row.append("A_" + str(n).zfill(self.N_fill))
+            for b_i in range(len(self.basis)):
+                for n in range(self.N[b_i]):
+                    header_row.append(self.encode_wavef_evol_header(b_i, n))
             wavef_evol_writer.writerow(header_row)
 
             for t_i in range(len(self.t_space)):
                 cur_row = [self.t_space[t_i]]
-                for n in range(self.N):
-                    cur_row.append(self.wavef_evol[t_i][n])
+                for b_i in range(len(self.basis)):
+                    for n in range(self.N[b_i]):
+                        cur_row.append(self.wavef_evol[b_i][t_i][n])
                 # TODO add physical descriptors such as <E> here?
                 wavef_evol_writer.writerow(cur_row)
             wavef_evol_file.close()
@@ -1226,37 +1311,58 @@ class bosonic_su_n():
             # Load basis init
             cur_line_list = config_lines[cur_config_line_index].split(", ")
             cur_config_line_index += 1
-            self.sampling_method = cur_line_list[0]
-            if self.sampling_method == "gaussian":
-                self.sampling_width = float(cur_line_list[1])
-                self.sampling_conditioning_limit = float(cur_line_list[2])
-                self.sampling_N_max = int(cur_line_list[3])
-                self.sampling_max_saturation_steps = int(cur_line_list[4])
 
-                cur_line_list = config_lines[cur_config_line_index].split(", ")
+            number_of_bases = int(cur_line_list[0])
+            self.basis_config = []
+            self.N = []
+
+            for b_i in range(number_of_bases):
+                cur_line_list_a = config_lines[cur_config_line_index].split(", ") # config
                 cur_config_line_index += 1
-                self.sampling_z_0 = np.array([complex(x) for x in cur_line_list], dtype=complex)
+                cur_line_list_b = config_lines[cur_config_line_index].split(", ") # z_0
+                cur_config_line_index += 1
+
+                self.basis_config.append({})
+
+                self.basis_config[b_i]["method"] = cur_line_list_a[0]
+                self.N.append(int(cur_line_list_a[1]))
+                if self.basis_config[b_i]["method"] == "gaussian":
+                    self.basis_config[b_i]["width"]              = float(cur_line_list_a[2])
+                    self.basis_config[b_i]["conditioning_limit"] = float(cur_line_list_a[3])
+                    self.basis_config[b_i]["N_max"]                = int(cur_line_list_a[4])
+                    self.basis_config[b_i]["max_saturation_steps"] = int(cur_line_list_a[5])
+
+                    self.basis_config[b_i]["z_0"] = np.array([complex(x) for x in cur_line_list_b], dtype=complex)
+                if self.basis_config[b_i]["method"]== "gaussian":
+                    print(f"  A sample of N = {self.N[b_i]} basis vectors around z_0 = {self.basis_config[b_i]["z_0"]} drawn from a normal distribution of width {self.basis_config[b_i]["width"]} has been loaded.")
 
             basis_init_file = open(dir_path + self.output_basis_init_filename + ".txt", "r")
             basis_init_lines = [line.rstrip('\n') for line in basis_init_file]
             basis_init_file.close()
 
             self.basis = []
+            for b_i in range(number_of_bases):
+                self.basis.append([])
+            cur_b_i = 0
+            cur_b_vec_i = 0
             for basis_vec_line in basis_init_lines:
-                self.basis.append(np.array([complex(x) for x in basis_vec_line.split(", ")], dtype=complex))
+                self.basis[cur_b_i].append(np.array([complex(x) for x in basis_vec_line.split(", ")], dtype=complex))
+                cur_b_vec_i += 1
+                if cur_b_vec_i == self.N[cur_b_i]:
+                    cur_b_i += 1
+                    cur_b_vec_i = 0
 
-            self.N = len(self.basis)
+            # Create the identity operator matrices
+            self.inverse_overlap_matrix = []
 
-            # Create the identity operator matrix
-            X = np.zeros((self.N, self.N), dtype = complex)
-            for m in range(self.N):
-                for n in range(self.N):
-                    X[m][n] = overlap(self.basis[m], self.basis[n], self.S)
-            self.inverse_overlap_matrix = np.linalg.inv(X)
+            for b_i in range(len(self.basis)):
+                X = np.zeros((self.N[b_i], self.N[b_i]), dtype = complex)
+                for m in range(self.N[b_i]):
+                    for n in range(self.N[b_i]):
+                        X[m][n] = overlap(self.basis[b_i][m], self.basis[b_i][n], self.S)
+                self.inverse_overlap_matrix.append(np.linalg.inv(X))
 
             self.is_basis_init = True
-            if self.sampling_method == "gaussian":
-                print(f"  A sample of N = {self.N} basis vectors around z_0 = {self.sampling_z_0} drawn from a normal distribution of width {self.sampling_width} has been loaded.")
 
         if past_is_wavef_init and config_load[2]:
             # Load wavef init
@@ -1271,7 +1377,10 @@ class bosonic_su_n():
             wavef_init_lines = [line.rstrip('\n') for line in wavef_init_file]
             wavef_init_file.close()
 
-            self.wavef = np.array([complex(x) for x in wavef_init_lines[0].split(", ")], dtype=complex)
+            self.wavef = []
+
+            for b_i in range(len(self.basis)):
+                self.wavef.append(np.array([complex(x) for x in wavef_init_lines[0].split(", ")], dtype=complex))
 
             self.is_wavef_init = True
             if self.wavef_message == "manual":
@@ -1282,7 +1391,7 @@ class bosonic_su_n():
                 print(f"  An initial wavefunction decomposition has been loaded from a pure Grossmann coherent state | xi > = {self.wavef_initial_wavefunction}.")
             elif self.wavef_message == "NONE":
                 if self.is_basis_init:
-                    print(f"  An initial wavefunction decomposition has been loaded from a pure Aguar coherent state (the first element of the basis set), | z }} = {self.basis[0]}.")
+                    print(f"  An initial wavefunction decomposition has been loaded from a pure Aguar coherent state (the first element of the basis set), | z }} = {self.basis[0][0]}.")
                 else:
                     print(f"  An initial wavefunction decomposition has been loaded from a pure Aguar coherent state (the first element of the basis set), but the basis has not been initialized.")
 
@@ -1291,31 +1400,34 @@ class bosonic_su_n():
             if not self.is_phys_init:
                 print("ERROR: You cannot load basis evolution without loading or setting the physics configuration.")
                 return(-1)
+            if not self.is_basis_init:
+                print("ERROR: You cannot load basis evolution without loading the basis initialization.")
+                return(-1)
 
             # Load basis evol
             basis_evol_file = open(dir_path + self.output_basis_evol_filename + ".csv", newline='')
-            basis_evol_reader = csv.reader(basis_evol_file, delimiter=',', quotechar='"')
-            basis_evol_rows = list(basis_evol_reader)
-            basis_evol_file.close()
+            basis_evol_reader = csv.DictReader(basis_evol_file, delimiter=',', quotechar='"')
 
-            header_row = basis_evol_rows[0]
-
-            N_dtp = len(basis_evol_rows) - 1
             self.t_space = [] # np.zeros(N_dtp)
-            self.basis_evol = [] # np.zeros((N_dtp, self.N, self.M-1), dtype=complex)
+            self.basis_evol = [] # [b_i] = np.zeros((N_dtp, self.N, self.M-1), dtype=complex)
+            for b_i in range(len(self.basis)):
+                self.basis_evol.append([])
 
-            for i in range(N_dtp):
-                # we append the empty ndarrays
-                self.basis_evol.append(np.zeros((self.N, self.M - 1), dtype = complex))
 
-                self.t_space.append(float(basis_evol_rows[i+1][0]))
+            for row in basis_evol_reader:
+                self.t_space.append(float(row["t"]))
 
-                for n in range(self.N):
-                    for m in range(self.M-1):
-                        self.basis_evol[i][n][m] = complex(basis_evol_rows[i+1][1 + (self.M - 1) * n + m])
+                for b_i in range(len(self.basis)):
+                    # we append the empty ndarrays
+                    self.basis_evol[b_i].append(np.zeros((self.N[b_i], self.M - 1), dtype = complex))
 
+                    for n in range(self.N[b_i]):
+                        for m in range(self.M-1):
+                            self.basis_evol[b_i][-1][n][m] = complex(row[self.encode_basis_evol_header(b_i, n, m)])
+
+            basis_evol_file.close()
             self.is_basis_evol = True
-            print(f"  Basis evolution ({N_dtp} datapoints) loaded.")
+            print(f"  Basis evolution ({len(self.basis_evol[0])} datapoints) loaded.")
 
         if past_is_wavef_evol and config_load[4]:
 
@@ -1328,29 +1440,28 @@ class bosonic_su_n():
 
             # Load wavef evol
             wavef_evol_file = open(dir_path + self.output_wavef_evol_filename + ".csv", newline='')
-            wavef_evol_reader = csv.reader(wavef_evol_file, delimiter=',', quotechar='"')
-            wavef_evol_rows = list(wavef_evol_reader)
-            wavef_evol_file.close()
+            wavef_evol_reader = csv.DictReader(wavef_evol_file, delimiter=',', quotechar='"')
 
-            header_row = wavef_evol_rows[0]
-
-            N_dtp = len(wavef_evol_rows) - 1
-            if len(self.t_space) not in [0, N_dtp]:
+            """if len(self.t_space) not in [0, N_dtp]:
                 print(f"ERROR: Attempted to load {N_dtp} wavef_evol datapoints, but the internal length of t_space is already set to {len(self.t_space)}.")
-                return(-1)
+                return(-1)"""
             self.t_space = [] # np.zeros(N_dtp)
-            self.wavef_evol = [] # np.zeros((N_dtp, self.N), dtype=complex)
+            self.wavef_evol = [] # [b_i] = np.zeros((N_dtp, self.N), dtype=complex)
+            for b_i in range(len(self.basis)):
+                self.wavef_evol.append([])
 
-            for i in range(N_dtp):
-                # we append the empty ndarrays
-                self.wavef_evol.append(np.zeros(self.N, dtype = complex))
-                self.t_space.append(float(wavef_evol_rows[i+1][0]))
+            for row in wavef_evol_reader:
+                self.t_space.append(float(row["t"]))
+                for b_i in range(len(self.basis)):
+                    # we append the empty ndarrays
+                    self.wavef_evol[b_i].append(np.zeros(self.N[b_i], dtype = complex))
 
-                for n in range(self.N):
-                    self.wavef_evol[i][n] = complex(wavef_evol_rows[i+1][1 + n])
+                    for n in range(self.N[b_i]):
+                        self.wavef_evol[b_i][-1][n] = complex(row[self.encode_wavef_evol_header(b_i, n)])
 
+            wavef_evol_file.close()
             self.is_wavef_evol = True
-            print(f"  Wavefunction evolution ({N_dtp} datapoints) loaded.")
+            print(f"  Wavefunction evolution ({len(self.wavef_evol[0])} datapoints) loaded.")
 
 
 

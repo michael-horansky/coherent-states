@@ -1,0 +1,13 @@
+def A_BH(t, a, b):
+    BH_params = {
+        "J_0" : 1,
+        "J_1" : 0.5,
+        "omega" : 2 * np.pi,
+        "K" : 0,
+        "j_zero" : 0
+    }
+    if a == b:
+        return(BH_params["K"] * (a - BH_params["j_zero"]) * (a - BH_params["j_zero"]) / 2)
+    if a == b + 1 or a == b - 1:
+        return(BH_params["J_0"] + BH_params["J_1"] * np.cos(BH_params["omega"] * t))
+    return(0.0)

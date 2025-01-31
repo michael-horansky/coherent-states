@@ -75,18 +75,40 @@ bose_hubbard.plot_data()"""
 
 
 bose_hubbard = bosonic_su_n("bose_hubbard_M=2_variational_new")
-bose_hubbard.load_data()
+#bose_hubbard.load_data()
 
-#bose_hubbard.set_global_parameters(M = 2, S = 10)
-#bose_hubbard.set_hamiltonian_tensors(A_BH, B_BH)
+bose_hubbard.set_global_parameters(M = 2, S = 10)
+bose_hubbard.set_hamiltonian_tensors(A_BH, B_BH)
 
-#z_0 = np.array([0.00+ 1j * 0.00], dtype=complex)
+z_0 = np.array([0.00+ 1j * 0.00], dtype=complex)
 # Note: to get more basis vectors in a sample, increase particle number! It makes saturation less probable :)
-#bose_hubbard.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e11, N_max = 30, max_saturation_steps = 5000)
-#bose_hubbard.sample_gaussian(z_0 = z_0, width = 0.2, conditioning_limit = 10e11, N_max = 30, max_saturation_steps = 5000)
-#bose_hubbard.set_initial_wavefunction()
+bose_hubbard.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e4, N_max = 30, max_saturation_steps = 5000)
+bose_hubbard.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e4, N_max = 5, max_saturation_steps = 5000)
+bose_hubbard.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e4, N_max = 1, max_saturation_steps = 5000)
+bose_hubbard.set_initial_wavefunction()
 
-#bose_hubbard.simulate_variational(max_t = 2.0, N_dtp = 200, rtol = 2e-3, reg_timescale = 1e-4)
-#bose_hubbard.save_data()
+bose_hubbard.simulate_variational(max_t = 2.0, N_dtp = 200, rtol = 1e-4, reg_timescale = 1e-6)
+bose_hubbard.fock_solution()
+bose_hubbard.save_data()
 
-bose_hubbard.plot_data()
+bose_hubbard.plot_data(graph_list = ["expected_mode_occupancy"])
+
+"""bose_hubbard = bosonic_su_n("bose_hubbard_M=3_variational_new")
+#bose_hubbard.load_data()
+
+bose_hubbard.set_global_parameters(M = 3, S = 10)
+bose_hubbard.set_hamiltonian_tensors(A_BH, B_BH)
+
+z_0 = np.array([0.50+ 1j * 0.50, 0.50 + -1j * 0.50], dtype=complex)
+# Note: to get more basis vectors in a sample, increase particle number! It makes saturation less probable :)
+bose_hubbard.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e11, N_max = 50, max_saturation_steps = 5000)
+#bose_hubbard.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e11, N_max = 25, max_saturation_steps = 5000)
+bose_hubbard.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e11, N_max = 10, max_saturation_steps = 5000)
+bose_hubbard.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e11, N_max = 1, max_saturation_steps = 5000)
+bose_hubbard.set_initial_wavefunction()
+
+bose_hubbard.simulate_variational(max_t = 1.0, N_dtp = 200, rtol = 1e-3, reg_timescale = 1e-4)
+bose_hubbard.fock_solution()
+bose_hubbard.save_data()
+
+bose_hubbard.plot_data( graph_list = ["expected_mode_occupancy"])"""

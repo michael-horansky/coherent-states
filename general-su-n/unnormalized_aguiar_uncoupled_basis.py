@@ -1279,6 +1279,8 @@ class bosonic_su_n():
                     print("  ERROR: Attempting to plot 'initial_decomposition' with unsuitable mode number.")
                     continue
 
+                plt.xlabel("$\\Re\\left(z_n\\right)$")
+                plt.ylabel("$\\Im\\left(z_n\\right)$")
                 for b_i in range(len(self.basis)):
                     x_vals = np.zeros(self.N[b_i])
                     y_vals = np.zeros(self.N[b_i])
@@ -1288,9 +1290,6 @@ class bosonic_su_n():
                         x_vals[n] = self.basis_evol[b_i][0][n][0].real
                         y_vals[n] = self.basis_evol[b_i][0][n][0].imag
                         s_vals[n] = np.absolute(self.wavef_evol[b_i][0][n])
-
-                    plt.xlabel("$\\Re\\left(z_n\\right)$")
-                    plt.ylabel("$\\Im\\left(z_n\\right)$")
 
                     plt.scatter(x_vals, y_vals, 5 + np.power(s_vals, 1/10) * 450, label = f"Basis n. {b_i + 1}")
                 #include_legend = False
@@ -1342,29 +1341,6 @@ class bosonic_su_n():
                     plt.axhline(y = initial_occupancy[m], linestyle = "dotted", label = "init. $\\langle N_" + str(m+1) + " \\rangle/S$", color = self.mode_colors[m])"""
 
 
-
-                # if two-mode, we insert the algebraic solution
-                """algebraic_t_space = []
-                algebraic_solution = []
-                if self.M == 2:
-                    print("    Plotting theoretical wavefunction magnitude and mode occupancies for the two-mode solution...")
-                    cur_c_0 = np.zeros(self.S + 1, dtype = complex)
-                    for i in range(self.S + 1):
-                        for a in range(self.N[0]):
-                            # TODO do this based on self.initial_wavefunction
-                            cur_c_0[i] += self.wavef_evol[0][0][a] * np.power(self.basis_evol[0][0][a], i)
-                        cur_c_0[i] *= np.sqrt( math.factorial(self.S) / (math.factorial(i) * math.factorial(self.S-i)) )
-
-                    algebraic_t_space = np.linspace(self.t_space[0], self.t_space[-1], 200)
-                    res_N_space = self.two_mode_solution(algebraic_t_space, cur_c_0)
-
-                    algebraic_solution.append(res_N_space)
-                    algebraic_solution.append(res_N_space * (-1) + 1)"""
-
-                    #plt.plot(algebraic_t_space, res_N_space, linestyle = "dashed", label = "theor. $\\langle N_1 \\rangle/S$", color = self.mode_colors[0])
-                    #plt.plot(algebraic_t_space, res_N_space * (-1) + 1, linestyle = "dashed", label = "theor. $\\langle N_2 \\rangle/S$", color = self.mode_colors[1])
-
-
                 for b_i in range(len(self.basis)):
                     plt.plot(self.t_space, psi_mag[b_i], label=f"$\\langle \\Psi | \\Psi \\rangle$ (N = {self.N[b_i]})", color = self.ref_color[b_i])
                 for m in range(self.M):
@@ -1377,6 +1353,30 @@ class bosonic_su_n():
                         plt.plot(self.t_space, cur_solution, linestyle = "dashed", label = f"theor. $\\langle N_{m+1} \\rangle/S$", color = self.mode_colors[m][-1])
 
                 #print(" Done!")
+            elif graph_list[i] == 'basis_phase_space':
+                if self.M != 2:
+                    print("  ERROR: Attempting to plot 'basis_phase_space' with unsuitable mode number.")
+                    continue
+                plt.title("Phase space of $|{z}\\}=z$")
+                y_space = np.linspace(-8, 8, 20)
+                x_space = np.linspace(-11, 11, 20)
+
+                U = np.zeros((len(y_space), len(x_space)))
+                V = np.zeros((len(y_space), len(x_space)))
+
+                for x_i in range(len(x_space)):
+                    for y_i in range(len(y_space)):
+                        cur_z = np.array([x_space[x_i] + 1j * y_space[y_i]])
+                        cur_z_dot = self.uncoupled_basis_y_dot(0, cur_z)[0]
+                        U[y_i][x_i] = cur_z_dot.real
+                        V[y_i][x_i] = cur_z_dot.imag
+
+                plt.quiver(x_space, y_space, U, V)
+
+                plt.xlabel("$\\Re\\left(z\\right)$")
+                plt.ylabel("$\\Im\\left(z\\right)$")
+                include_legend = False
+
 
             if x_left != -1:
                 plt.xlim(x_left, x_right)

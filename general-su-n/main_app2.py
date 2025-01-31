@@ -54,7 +54,7 @@ def B_DHT(t, a, b, c, d):
 
 
 
-DHT = bosonic_su_n("DHT_M=3")
+"""DHT = bosonic_su_n("DHT_M=3")
 #DHT.load_data()
 
 DHT.set_global_parameters(M = 3, S = 10)
@@ -71,10 +71,10 @@ DHT.simulate_variational(max_t = 2.0, N_dtp = 200, rtol = 1e-3, reg_timescale = 
 DHT.fock_solution()
 DHT.save_data()
 
-DHT.plot_data(graph_list = ["expected_mode_occupancy"])
+DHT.plot_data(graph_list = ["expected_mode_occupancy"])"""
 
 
-"""DHT = bosonic_su_n("DHT_M=2")
+DHT = bosonic_su_n("DHT_M=2")
 DHT.load_data()
 
 #DHT.set_global_parameters(M = 2, S = 10)
@@ -91,5 +91,5 @@ DHT.load_data()
 #DHT.fock_solution()
 #DHT.save_data()
 
-DHT.plot_data(graph_list = ["expected_mode_occupancy"])"""
+DHT.plot_data(graph_list = ["expected_mode_occupancy", "basis_phase_space"])
 

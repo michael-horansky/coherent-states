@@ -1,0 +1,10 @@
+True, True, True, True, True, True
+2, 30
+3
+gaussian, 5, 1.0, 1000.0, 30, 5000
+0j
+gaussian, 5, 1.0, 1000.0, 5, 5000
+0j
+gaussian, 1, 1.0, 1000.0, 1, 5000
+0j
+NONE

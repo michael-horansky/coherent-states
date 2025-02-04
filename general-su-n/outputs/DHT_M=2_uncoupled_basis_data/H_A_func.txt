@@ -1,0 +1,12 @@
+def A_DHT(t, a, b):
+    DHT_params = {
+        "xi" : 2.1,
+        "lambda_0" : 0.01,
+    }
+    if a == b:
+        return(3/2 + DHT_params["xi"] * DHT_params["xi"] / 2)
+    if a == b + 1:
+        return(-DHT_params["xi"] * np.sqrt(a/2))
+    if b == a + 1:
+        return(-DHT_params["xi"] * np.sqrt(b/2))
+    return(0.0)

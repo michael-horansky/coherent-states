@@ -202,9 +202,9 @@ class bosonic_su_n():
         normalisation_coef = np.power(1 / np.sqrt(1 + np.sum(z.real * z.real + z.imag * z.imag)), self.S)
 
         for i in range(len(fock_basis)):
-            c[i] = np.sqrt( math.factorial(self.S) ) * normalisation_coef
+            c[i] = np.sqrt( float(math.factorial(self.S)) ) * normalisation_coef
             for m in range(self.M):
-                c[i] /= np.sqrt(math.factorial(fock_basis[i][m]))
+                c[i] /= np.sqrt(float(math.factorial(fock_basis[i][m])))
                 if m < self.M - 1:
                     c[i] *= np.power(z[m], fock_basis[i][m])
         return(c)
@@ -227,9 +227,9 @@ class bosonic_su_n():
     def basis_state_at_time(self, t, basis_index):
         # If basis and t_space are initialised, this will interpolate the basis state at any given time
         # and return both the state and the first time-derivative
-        if not self.is_basis_evol:
+        """if not self.is_basis_evol:
             print("ERROR: Cannot interpolate the state of the basis at a non-zero time without first having evolved the basis.")
-            return(-1)
+            return(-1)"""
 
         if t < self.t_space[0] or t > self.t_space[-1]:
             print(f"ERROR: Cannot interpolate the state of the basis at a time outside of the interval of propagation ({self.t_space[0]}, {self.t_space[-1]}).")
@@ -638,7 +638,7 @@ class bosonic_su_n():
         # y_dot = M^(-1) . R
         # Regularisation
         if reg_timescale != -1:
-            for i in range(self.M - 1):
+            for i in range(self.N[basis_index]):
                 M[i][i] += reg_timescale
         M_inv = np.linalg.inv(M)
 
@@ -1133,6 +1133,7 @@ class bosonic_su_n():
                 #self.update_semaphor(n)
 
             print("    Basis propagation finished at " + time.strftime("%H:%M:%S", time.localtime(time.time())) + "; " + str(N_dtp) + " datapoints saved.                  ")
+            self.basis_evol.append(cur_basis_evol)
 
             # ---------------- wavef propagation ------------------
             # We propagate the wavefunction
@@ -1156,7 +1157,6 @@ class bosonic_su_n():
 
             self.semaphor.finish_event(new_sem_ID, "    Simulation")
 
-            self.basis_evol.append(cur_basis_evol)
             self.wavef_evol.append(cur_wavef_evol)
 
             self.evol_benchmarks.append(time.time() - cur_start_time)

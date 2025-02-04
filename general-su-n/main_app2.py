@@ -74,22 +74,22 @@ DHT.save_data()
 DHT.plot_data(graph_list = ["expected_mode_occupancy"])"""
 
 
-DHT = bosonic_su_n("DHT_M=2")
-DHT.load_data()
+DHT = bosonic_su_n("DHT_M=2_uncoupled_basis")
+#DHT.load_data()
 
-#DHT.set_global_parameters(M = 2, S = 10)
-#DHT.set_hamiltonian_tensors(A_DHT, B_DHT)
+DHT.set_global_parameters(M = 2, S = 10)
+DHT.set_hamiltonian_tensors(A_DHT, B_DHT)
 
-#z_0 = np.array([0.10+ 1j * 0.10], dtype=complex)
+z_0 = np.array([0.10+ 1j * 0.10], dtype=complex)
 # Note: to get more basis vectors in a sample, increase particle number! It makes saturation less probable :)
+DHT.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e11, N_max = 5, max_saturation_steps = 5000)
 #DHT.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e11, N_max = 5, max_saturation_steps = 5000)
-#DHT.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e11, N_max = 5, max_saturation_steps = 5000)
-#DHT.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e11, N_max = 1, max_saturation_steps = 5000)
-#DHT.set_initial_wavefunction()
+DHT.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e11, N_max = 1, max_saturation_steps = 5000)
+DHT.set_initial_wavefunction()
 
-#DHT.simulate_variational(max_t = 2.0, N_dtp = 200, rtol = 1e-3, reg_timescale = 1e-4)
-#DHT.fock_solution()
-#DHT.save_data()
+DHT.simulate_uncoupled_basis(max_t = 2.0, N_dtp = 200, rtol = 2e-4, reg_timescale = 1e-3)
+DHT.fock_solution()
+DHT.save_data()
 
 DHT.plot_data(graph_list = ["expected_mode_occupancy", "basis_phase_space"])
 

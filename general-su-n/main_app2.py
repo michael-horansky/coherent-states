@@ -1,4 +1,4 @@
-from unnormalized_aguiar_uncoupled_basis import *
+from unnormalized_aguiar_solver import *
 
 import math
 import numpy as np

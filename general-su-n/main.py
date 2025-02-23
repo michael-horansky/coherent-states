@@ -87,7 +87,7 @@ bose_hubbard.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e4, 
 bose_hubbard.set_initial_wavefunction()
 
 #bose_hubbard.simulate_uncoupled_basis(max_t = 2.0, N_dtp = 200, rtol = 1e-4, reg_timescale = 1e-6)
-bose_hubbard.simulate_variational(max_t = 2.0, N_dtp = 200, rtol = 1e-4, reg_timescale = 1e-6)
+bose_hubbard.simulate_variational(max_t = 0.8, N_dtp = 200, rtol = 1e-4, reg_timescale = 1e-6)
 bose_hubbard.fock_solution()
 bose_hubbard.save_data()
 

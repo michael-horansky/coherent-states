@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 from pathlib import Path
 import inspect # callable handling
+from functools import partial
 from copy import deepcopy
 import time
 from class_Semaphor import Semaphor
@@ -89,6 +90,9 @@ class bosonic_su_n():
     ###########################################################################
     # --------------- STATIC METHODS, CONSTRUCTORS, DESCRIPTORS ---------------
     ###########################################################################
+
+    rk_max_step = 0.1
+    rk_max_norm_deviation = 1.5
 
     basis_sampling_methods = {
             "sample_gaussian(z_0 = np.array([]), width = 1.0, conditioning_limit = -1, N_max = 50, max_saturation_steps = 50)" : "J. Chem. Phys. 144, 094106 (2016); see Appendix"
@@ -1218,13 +1222,38 @@ class bosonic_su_n():
             new_sem_ID = self.semaphor.create_event(np.linspace(self.t_space[0], self.t_space[-1], N_semaphor + 1), msg)
 
             y_0 = self.standardise_dynamic_variables(self.basis[b_i], self.wavef[b_i])
-            iterated_solution = sp.integrate.solve_ivp(self.variational_y_dot, [self.t_space[0], self.t_space[-1]], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale, new_sem_ID), rtol = rtol)
+
+            # Set up the RK45 (Dormand-Prince) iterator and iterate
+            t_dense = [self.t_space[0]]
+            y_dense = [y_0]
+            variational_y_dot_partial = partial(self.variational_y_dot, reg_timescale = reg_timescale, semaphor_event_ID = new_sem_ID)
+            solver = sp.integrate.RK45(fun = variational_y_dot_partial, t0 = self.t_space[0], y0 = y_0, t_bound=self.t_space[-1], rtol = rtol, max_step=bosonic_su_n.rk_max_step)
+            while(solver.status == "running"):
+                solver.step()
+                t_dense.append(solver.t)
+                y_dense.append(solver.y.copy())
+                # Check exit conditions!
+                """norm_trace = 0.0
+                for i in range(self.N[b_i]):
+                    norm_trace += (np.conjugate(solver.y[i]) * solver.y[i]) * np.power(1 + np.sum(np.conjugate(solver.y[self.N[b_i] + i : self.N[b_i] + i + self.N[b_i] * self.M : self.N[b_i]]) * solver.y[self.N[b_i] + i : self.N[b_i] + i + self.N[b_i] * self.M : self.N[b_i]]), self.S)
+                if norm_trace.real > bosonic_su_n.rk_max_norm_deviation:
+                    break"""
+
+            resul_interpolator = sp.interpolate.interp1d(x = np.array(t_dense), y = np.array(y_dense), axis = 0, assume_sorted = True, bounds_error = False)
+            for t_i in range(1, N_dtp+1):
+                interpolated_y = resul_interpolator(self.t_space[t_i])
+                for n in range(self.N[b_i]):
+                    cur_wavef_evol[t_i][n] = interpolated_y[n]
+                    for m in range(self.M-1):
+                        cur_basis_evol[t_i][n][m] = interpolated_y[self.N[b_i] + self.N[b_i] * m + n]
+
+            """iterated_solution = sp.integrate.solve_ivp(self.variational_y_dot, [self.t_space[0], self.t_space[-1]], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale, new_sem_ID), rtol = rtol, max_step = bosonic_su_n.rk_max_step)
 
             for t_i in range(1, N_dtp+1):
                 for n in range(self.N[b_i]):
                     cur_wavef_evol[t_i][n] = iterated_solution.y[n][t_i]
                     for m in range(self.M-1):
-                        cur_basis_evol[t_i][n][m] = iterated_solution.y[self.N[b_i] + self.N[b_i] * m + n][t_i]
+                        cur_basis_evol[t_i][n][m] = iterated_solution.y[self.N[b_i] + self.N[b_i] * m + n][t_i]"""
 
             self.semaphor.finish_event(new_sem_ID, "  Simulation")
 

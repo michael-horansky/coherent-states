@@ -21,7 +21,7 @@
 	
 	Glauber, in 1963, applied the same idea to the Hamiltonian which describes the interaction between an atomic system and an electromagnetic field, forming field coherent states\footnote{Also known as Glauber coherent states.}, and showed that, although not orthogonal, they form a complete basis of the Hilbert space, they minimise uncertainty, and remain coherent under time evolution \cite{field_coherent_states}. Glauber constructed three equivalent definitions of field coherent states $\ket{\alpha}$ of a single mode:
 	\begin{itemize}
-		\item Eigenstates of the lowering operator
+		\item Eigenstates of the annihilation operator
 		$$\hat{a}\ket{\alpha} = \alpha\ket{\alpha}$$
 		\item Minimum-uncertainty states.
 		\item Displacements of the ground state
@@ -40,11 +40,66 @@
 	Moreover, if the Lie algebra of the dynamical group is semisimple, it can be transformed into the Cartan basis, where all operators in the algebra are either fully diagonal, or analogous to the creation and annihilation operators. Viscondi, Grigolo, and de Aguiar found an expression for the semiclassical propagator for such cases, which determines the overlap of two different coherent states at different times \cite{Aguiar}. Here the full picture of the semiclassical approximation is painted: the coherent states evolve according to equations of motion governed by an effective classical Hamiltonian, and the amplitude of their overlap measures their entanglement.
 	
 	\subsection{Bosonic quantum dynamics}
-	Talk about applicatyion 1 and application 2
+	The semiclassical approach is firstly applied to bosonic systems with constant total particle number. As shown in Sec. \ref{sec:sum}, all such systems possess the same dynamical group, and thus one construction of coherent states can be used to all such systems.
 	
+	The approach is applied to two particular systems:
+	\begin{enumerate}
+		\item The multimode Bose-Hubbard model, which is useful in description of optical lattices \cite{optical_lattices}.
+		\item A displaced harmonic trap, which is used as a benchmark for the efficiency of the approach for a large number of modes.
+	\end{enumerate}
+	The two systems have been previously studied by 1. Qiao and Grossmann \cite{grossmann} and 2. Green and Shalashilin \cite{green}, respectively.
 	
+	Qiao and Grossmann apply a similar approach to mine in their study of the Bose-Hubbard model, constructing coherent states from the $SU(M)$ dynamical group. However, they use normalised coherent states, for which the derivation of the equations of motion is slightly different, and they do not posses some desirable properties, such as a complex quotient-space metric, due to the fact they are not analytic.
 	
-	\section{Theory: SU(M) coherent states}
+	Green and Shalashilin do not use the group-theoretical $SU(M)$ coherent states. Rather, they use "coupled coherent states", which, as eigenstates of the annihilation operator, are analogous to field coherent states. These coupled coherent states are not eigenstates of the total particle number, and as such are not contained in the Hilbert space of the system, which renders them inefficient as a basis.
+	
+	The aim of the first part of my project is to reproduce the results of these two investigations using analytic unnormalised $SU(M)$ coherent states based on the construction demonstrated by Viscondi, Grigolo, and de Aguiar. This would prove the efficiency and accuracy of the new group-theoretical approach to semiclassical methods, and pave the way for further work on other systems, namely fermionic quantum dynamics.
+	
+	\section{Theory: SU(M) coherent states} \label{sec:sum}
+	
+	Any second-order\footnote{Comprising of one-body and two-body interactions} Hamiltonian for a bosonic system with $M$ modes which preserves the total particle number can be formulated in second-quantisation in the following general form \cite[p. 3]{green}:
+	\begin{equation}
+	\hat{H} = \sum_{\alpha=1}^M\sum_{\beta=1}^M A_{\alpha\beta}\hat{a}^\dagger_\alpha\hat{a}_\beta + \sum_{\alpha=1}^M\sum_{\beta=1}^M\sum_{\gamma=1}^M\sum_{\delta=1}^M B_{\alpha\beta\gamma\delta}\hat{a}^\dagger_\alpha\hat{a}^\dagger_\beta\hat{a}_\gamma\hat{a}_\delta
+	\end{equation}
+	where $A_{\alpha\beta}, B_{\alpha\beta\gamma\delta}$ are the matrix elements of the one-body and two-body interactions, respectively.
+	
+	For a total number of particles $S$, the Hilbert space is spanned by occupancy eigenstates
+	\begin{equation}\label{eq:occ_basis}
+	\ket{s_1,s_2\dots s_M}\qq{where} s_1+s_2+\dots + s_M = S
+	\end{equation}
+	
+	\subsection{Quotient group $G/H$ for bosonic systems which preserve total particle number}
+	
+	We see that the transition operators for the occupancy basis in Eq. \ref{eq:occ_basis} are
+	\begin{equation}
+		\hat{T}_{ij}=\hat{a}^\dagger_i\hat{a}_j
+	\end{equation}
+	and the Hamiltonian can be expressed as a second-order polynomial in terms of $\hat{T}_ij$. Finally, we see that
+	\begin{equation}
+	\left[\hat{T}_{ij}, \hat{T}_{i'j'}\right]=\hat{T}_{ij'}\delta_{i'j}-\hat{T}_{i'j}\delta_{ij'}
+	\end{equation}
+	therefore $\hat{T}_{ij}$ forms a Lie algebra. We transform this basis like so:
+	\begin{eqnarray*}
+	\hat{S}&=&\sum_{i=1}^M\hat{T}_{ii}\\
+	\hat{H}_i&=&\hat{T}_{i+1,i+1}-\hat{T}_{ii}\qq{for}i=1,2\dots M-1\\
+	\hat{E}_{ij}&=&\hat{T}_{ij}\qq{for}i>j\\
+	\hat{E}_{ij}^\dagger &=&\hat{T}_{ji}\qq{for}i>j
+	\end{eqnarray*}
+	We see that the element $\hat{S}$ commutes with every other element, and therefore the dynamical group can be expressed as the direct product of $U(1)$ and the group generated by $\hat{H},\hat{E},\hat{E}^\dagger$. This second group's Lie algebra constitutes the complete matrix basis for traceless $(M\times M)$ matrices, and therefore the second group is $SL(M,\mathbb{R})$. The full dynamical group is therefore $U(1)\otimes SL(M,\mathbb{R})$
+	
+	We now choose a reference state. We will choose
+	\begin{equation}
+	\ket{Phi_0}=\ket{0,0\dots S}
+	\end{equation}
+	This state is conventional in literature on $SU(M)$ coherent states, and is suitable for a specific reason: it is extremal in the sense that operators $S, H$ leave it invariant up to a phase factor and operators $\hat{E}$ destroy it. Therefore we identify the general element of the quotient group $G/H$ as
+	\begin{equation}
+	\hat{\Omega}(\vec{z})=\sum_i^{M-1}z_i\hat{E}^\dagger_{M,i}=\sum_i^{M-1}z_i\hat{a}^\dagger_i\hat{a}_M
+	\end{equation}
+	where $\vec{z}$ is an $(M-1)$-dimensional complex vector.
+	
+	\subsubsection{On the difference between $SU(M)$ and $SL(M,\mathbb{R})$}
+	When transforming the basis $\hat{T}_{ij}$, one may choose to complexify it and form a set of Hermitian and anti-Hermitian operators ($\hat{T}_{ij}+\hat{T}_{ji}$ and $i(\hat{T}_{ij}-\hat{T}_{ji})$), respectively. This complexification is allowed in the sense that the transition operators remain independent even if the field of coefficients is complex. Identifying the resulting operators with the generalised Gell-Mann matrices yields the dynamical group $SU(M)$ \cite{gellmann}. Although resulting in a different quotient group $G/H$, the coherent states are identical to our $SL(M,\mathbb{R})$ construction. For the details of this construction, see Sec. 2.2.3 in the paper by Viscondi, Grigolo, and de Aguiar \cite{Aguiar}.
+	
 	
 	\subsection{Construction and properties}
 	
@@ -105,6 +160,19 @@
 	
 	\bibitem{Aguiar}
 	Viscondi, T. F., Grigolo, A., de Aguiar, M. A. M. (2015), Semiclassical Propagator in the Generalized Coherent-State Representation. \href{https://doi.org/10.48550/arXiv.1510.05952}{arXiv:1510.05952 \textbf{[quant-ph]}}
+	
+	\bibitem{optical_lattices}
+	Block, I., Dalibard, J., Zwerger, W. (2008), Many-body physics with ultracold gases. \textit{Rev. Mod. Phys.}, \textbf{80}, pp. 885--964
+	
+	\bibitem{grossmann}
+	Qiao, Y., Grossmann, F. (2021), Exact variational dynamics of the multimode Bose-Hubbard model based on $SU(M)$ coherent states. \textit{Phys. Rev. A}, \textbf{103}, 042209
+	
+	\bibitem{green}
+	Green, J. A., Shalashilin, D. V. (2019), Simulation of the quantum dynamics of indistinguishable bosons with the method of coupled coherent states. \textit{Phys. Rev. A}, \textbf{100}, 013607
+	
+	\bibitem{gellmann}
+	Bertlmann, R. A., Krammer, P. (2008), Bloch vectors for qudits. \href{ 	
+https://doi.org/10.48550/arXiv.0806.1174}{arXiv:0806.1174 \textbf{[quant-ph]}}
 
 	\end{thebibliography}
 	\bibliographystyle{unsrt}

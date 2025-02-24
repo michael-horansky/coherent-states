@@ -23,27 +23,57 @@
 	\begin{itemize}
 		\item Eigenstates of the lowering operator
 		$$\hat{a}\ket{\alpha} = \alpha\ket{\alpha}$$
-		\item $\ket{\alpha}$ is a minimum-uncertainty state.
+		\item Minimum-uncertainty states.
 		\item Displacements of the ground state
 		$$\ket{\alpha} = \exp(\alpha\hat{a}^\dagger-\alpha^*\hat{a})\ket{0}$$
 	\end{itemize}
 	
 	Attempting to generalise Glauber's construction to an arbitrary Hamiltonian restricts our approach. Firstly, constructing coherent states as eigenstates of the lowering operator is trivially impossible on finite-dimensional Hilbert spaces. Secondly, constructing coherent states as minimum-uncertainty states is ill-advised, as it is not necessary they form a complete basis, or that unity can be resolved in them \cite{no_unity}. Constructing coherent states as a displacement of some reference state, however, is always possible, and a satisfactory group-theoretical formulation was found independently by Perelomov \cite{perelomov_og} and Gilmore \cite{gilmore_og} in 1972. This construction follows these steps:
 	\begin{enumerate}
-		\item Choose a reference state $\ket{\phi_0}$.
+		\item Find the action group $G$ of the system, i.e. a Lie group such that both the Hamiltonian and the transition operators can be expressed as functions of the elements of the Lie algebra of $G$.
+		\item Choose a reference state $\ket{\Phi_0}$ in the Hilbert space (typically the ground state or some other extremal state).
+		\item Find the stability subgroup $H\subset G$ which is the group of all elements of $G$ which leave the reference state invariant up to a phase factor.
+		\item Find the quotient group $G/H$. Each element $\Omega\in G/H$ generates a unique coherent state $\Omega\ket{\Phi_0}$, and the resulting set of coherent states is topologically equivalent to the coset space $G/H$.
 	\end{enumerate}
+	This process, as presented and discussed by Zhang, Feng, and Gilmore \cite{ZFG}, constructs a basis of states which retain all the desired properties (coherence, minimal uncertainty, and evolution according to an effective classical Hamiltonian), and which can be constructed for a system with any dynamical group. Unity can always be resolved in this basis, which is complete but not orthogonal, and therefore overcomplete.
+	
+	Moreover, if the Lie algebra of the dynamical group is semisimple, it can be transformed into the Cartan basis, where all operators in the algebra are either fully diagonal, or analogous to the creation and annihilation operators. Viscondi, Grigolo, and de Aguiar found an expression for the semiclassical propagator for such cases, which determines the overlap of two different coherent states at different times \cite{Aguiar}. Here the full picture of the semiclassical approximation is painted: the coherent states evolve according to equations of motion governed by an effective classical Hamiltonian, and the amplitude of their overlap measures their entanglement.
+	
+	\subsection{Bosonic quantum dynamics}
+	Talk about applicatyion 1 and application 2
 	
 	
 	
-	\section{Theory}
+	\section{Theory: SU(M) coherent states}
+	
+	\subsection{Construction and properties}
+	
+	unnormalized???? so cool!!
+	
+	\subsection{Decomposition of the Schrodinger equation}
+	
+	\subsection{Basis sampling}
+	
+	here we save time!
+	
+	what even is conditioning
 	
 	
-	\section{Progress}
 	
+	\section{Progress and outlook}
 	
+	\subsection{Provisional results}
 	
-	\section{Outlook}
 	\subsection{Next steps in research}
+	better numerical resolution
+	
+	better stability
+	
+	how about using the semiclassical propagator to make the basis sampling ULTRA clever
+	
+	fermions lessgooo
+	
+	ZOMBIE STATES???? reference pls :))) lit af
 	
 	\subsection{Training plan}
 	
@@ -69,6 +99,12 @@
 	
 	\bibitem{gilmore_og}
 	Gilmore, R. (1972), Geometry of symmetrized states. \textit{Ann. Phys.}, \textbf{74}, 2, pp. 391--463
+	
+	\bibitem{ZFG}
+	Zhang, W. M., Feng, D. H., Gilmore, R. (1990), Coherent states: Theory and some applications. \textit{Rev. Mod. Phys.}, \textbf{62}, pp. 867--927
+	
+	\bibitem{Aguiar}
+	Viscondi, T. F., Grigolo, A., de Aguiar, M. A. M. (2015), Semiclassical Propagator in the Generalized Coherent-State Representation. \href{https://doi.org/10.48550/arXiv.1510.05952}{arXiv:1510.05952 \textbf{[quant-ph]}}
 
 	\end{thebibliography}
 	\bibliographystyle{unsrt}

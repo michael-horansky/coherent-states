@@ -58,17 +58,17 @@
 	\section{Theory: SU(M) coherent states} \label{sec:sum}
 	
 	Any second-order\footnote{Comprising of one-body and two-body interactions} Hamiltonian for a bosonic system with $M$ modes which preserves the total particle number can be formulated in second-quantisation in the following general form \cite[p. 3]{green}:
-	\begin{equation}
-	\hat{H} = \sum_{\alpha=1}^M\sum_{\beta=1}^M A_{\alpha\beta}\hat{a}^\dagger_\alpha\hat{a}_\beta + \sum_{\alpha=1}^M\sum_{\beta=1}^M\sum_{\gamma=1}^M\sum_{\delta=1}^M B_{\alpha\beta\gamma\delta}\hat{a}^\dagger_\alpha\hat{a}^\dagger_\beta\hat{a}_\gamma\hat{a}_\delta
+	\begin{equation}\label{eq:general hamiltonian}
+	\hat{H} = \sum_{\alpha=1}^M\sum_{\beta=1}^M V^{(1)}_{\alpha\beta}\hat{a}^\dagger_\alpha\hat{a}_\beta + \frac{1}{2}\sum_{\alpha=1}^M\sum_{\beta=1}^M\sum_{\gamma=1}^M\sum_{\delta=1}^M V^{(2)}_{\alpha\beta\gamma\delta}\hat{a}^\dagger_\alpha\hat{a}^\dagger_\beta\hat{a}_\gamma\hat{a}_\delta
 	\end{equation}
-	where $A_{\alpha\beta}, B_{\alpha\beta\gamma\delta}$ are the matrix elements of the one-body and two-body interactions, respectively.
+	where $V^{(1)}_{\alpha\beta}, V^{(2)}_{\alpha\beta\gamma\delta}$ are the matrix elements of the one-body and two-body interactions, respectively.
 	
 	For a total number of particles $S$, the Hilbert space is spanned by occupancy eigenstates
 	\begin{equation}\label{eq:occ_basis}
 	\ket{s_1,s_2\dots s_M}\qq{where} s_1+s_2+\dots + s_M = S
 	\end{equation}
 	
-	\subsection{Quotient group $G/H$ for bosonic systems which preserve total particle number}
+	\subsection{Quotient group $G/H$ for bosonic systems preserving total particle number}
 	
 	We see that the transition operators for the occupancy basis in Eq. \ref{eq:occ_basis} are
 	\begin{equation}
@@ -89,10 +89,10 @@
 	
 	We now choose a reference state. We will choose
 	\begin{equation}
-	\ket{Phi_0}=\ket{0,0\dots S}
+	\ket{\Phi_0}=\ket{0,0\dots S}
 	\end{equation}
 	This state is conventional in literature on $SU(M)$ coherent states, and is suitable for a specific reason: it is extremal in the sense that operators $S, H$ leave it invariant up to a phase factor and operators $\hat{E}$ destroy it. Therefore we identify the general element of the quotient group $G/H$ as
-	\begin{equation}
+	\begin{equation} \label{eq:quotient element}
 	\hat{\Omega}(\vec{z})=\sum_i^{M-1}z_i\hat{E}^\dagger_{M,i}=\sum_i^{M-1}z_i\hat{a}^\dagger_i\hat{a}_M
 	\end{equation}
 	where $\vec{z}$ is an $(M-1)$-dimensional complex vector.
@@ -100,22 +100,177 @@
 	\subsubsection{On the difference between $SU(M)$ and $SL(M,\mathbb{R})$}
 	When transforming the basis $\hat{T}_{ij}$, one may choose to complexify it and form a set of Hermitian and anti-Hermitian operators ($\hat{T}_{ij}+\hat{T}_{ji}$ and $i(\hat{T}_{ij}-\hat{T}_{ji})$), respectively. This complexification is allowed in the sense that the transition operators remain independent even if the field of coefficients is complex. Identifying the resulting operators with the generalised Gell-Mann matrices yields the dynamical group $SU(M)$ \cite{gellmann}. Although resulting in a different quotient group $G/H$, the coherent states are identical to our $SL(M,\mathbb{R})$ construction. For the details of this construction, see Sec. 2.2.3 in the paper by Viscondi, Grigolo, and de Aguiar \cite{Aguiar}.
 	
+	Also note that the extra factor $U(1)$ in the dynamical group is commonly ignored in literature, since it is trivially included in the stability subgroup, and therefore does not affect the construction of the coherent states.
+	
 	
 	\subsection{Construction and properties}
+	Applying the quotient elements from Eq. \ref{eq:quotient element} to the reference state we obtain the coherent states
+	\begin{equation}\label{eq:exponential form}
+	\ket{\vec{z}}=\exp(\sum_i^{M-1}z_i\hat{a}^\dagger_i\hat{a}_M)\ket{\Phi_0}
+	\end{equation}
+	This expression can be simplified \cite{buonsante} into the following form:
+	\begin{equation}
+	\ket{\vec{z}}=\frac{1}{\sqrt{S!}}\left(\hat{a}^\dagger_M+\sum_i^{M-1}z_i\hat{a}^\dagger_i\right)^S\ket{0,0\dots 0}
+	\end{equation}
 	
-	unnormalized???? so cool!!
+	Note that these states are, in general, not normalised. Therefore, I will denote unnormalized coherent states with curly brackets in the bra-ket notation, following the convention in \cite{Aguiar}, like so:
+	\begin{equation} \label{eq:canonical form}
+	\unnormket{\vec{z}}=\frac{1}{\sqrt{S!}}\left(\hat{a}^\dagger_M+\sum_i^{M-1}z_i\hat{a}^\dagger_i\right)^S\ket{0,0\dots 0}
+	\end{equation}
+	The approach of Qiao and Grossmann uses a slightly different form, which imposes an extra condition to have the basis states normalised. However, this extra condition has to be accounted for in the equations of motion, which they do not do, as they expect the states to remain normalised under time evolution. This leads to overparametrisation, which is not only inefficient, but renders the construction of a quotient-space metric or identity operator in their formalism ill-formed. Viscondi, Grigolo, and de Aguiar take the unnormalized states $\unnormket{z}$ and project them onto a normalised space of equal dimension by adding a normalisation coefficient. However, since this coefficient depends on both $\vec{z}$ and $\vec{z}^*$, the normalised states are not analytic. I take a different approach: I work directly with the unnormalised states as basis vectors, and include a normalisation factor in the Lagrangian, which still permits me to use Wirtinger calculus to find the equations of motion.
+	\subsubsection{Relationship between the coherent state and occupancy bases}
+	By applying the multinomial theorem to Eq. \ref{eq:canonical form} we obtain the decomposition of $\unnormket{z}$ into the occupancy basis:
+	\begin{equation}
+	\unnormket{z}=\sum_{k_1+k_1+\dots +k_M=S}\sqrt{\frac{S!}{k_1!k_2!\dots k_M!}}z_1^{k_1}z_2^{k_2}\dots z_{M-1}^{k_{M-1}}\ket{k_1,k_2\dots k_M}
+	\end{equation}
+	
+	\subsubsection{Overlaps and reduced forms}
+	By applying Wick's theorem to Eq. \ref{eq:canonical form} we obtain the overlap element:
+	\begin{equation}\label{eq:overlap}
+	\unnormbraket{\vec{z}_a}{\vec{z}_b}=\left(1+\vec{z}_a^*\cdot\vec{z}_b\right)^S
+	\end{equation}
+	Since unmatched creation and annihilation operators are not members of the dynamical Lie algebra, acting with them on the coherent states projects them outside of the Hilbert space. We can describe this with the reduced form of $\unnormket{\vec{z}}$, defined as follows:
+	\begin{eqnarray}
+	\unnormket{\vec{z}'}&=&\unnormket{z}\qq{where}S'=S-1\\
+	\unnormket{\vec{z}^{(r)}}&=&\unnormket{z}\qq{where}S'=S-r
+	\end{eqnarray}
+	and we have
+	\begin{equation}
+	\hat{a}_i\unnormket{\vec{z}}=\sqrt{S}z_i\unnormket{\vec{z}'}
+	\end{equation}
+	Therefore, the matrix element of a normal-ordered product of a set of transition operators is evaluated as follows:
+	\begin{equation}\label{eq:reduced overlap}
+	\unnormmel{\vec{z}_a}{\hat{a}^\dagger_{i_1}\dots \hat{a}^\dagger_{i_r}\hat{a}_{j_1}\dots \hat{a}_{j_r}}{\vec{z}_b}=\begin{cases}
+	\frac{S!}{(S-r)!}\prod_{k=1}^r z^*_{a,i_k}z_{b,j_k}\unnormbraket{\vec{z}_a^{(r)}}{\vec{z}_b^{(r)}} & r \leq S\\
+	0 & r > S
+	\end{cases}
+	\end{equation}
+	In the above cases, we take as convention $z_M=1$, which extends the vector without adding an extra degree of freedom, and allows for a more concise form for many equations. From this point onwards, assume this is the case in every equation unless otherwise stated.
+	
+	For convenience, we will also define the reduced overlap matrix
+	\begin{equation}
+	X^{(r)}_{ab}=\unnormbraket{\vec{z}^{(r)}_a}{\vec{z}^{(r)}_b}=\left(1+\vec{z}_a^*\cdot\vec{z}_b\right)^{S-r}
+	\end{equation}
+	
+	\subsubsection{Derivatives}
+	Using the form in Eq. \ref{eq:exponential form}, we immediately see
+	\begin{eqnarray}
+	\pdv{z_i}\unnormket{\vec{z}}&=&\hat{a}^\dagger_i\hat{a}_M\unnormket{\vec{z}}\\
+	\pdv{z^*_i}\unnormket{\vec{z}}&=&0
+	\end{eqnarray}
+	The time derivative can be expanded into these partial derivatives, yielding
+	\begin{equation}\label{eq:time derivative}
+	\dv{t}\unnormket{\vec{z}}=\left(\sum_{i=1}^{M-1}\dot{z}_i\hat{a}^\dagger_i\hat{a}_M\right)\unnormket{\vec{z}}
+	\end{equation}
+	
+	\subsubsection{Identity}
+	Following the approach in \cite{Aguiar}, the identity operator on the quotient space is
+	\begin{equation}\label{eq:continuous identity}
+	\hat{I}=\int \frac{(S+M-1)!}{S!\left(1+\vec{z}^*\cdot\vec{z}\right)^{S+M}}\unnormket{\vec{z}}\unnormbra{\vec{z}}\frac{\dd^2\vec{z}}{\pi^{M-1}}
+	\end{equation}
+	
+	However, since we work with a discrete sample of the coherent states as a basis, in actuality we will use the inverse overlap matrix as an identity operator, which will allow us to decompose the initial state of the wavefunction into the basis coherent states.
 	
 	\subsection{Decomposition of the Schrodinger equation}
+	Consider a (normalized) wavefunction decomposed into a basis of coherent states:
+	\begin{equation}\label{eq:decomposition}
+	\ket{\Psi(t)}=\sum_{a\in\text{basis}}A_a\unnormket{\vec{z}_a}
+	\end{equation}
+	The Lagrangian form of the Schrodinger equation is as follows\cite{grossmann}:
+	\begin{equation}\label{eq:general lagrangian}
+	L(t)=\frac{\frac{i}{2}\left(\braket*{\Psi}{\dot{\Psi}}-\braket*{\dot{\Psi}}{\Psi}\right)-\mel{\Psi}{\hat{H}}{\Psi}}{\braket{\Psi}{\Psi}}
+	\end{equation}
+	However, the wavefunction is initially normalised, and, evolving according to the Schrodinger equation, it therefore remains normalised, and therefore we can omit the normalisation factor, even though we will express this Lagrangian in terms of unnormalised basis vectors.
+	
+	\subsubsection{Fully variational method}\label{sec:variational}
+	In the fully variational method, the time evolution of all general coordinates is coupled together.
+	
+	We want to express the Lagrangian in Eq. \ref{eq:general lagrangian} as a function of our general coordinates, which are the decomposition coefficients $A_a(t)$ and the coherent state complex elements $z_{a,i}(t)$. Applying Eq. \ref{eq:decomposition} to Eq. \ref{eq:general lagrangian} and expanding yields
+	\begin{align}\label{eq:full lagrangian}
+	\begin{split}
+	L=\frac{i}{2}\sum_{a,b\in\text{basis}}(A_a^*\dot{A}_b-\dot{A}_a^*A_b)\unnormbraket{\vec{z}_a}{\vec{z}_b}+\frac{i}{2}S\sum_{a,b\in\text{basis}}A_a^*A_b\sum_{i=1}^{M-1}(z_{a,i}^*\dot{z}_{b,i}-\dot{z}^*_{a,i}z_{b,i})\unnormbraket{\vec{z}_a'}{\vec{z}_b'}\\
+	-\sum_{a,b\in\text{basis}}A_a^*A_b\unnormmel{\vec{z}_a}{\hat{H}}{\vec{z}_b}
+	\end{split}
+	\end{align}
+	Applying the Euler-Lagrange equation to Eq. \ref{eq:full lagrangian} yields the equations of motion:
+	\begin{align}
+	i\sum_{b\in\text{basis}}\dot{A}_b\unnormbraket{\vec{z}_a}{\vec{z}_b}+iS\sum_{b\in\text{basis}}A_b\sum_{i=1}^{M-1}z_{a,i}^*\dot{z}_{b,i}\unnormbraket{\vec{z}_a'}{\vec{z}_b'}=\sum_{b\in\text{basis}}A_b\unnormmel{\vec{z}_a}{\hat{H}}{\vec{z}_b}\qq{for}&a\in\text{basis}\\
+	\begin{split}
+	iSA_a^*\sum_{b\in\text{basis}}\left(\dot{A}_b z_{b,i}\unnormbraket{\vec{z}'_a}{\vec{z}'_b}+A_b\dot{z}_{a,i}\unnormbraket{\vec{z}'_a}{\vec{z}'_b}+(S-1)A_b\sum_{j=1}^{M-1}z_{a,j}^*\dot{z}_{b,j}z_{b,i}\unnormbraket{\vec{z}''_a}{\vec{z}''_b}\right)&\\
+	=A_a^*\sum_{b\in\text{basis}}A_b\pdv{z^*_{a,i}}\unnormmel{\vec{z}_a}{\hat{H}}{\vec{z}_b}\qq{for}a\in\text{basis,  } i=1,2\dots &M-1
+	\end{split}
+	\end{align}
+	For a basis of size $N$, there are $M\cdot N$ linear equations of motion, which can be expressed in a vectorial form for the following coordinate vector:
+	\begin{equation}
+	\vec{Q}=\mqty(\vec{Q}_A\\\vec{Q}_z),\qq{where}\vec{Q}_A=\mqty(A_1\\\vdots\\A_N)\qq{and}\vec{Q}_z=\mqty(z_{1,1}\\z_{2,1}\\\vdots\\z_{N,1}\\z_{1,2}\\\vdots\\z_{N,M-1})
+	\end{equation}
+	The equations of motion are then expressable as
+	\begin{equation}\label{eq:variational eqns of motion}
+	\begin{split}
+	\mqty(X & Y\\Y^\dagger & Z)&\mqty(\dv{t}\vec{Q}_A\\\dv{t}\vec{Q}_z)=-i\mqty(\vec{R}_A\\\vec{R}_z)\\
+	\qq{where}&Y_{a,Ni+b}=Sz^*_{a,i}A_b X'_{ab}\\
+	&Z_{Ni+a,Nj+b}=A^*_a A_b \left(S(S-1)X_{ab}''z_{a,j}^* z_{b,i}+\delta_{ij}SX_{ab}'\right)\\
+	&(R_A)_a=\sum_{b\in\text{basis}}A_b\unnormmel{\vec{z}_a}{\hat{H}}{\vec{z}_b}\\
+	&(R_z)_{Ni+a}=A_a^*\sum_{b\in\text{basis}}A_b\pdv{z_{a,i}^*}\unnormmel{\vec{z}_a}{\hat{H}}{\vec{z}_b}
+	\end{split}
+	\end{equation}
+	Finally, we use Eq. \ref{eq:general hamiltonian} to express $\vec{R}_A,\vec{R}_z$ using $V^{(1)},V^{(2)}$:
+	\begin{align}
+	\unnormmel{\vec{z}_a}{\hat{H}}{\vec{z}_b}&=SX_{ab}'\sum_{\alpha=1}^M\sum_{\beta=1}^MV^{(1)}_{\alpha\beta}z^*_{a,\alpha}z_{b,\beta}+\frac{1}{2}S(S-1)X_{ab}''\sum_{\alpha=1}^M\sum_{\beta=1}^M\sum_{\gamma=1}^M\sum_{\delta=1}^M V^{(2)}_{\alpha\beta\gamma\delta}z^*_{a,\alpha}z^*_{a,\beta}z_{b,\gamma}z_{b,\delta}\notag\\
+	\begin{split}
+	\pdv{z_{a,i}^*}\unnormmel{\vec{z}_a}{\hat{H}}{\vec{z}_b}&=S(S-1)X_{ab}''z_{b,i}\sum_{\alpha=1}^M\sum_{\beta=1}^M V^{(1)}_{\alpha\beta}z^*_{a,\alpha}z_{b,\beta}+SX_{ab}'\sum_{\beta=1}^M V^{(1)}_{i\beta}z_{b,\beta}\\
+	&+\frac{1}{2}S(S-1)(S-2)X_{ab}'''z_{b,i}\sum_{\alpha=1}^M\sum_{\beta=1}^M\sum_{\gamma=1}^M\sum_{\delta=1}^M V^{(2)}_{\alpha\beta\gamma\delta}z^*_{a,\alpha}z^*_{a,\beta}z_{b,\gamma}z_{b,\delta}\\
+	&+\frac{1}{2}S(S-1)X_{ab}''\sum_{\beta=1}^M\sum_{\gamma=1}^M\sum_{\delta=1}^M \left(V^{(2)}_{i\beta\gamma\delta}+V^{(2)}_{\beta i\gamma\delta}\right)z^*_{a,\beta}z_{b,\gamma}z_{b,\delta}
+	\end{split}
+	\end{align}
+	
+	\subsubsection{Decoupled basis propagation}\label{sec:decoupled equations of motion}
+	The fully variational method is "efficient" in the sense that the coupling between the basis vectors is informed by the decomposition coefficients. However, the number of simultaneous equations is $M\cdot N$, so in each step of iteration we need to invert a square matrix with $M\cdot N$ rows, rendering the process slow. An alternative to this is to utilise one of the main properties of coherent states: they evolve along classical trajectories. The advantage is that we need to first solve $N$ systems of $M-1$ equations, and then one system with $N$ equations for the decomposition coefficient propagation. The disadvantage is that a basis sampled suitably for the initial conditions may not be suitable at all points in time, since the decoupled basis may "dissipate" in the quotient space, becoming too sparse. Therefore, intelligent sampling is essential for this approach.
+	
+	In the decoupled basis propagation approach, we first propagate each element $\unnormket{\vec{z}}$ of our basis set. To find the equations of motion, we cannot omit the normalisation factor in the Lagrangian. There are two ways to go around is:
+	\begin{enumerate}
+		\item We can add a single normalisation coefficient $A(t)$ to the general coordinates, so that $\ket{\Psi}=A\unnormket{\vec{z}}$. To find the equations of motion for this coordinate system, we can use Eq. \ref{eq:variational eqns of motion} with $N=1$.
+		\item We can use the result from \cite{Aguiar} for the classical trajectory of the normalised state
+		\begin{equation}
+		\dot{\vec{z}}=-i(g^{-1})^T\pdv{\vec{z}}\frac{\unnormmel{\vec{z}}{\hat{H}}{\vec{z}}}{\unnormbraket{\vec{z}}{\vec{z}}}\qq{where}g_{ij}=S\frac{(1+\vec{z}^*\cdot \vec{z})\delta_{ij}-z^*_iz_j}{(1+\vec{z}^*\cdot \vec{z})^2}
+		\end{equation}
+		Here, $g_{ij}$ is the metric of the quotient space, as derived in Sec. 2.2.3 in \cite{Aguiar}.
+	\end{enumerate}
+	
+	After propagating every element of the basis set, we propagate the decomposition coefficients. The approach to obtain the equations of motion is analogous to Sec. \ref{sec:variational}, except we treat $z_{a,i}(t)$ as a known function. The resulting equations of motion are
+	\begin{equation}
+	\begin{split}
+	X\dot{\vec{A}}&=-i\vec{R}_A\\
+	\qq{where}&(R_A)_a=\sum_{b\in\text{basis}}A_b\left(-iSX_{ab}'\sum_{i=1}^{M-1}z_{a,i}^*\dot{z}_{b,i}+\unnormmel{\vec{z}_a}{\hat{H}}{\vec{z}_b}\right)
+	\end{split}
+	\end{equation}
 	
 	\subsection{Basis sampling}
 	
-	here we save time!
+	To simply go from the finite, discrete occupancy basis into the continuous, overcomplete, non-orthogonal basis of coherent states would surely not help if we wanted to use the entire quotient space as our basis. Relying on the semi-classical approximation, we shall instead sample a small discrete subset of the quotient space and use the equations of motion derived in Sec. \ref{sec:variational} and Sec. \ref{sec:decoupled equations of motion}. Therefore the efficiency and accuracy of our results will depend strongly on the method of sampling.
 	
-	what even is conditioning
+	Typically, our initial wavefunction will be a pure coherent state, which will be chosen as the first element of the basis set. However, even if this is the case, we cannot set $A_a(t=0)=\delta_{a,1}$, since the matrix $\mqty(X & Y\\Y^\dagger & Z)$ will not be invertible. Instead, we will utilise the non-orthogonality of the basis set, applying the identity operator to find the initial decomposition coefficients. The continuous identity operator in Eq. \ref{eq:continuous identity} is not helpful, so we use the inverse overlap matrix operator defined as follows \cite[Eq. 13]{Aguiar}:
+	\begin{equation}
+	\hat{I}_{X}=\sum_{a\in\text{basis}}\sum_{b\in\text{basis}}\unnormket{\vec{z}_a}(X^{-1})_{ab}\unnormbra{\vec{z}_b}
+	\end{equation}
+	Because of the finite size of the basis, it may be necessary to renormalise the wavefunction after applying this identity operator to assure $\braket{\Psi}{\Psi}=1$.
+	
+	\subsubsection{Conditioning}
+	For each finite step of the numerical integration, the step size is uniform for each element of the coordinate vector $\vec{Q}$, even though this step size will be different for different steps. A sane algorithm for numerical integration (such as the Dormand-Prince method used so far in the project) will estimate the step size based on the maximum allowed error obtained in the step and the value of the coordinate time derivative $\dot{\vec{Q}}$. However, should a subset of elements of this time derivative be much larger than its complement, it will severely limit the step size, and the algorithm becomes inefficient for a large number of coordinates, performing needlessly small steps. To conteract this, we will condition the initial overlap matrix by limiting the fraction of its maximal and minimal eigenvalue
+	\begin{equation}\label{eq:conditioning}
+	\frac{\lambda_{\text{max}}}{\lambda_{\text{min}}}<\epsilon_{\text{lim}}
+	\end{equation}
+	I chose a simple algorithm described in \cite{sampling_algorithm}. A weight function is chosen as a gaussian centered around the initial state $\vec{z}_0$. Candidate basis vectors are drawn from the full quotient space according to the weight function and added to the basis only if their addition does not violate the conditioning limit in Eq. \ref{eq:conditioning}. The process terminates either if the desired basis size is reached, or if a certain number of candidates are discarded in a row, resulting in a saturated basis.
+	
+	\subsection{Regularisation}
+	
+	The process of solving the equations of motion is built upon inverting some matrix $M$ which acts on $\dot{\vec{Q}}$. Therefore, the numerical stability of the integration process is dependent on the values of eigenvalues of $M$. If these eigenvalues become too small, a finite step may cause a large, unphysical change in $\vec{Q}$, which sabotages the accuracy of the solution. To counteract this, we regularise the matrix $M$ by adding $\tau I$, i.e. some value $\tau$ to every element on the diagonal, utilising the fact that the sum of eigenvalues of $M$ equals $\Tr M$, which lowers the probability of the eigenvalues of $M^{-1}$ diverging. $\tau$, the regular timescale, has to be chosen small enough to not affect the equations of motion on well-behaved regimes.
 	
 	
 	
 	\section{Progress and outlook}
+	
+	
 	
 	\subsection{Provisional results}
 	
@@ -173,6 +328,12 @@
 	\bibitem{gellmann}
 	Bertlmann, R. A., Krammer, P. (2008), Bloch vectors for qudits. \href{ 	
 https://doi.org/10.48550/arXiv.0806.1174}{arXiv:0806.1174 \textbf{[quant-ph]}}
+
+	\bibitem{buonsante}
+	Buonsante, P., Penna, V.(2008), Some remarks on the coherent-state variational approach to nonlinear boson models. \textit{J. Phys. A: Math. Theor.}, \textbf{41}, 175301
+	
+	\bibitem{sampling_algorithm}
+	Grigolo, A., Viscondi, T. F., de Aguiar, M. A. M. (2016), Multiconfigurational quantum propagation with trajectory-guided generalized coherent states. \textit{J. Chem. Phys.}, \textbf{144}, 094106
 
 	\end{thebibliography}
 	\bibliographystyle{unsrt}

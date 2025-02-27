@@ -4,7 +4,7 @@
 \usepackage{amsmath,amssymb}
 \usepackage{hyperref}
 \usepackage{physics}
-
+\usepackage{graphicx}
 
 \begin{document}
 
@@ -39,7 +39,7 @@
 	
 	Moreover, if the Lie algebra of the dynamical group is semisimple, it can be transformed into the Cartan basis, where all operators in the algebra are either fully diagonal, or analogous to the creation and annihilation operators. Viscondi, Grigolo, and de Aguiar found an expression for the semiclassical propagator for such cases, which determines the overlap of two different coherent states at different times \cite{Aguiar}. Here the full picture of the semiclassical approximation is painted: the coherent states evolve according to equations of motion governed by an effective classical Hamiltonian, and the amplitude of their overlap measures their entanglement.
 	
-	\subsection{Bosonic quantum dynamics}
+	\subsection{Bosonic quantum dynamics}\label{sec:two applications}
 	The semiclassical approach is firstly applied to bosonic systems with constant total particle number. As shown in Sec. \ref{sec:sum}, all such systems possess the same dynamical group, and thus one construction of coherent states can be used to all such systems.
 	
 	The approach is applied to two particular systems:
@@ -61,7 +61,7 @@
 	\begin{equation}\label{eq:general hamiltonian}
 	\hat{H} = \sum_{\alpha=1}^M\sum_{\beta=1}^M V^{(1)}_{\alpha\beta}\hat{a}^\dagger_\alpha\hat{a}_\beta + \frac{1}{2}\sum_{\alpha=1}^M\sum_{\beta=1}^M\sum_{\gamma=1}^M\sum_{\delta=1}^M V^{(2)}_{\alpha\beta\gamma\delta}\hat{a}^\dagger_\alpha\hat{a}^\dagger_\beta\hat{a}_\gamma\hat{a}_\delta
 	\end{equation}
-	where $V^{(1)}_{\alpha\beta}, V^{(2)}_{\alpha\beta\gamma\delta}$ are the matrix elements of the one-body and two-body interactions, respectively.
+	where $V^{(1)}_{\alpha\beta}, V^{(2)}_{\alpha\beta\gamma\delta}$ are the matrix elements of the one-body and two-body interaction, respectively.
 	
 	For a total number of particles $S$, the Hilbert space is spanned by occupancy eigenstates
 	\begin{equation}\label{eq:occ_basis}
@@ -269,10 +269,59 @@
 	
 	
 	\section{Progress and outlook}
-	
-	
+	The work I have done so far entails
+	\begin{itemize}
+		\item the theoretical treatment of Hamiltonians of the form in Eq. \ref{eq:general hamiltonian} with unnormalised $SU(M)$ (respectively $SL(M,\mathbb{R})$) coherent states, based on the variational method developed by Qiao and Grossmann for the normalised, over-parametrised $SU(M)$ coherent states, and the description of unnormalised $SU(M)$ coherent states by Viscondi, Grigolo, and de Aguiar.
+		\item a Python program using the Dormand-Prince method to solve the initial value problem for a given wavefunction on a system with $M$ modes, $S$ particles, governed by a Hamiltonian in the form in Eq. \ref{eq:general hamiltonian}.
+	\end{itemize}
+	The immediate goal of the project is to get numerical results using unnormalised $SU(M)$ coherent states for the two systems described in Sec. \ref{sec:two applications} and compare them to solving the system on the full occupancy basis in terms of accuracy and efficiency.
 	
 	\subsection{Provisional results}
+	The Bose-Hubbard model was studied for two- and three-mode systems in \cite{grossmann}. However, the displaced harmonic trap studied in \cite{green} requires a much larger amount of modes ($25,26$) to accurately represent the bosonic behaviour. So far, I have produced results for two and three modes for each of the applications, with the aim of simulating the displaced bosonic trap with a much larger number of modes after all the basic routines of the program are optimised enough for this to be viable.
+	
+	 I have chosen the number of particles $S=10$ as high enough so that the coherent state approach is already faster than finding the solution on the full occupancy basis, but low enough so I can optimalise and troubleshoot efficiently. This is already comparable to the number of particles studied by Qiao and Grossmann ($S=50$ for $M=2$ and $S=20$ for $M=3$) and by Green and Shalashilin ($S=100$ for $M=25\text{ and }26$), reaching their values of $S$ or even higher should not be the bottleneck then scaling up the program.
+	 
+	 The choice of the initial wavefunction is arbitrary, but robust testing of the system's stability being invariant for the choice of the initial wavefunction is required.
+	
+	\subsubsection{Bose-Hubbard model}
+	The Hamiltonian of the Bose-Hubbard model is quoted in \cite[Eq. 1]{grossmann}. Using the general form in Eq. \ref{eq:general hamiltonian}, we can express the interaction tensors like so:
+	\begin{eqnarray}
+	V^{(1)}_{\alpha\beta}&=&\frac{1}{2}K(\alpha-j_0)^2\delta_{\alpha,\beta}+J(t)(\delta_{\alpha,\beta +1}+\delta_{\alpha,\beta -1})\\
+	V^{(2)}_{\alpha\beta\gamma\delta}&=&U\delta_{\alpha,\beta}\delta_{\alpha,\gamma}\delta_{\alpha,\delta}
+	\end{eqnarray}
+	
+	For the results so far, I have fixed the physical parameters of the Hamiltonian in the same way as Qiao and Grossmann with $J(t)=1+\frac{1}{2}\cos(2\pi t), U=0.1, K=0$.
+	
+	\textbf{Results for $M=2$}
+	\begin{itemize}
+	\item The results obtained in the first version of the program for the two-mode Bose-Hubbard model using the fully variational method can be seen in Fig. \ref{fig:BH_M=2_variational}
+	\item The results for the same system using the decoupled basis method are plotted in Fig.
+	\end{itemize}
+	
+	\begin{figure}
+	\begin{center}
+	\includegraphics[width=0.8\textwidth]{images/BH_M=2}
+	\caption{peak there is this unstable}\label{fig:BH_M=2_variational}
+	\end{center}
+	\end{figure}
+	
+	\begin{figure}
+	\begin{center}
+	\includegraphics[width=0.8\textwidth]{images/BH_M=2_uncoupled_basis}
+	\caption{peak there is this unstable}\label{fig:BH_M=2_uncoupled}
+	\end{center}
+	\end{figure}
+	
+	
+	\subsubsection{Displaced harmonic trap}
+	The Hamiltonian of the displaced harmonic trap is quoted in \cite[Eq. 34]{green}. Using the general form in Eq. \ref{eq:general hamiltonian}, we can express the interaction tensors like so:
+	\begin{eqnarray}
+	V^{(1)}_{\alpha\beta}&=&\left(\epsilon_{\alpha}+\frac{1}{2}\xi^2\right)\delta_{\alpha,\beta}-\xi Q_{\alpha,\beta}\\
+	V^{(2)}_{\alpha\beta\gamma\delta}&=&\lambda_0\delta_{\alpha,\beta,\gamma,\delta}
+	\end{eqnarray}
+	where $\epsilon_{\alpha}$ is the energy of the mode labelled by $\alpha$ (and is equal to $\frac{1}{2}+\alpha$ in dimensionless units if counting from zero), and $Q_{\alpha,\beta}$ and $\delta_{\alpha,\beta,\gamma,\delta}$ are special tensors defined in \cite[Appendix B]{green}.
+	
+	
 	
 	\subsection{Next steps in research}
 	better numerical resolution

@@ -8,14 +8,14 @@ from functools import partial
 
 import warnings
 
-# Note that epsilon^alpha = omega * (n + 1/2). In the paper, omega = mass = 1 (unity)
+# NOTE for epsilon^alpha: the mode at alpha is a mode which describes the number of particles at excitation alpha. The energy of an excitation is (1/2+alpha) if counting from 0.
 def A_DHT(t, a, b):
     DHT_params = {
         "xi" : 2.1,
         "lambda_0" : 0.01,
     }
     if a == b:
-        return(3/2 + DHT_params["xi"] * DHT_params["xi"] / 2)
+        return((1/2+a) + DHT_params["xi"] * DHT_params["xi"] / 2)
     if a == b + 1:
         return(-DHT_params["xi"] * np.sqrt(a/2))
     if b == a + 1:

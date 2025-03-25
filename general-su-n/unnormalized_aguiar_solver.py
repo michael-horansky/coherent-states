@@ -651,6 +651,73 @@ class bosonic_su_n():
 
         return(M_inv.dot(R))
 
+    # ------------------ Single vector classical trajectory -------------------
+
+    def normalised_z_y_dot(self, t, y, reg_timescale = -1):
+        # y[m] = z_m
+
+        y_std = np.ones(self.M, dtype = complex)
+        y_std[:self.M - 1] = y
+        """
+        #   wrong hamiltonian, using { z | H | z } instead of < z | H | z >
+        # Overlap matrices
+        X = np.zeros(4)
+        base_inner_product = 1 + np.sum(y.real * y.real + y.imag * y.imag)
+        X[3] = np.power(base_inner_product, self.S - 3)
+        X[2] = base_inner_product * X[3]
+        X[1] = base_inner_product * X[2]
+        X[0] = base_inner_product * X[1]
+        # Hamiltonian tensors and differential vector
+        cur_H_A, cur_H_B = self.calculate_hamiltonian_tensors(t)
+        H_mel_diff = np.zeros(self.M - 1, dtype = complex)
+        for j in range(self.M - 1):
+            one_body_interaction = 0.0
+            for alpha in range(self.M):
+                one_body_interaction += self.S * X[1] * cur_H_A[j][alpha] * y_std[alpha]
+                for beta in range(self.M):
+                    one_body_interaction += self.S * (self.S - 1) * X[2] * y_std[j] * cur_H_A[alpha][beta] * np.conjugate(y_std[alpha]) * y_std[beta]
+
+            two_body_interaction = 0.0
+            for alpha in range(self.M):
+                for beta in range(self.M):
+                    for gamma in range(self.M):
+                        two_body_interaction += 0.5 * self.S * (self.S - 1) * X[2] * (cur_H_B[j][alpha][beta][gamma] + cur_H_B[alpha][j][beta][gamma]) * np.conjugate(y_std[alpha]) * y_std[beta] * y_std[gamma]
+                        for delta in range(self.M):
+                            two_body_interaction += 0.5 * self.S * (self.S - 1) * (self.S - 2) * X[3] * y_std[j] * cur_H_B[alpha][beta][gamma][delta] * np.conjugate(y_std[alpha]) * np.conjugate(y_std[beta]) * y_std[gamma] * y_std[delta]
+            H_mel_diff[j] = one_body_interaction + two_body_interaction"""
+
+        # fixed
+        base_inner_product = 1 + np.sum(y.real * y.real + y.imag * y.imag)
+        # Hamiltonian tensors and differential vector
+        cur_H_A, cur_H_B = self.calculate_hamiltonian_tensors(t)
+        H_mel_diff = np.zeros(self.M - 1, dtype = complex)
+        for j in range(self.M - 1):
+            one_body_interaction = 0.0
+            for alpha in range(self.M):
+                one_body_interaction += (self.S / base_inner_product) * cur_H_A[j][alpha] * y_std[alpha]
+                for beta in range(self.M):
+                    one_body_interaction -= (self.S / (base_inner_product * base_inner_product)) * y_std[j] * cur_H_A[alpha][beta] * np.conjugate(y_std[alpha]) * y_std[beta]
+
+            two_body_interaction = 0.0
+            for alpha in range(self.M):
+                for beta in range(self.M):
+                    for gamma in range(self.M):
+                        two_body_interaction += 0.5 * (self.S * (self.S - 1) / (base_inner_product * base_inner_product)) * (cur_H_B[j][alpha][beta][gamma] + cur_H_B[alpha][j][beta][gamma]) * np.conjugate(y_std[alpha]) * y_std[beta] * y_std[gamma]
+                        for delta in range(self.M):
+                            two_body_interaction -= (self.S * (self.S - 1) / (base_inner_product * base_inner_product * base_inner_product)) * y_std[j] * cur_H_B[alpha][beta][gamma][delta] * np.conjugate(y_std[alpha]) * np.conjugate(y_std[beta]) * y_std[gamma] * y_std[delta]
+            H_mel_diff[j] = one_body_interaction + two_body_interaction
+
+
+
+        outer_product_plus_identity = np.zeros((self.M - 1, self.M - 1), dtype = complex)
+        prefactor = - 1j * base_inner_product / self.M
+        for i in range(self.M - 1):
+            outer_product_plus_identity[i][i] = prefactor
+            for j in range(self.M - 1):
+                outer_product_plus_identity[i][j] += prefactor * np.conjugate(y[j]) * y[i]
+        return(outer_product_plus_identity.dot(H_mel_diff))
+
+
 
     # --------------- Fully variational methods ---------------
 
@@ -788,7 +855,14 @@ class bosonic_su_n():
         # Semaphor
         self.semaphor.update(semaphor_event_ID, t)
 
-        return( - 1j * m_Theta_inv.dot(R))
+        sol = - 1j * m_Theta_inv.dot(R)
+
+        # If N = 1, we enforce the time derivative of the normalisation
+        #if N == 1:
+        #    sol[0] =  - self.S * X[0][0][1] / np.power(X[0][0][0], 3/2) * np.sum(np.conjugate(y[1:]) * sol[1:]).real
+
+        #return( - 1j * m_Theta_inv.dot(R))
+        return(sol)
 
 
 
@@ -1129,11 +1203,40 @@ class bosonic_su_n():
             print(f"  Uncoupled basis propagation on a timescale of t = ({self.t_space[0]} - {self.t_space[-1]}), rtol = {rtol_basis} at {time.strftime("%H:%M:%S", time.localtime(time.time()))}")
 
             for n in range(self.N[b_i]):
+
+                """
+                # The classic, wrong approach, which misinterprets Wirtinger calculus
                 y_0 = self.basis[b_i][n].copy()
                 iterated_solution = sp.integrate.solve_ivp(self.uncoupled_basis_y_dot, [self.t_space[0], self.t_space[-1]], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale_basis,), rtol = rtol_basis)
                 for t_i in range(1, N_dtp+1):
                     for m in range(self.M - 1):
-                        cur_basis_evol[t_i][n][m] = iterated_solution.y[m][t_i]
+                        cur_basis_evol[t_i][n][m] = iterated_solution.y[m][t_i]"""
+
+                A_0 = 1 / np.sqrt(square_norm(self.basis[b_i][n], self.S))
+                y_0 = np.array([A_0] + list(self.basis[b_i][n].copy()))
+                iterated_solution = sp.integrate.solve_ivp(self.variational_y_dot, [self.t_space[0], self.t_space[-1]], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale_basis,), rtol = rtol_basis)
+                for t_i in range(1, N_dtp+1):
+                    for m in range(self.M - 1):
+                        cur_basis_evol[t_i][n][m] = iterated_solution.y[m + 1][t_i]
+
+                """
+                # Normalised propagation a la Aguiar
+                y_0 = self.basis[b_i][n]
+                iterated_solution = sp.integrate.solve_ivp(self.normalised_z_y_dot, [self.t_space[0], self.t_space[-1]], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale_basis,), rtol = rtol_basis)
+                for t_i in range(1, N_dtp+1):
+                    for m in range(self.M - 1):
+                        cur_basis_evol[t_i][n][m] = iterated_solution.y[m][t_i]"""
+
+                # Diagnosis: did the solution remain physical? (i.e. totally normalised)
+                # NOTE: but z shouldnt be necessarily normalised!
+                """x_data = []
+                y_data = []
+                for t_i in range(1, N_dtp+1):
+                    x_data.append(self.t_space[t_i])
+                    y_data.append(np.sqrt(square_norm(np.array([iterated_solution.y[0][t_i]]), self.S).real))
+                #plt.ylim((-0.1, 1.1))
+                plt.plot(x_data, y_data)
+                plt.show()"""
                 #self.update_semaphor(n)
 
             print("    Basis propagation finished at " + time.strftime("%H:%M:%S", time.localtime(time.time())) + "; " + str(N_dtp) + " datapoints saved.                  ")

@@ -81,13 +81,14 @@ bose_hubbard.set_hamiltonian_tensors(A_BH, B_BH)
 
 z_0 = np.array([0.00+ 1j * 0.00], dtype=complex)
 # Note: to get more basis vectors in a sample, increase particle number! It makes saturation less probable :)
-bose_hubbard.sample_gaussian(z_0 = z_0, width = 1.2, conditioning_limit = 10e10, N_max = 30, max_saturation_steps = 5000)
+#bose_hubbard.sample_gaussian(z_0 = z_0, width = 1.2, conditioning_limit = 10e10, N_max = 30, max_saturation_steps = 5000)
 bose_hubbard.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e4, N_max = 5, max_saturation_steps = 5000)
 bose_hubbard.sample_gaussian(z_0 = z_0, width = 1.0, conditioning_limit = 10e4, N_max = 1, max_saturation_steps = 5000)
 bose_hubbard.set_initial_wavefunction()
 
-#bose_hubbard.simulate_uncoupled_basis(max_t = 2.0, N_dtp = 200, rtol = 1e-4, reg_timescale = 1e-6)
-bose_hubbard.simulate_variational(max_t = 0.8, N_dtp = 200, rtol = 1e-4, reg_timescale = 1e-6)
+#bose_hubbard.simulate_uncoupled_basis(max_t = 2.0, N_dtp = 200, rtol = 1e-3, reg_timescale = 1e-2)
+bose_hubbard.simulate_uncoupled_basis(max_t = 2.0, N_dtp = 200, rtol = (1e-10, 1e-4), reg_timescale = (-1, 1e-6))
+#bose_hubbard.simulate_variational(max_t = 0.8, N_dtp = 200, rtol = 1e-4, reg_timescale = 1e-6)
 bose_hubbard.fock_solution()
 bose_hubbard.save_data()
 

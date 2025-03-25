@@ -70,6 +70,9 @@ def dtstr(seconds, max_depth = 2):
     # Milliseconds
     return(f"{int(np.round(seconds / 0.001))} ms")
 
+def square_mag(c):
+    return(c.real * c.real + c.imag * c.imag)
+
 # -------------------- Coherent state functions --------------------
 # We _deliberately_ do not implement instances of coherent states as
 # class instances, as the dynamical manipulation is fast only when
@@ -1229,14 +1232,14 @@ class bosonic_su_n():
 
                 # Diagnosis: did the solution remain physical? (i.e. totally normalised)
                 # NOTE: but z shouldnt be necessarily normalised!
-                """x_data = []
+                x_data = []
                 y_data = []
                 for t_i in range(1, N_dtp+1):
                     x_data.append(self.t_space[t_i])
-                    y_data.append(np.sqrt(square_norm(np.array([iterated_solution.y[0][t_i]]), self.S).real))
-                #plt.ylim((-0.1, 1.1))
+                    y_data.append(np.sqrt(np.conjugate(iterated_solution.y[0][t_i]) * iterated_solution.y[0][t_i]) * np.sqrt(square_norm(np.array([iterated_solution.y[1][t_i]]), self.S).real))
+                plt.ylim((-0.1, 2))
                 plt.plot(x_data, y_data)
-                plt.show()"""
+                plt.show()
                 #self.update_semaphor(n)
 
             print("    Basis propagation finished at " + time.strftime("%H:%M:%S", time.localtime(time.time())) + "; " + str(N_dtp) + " datapoints saved.                  ")
@@ -1485,6 +1488,37 @@ class bosonic_su_n():
                         plt.plot(self.t_space, cur_solution, linestyle = "dashed", label = f"theor. $\\langle N_{m+1} \\rangle/S$", color = self.mode_colors[m][-1])
 
                 #print(" Done!")
+            elif graph_list[i] == 'basis_expected_mode_occupancy':
+                print("  Plotting the time evolution of expected mode occupancy for each basis vector...")#, end='', flush=True)
+                plt.title("Basis: Expected mode occupancy")
+                plt.xlabel("t")
+                plt.ylim([-0.1, 1.5])
+
+                print("    Plotting measured basis magnitude and mode occupancies...")
+                for b_i in range(len(self.basis)):
+                    for a in range(self.N[b_i]):
+                        #magnitude = np.zeros(len(self.t_space))
+                        occupancy = []
+                        for m in range(self.M):
+                            occupancy.append(np.zeros(len(self.t_space)))
+
+                        for t_i in range(len(self.t_space)):
+                            #magnitude[t_i] = np.sqrt(square_norm(self.basis_evol[b_i][t_i][a], self.S))
+                            for m in range(self.M-1):
+                                occupancy[m][t_i] += square_mag(self.basis_evol[b_i][t_i][a][m]) / (1 + np.sum(square_mag(self.basis_evol[b_i][t_i][a])))
+                            occupancy[self.M - 1][t_i] += 1 / (1 + np.sum(square_mag(self.basis_evol[b_i][t_i][a])))
+
+                        # Plot
+                        for m in range(self.M):
+                            plt.plot(self.t_space, occupancy[m], label=f"$\\langle N_{m}^{{|{b_i}; {a}\\rangle}} \\rangle/S$", color = self.mode_colors[m][b_i])
+
+                if self.is_solved:
+                    for m in range(self.M):
+                        cur_solution = []
+                        for i in range(len(self.solution)):
+                            cur_solution.append(self.solution[i][m])
+                        plt.plot(self.t_space, cur_solution, linestyle = "dashed", label = f"theor. $\\langle N_{m+1} \\rangle/S$", color = self.mode_colors[m][-1])
+
             elif graph_list[i] == 'basis_phase_space':
                 if self.M != 2:
                     print("  ERROR: Attempting to plot 'basis_phase_space' with unsuitable mode number.")

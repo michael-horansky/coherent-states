@@ -20,7 +20,7 @@ t_eval = np.linspace(0, 5, 500)
 
 y_0 =np.linspace(-1, 1, 10)
 
-ode_result = functions.solve_ivp_with_condition(f, (t_space[0], t_space[-1]), y0=y_0, t_eval=t_eval, args=(0.5,), exit_condition=exit_condition)
+ode_result = functions.solve_ivp_with_condition(f, (t_space[0], t_space[-1]), y0=y_0, t_eval=t_eval, args=(0.5,), exit_condition=exit_condition, rtol=1e-4)
 
 plt.plot(ode_result.t, ode_result.y)
 for i in range(len(y_0)):

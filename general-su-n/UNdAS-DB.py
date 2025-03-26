@@ -11,3 +11,6 @@ class UNDASDB(bosonic_su_n):
         super().__init__(ID)
 
         self.decoupling_tolerance = [] #[b_i] = user-set tolerance for partitioning the b_i-th basis
+
+
+    # Firstly: We shall use dense output

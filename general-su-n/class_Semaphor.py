@@ -103,7 +103,7 @@ class Semaphor():
         if tau >= self.tau_space[event_ID][self.next_flag_tau_index[event_ID]]:
             # We find the next smallest unreached semaphor flag
             tau_index_new = self.next_flag_tau_index[event_ID]
-            while(self.tau_space[event_ID][tau_index_new] < tau):
+            while(self.tau_space[event_ID][tau_index_new] <= tau):
                 tau_index_new += 1
                 if tau_index_new >= len(self.tau_space[event_ID]):
                     break

@@ -94,7 +94,6 @@ class UNDASDB(bosonic_su_n):
             for n in range(self.N[b_i]):
                 A_0 = 1 / np.sqrt(functions.square_norm(self.basis[b_i][n], self.S))
                 y_0 = np.array([A_0] + list(self.basis[b_i][n].copy()))
-                #basis_solvers.append(sp.integrate.RK45(self.variational_y_dot, t0 = self.t_space[0], y0 = y_0, t_bound = self.t_space[-1]))
                 basis_solutions.append(functions.solve_ivp_with_condition(self.variational_y_dot, (self.t_space[0], self.t_space[-1]), y0=y_0, t_eval=self.t_space, args=(reg_timescale_basis,), exit_condition=None, rtol = rtol_basis, max_step = 0.01))
 
             # NOTE: When dynamically re-partitioning the basis set, we would always only do the solution between two t_eval (or t_partition) vals, and then re-initialised the solvers
@@ -105,16 +104,16 @@ class UNDASDB(bosonic_su_n):
 
             self.basis_evol.append(cur_basis_evol)
 
-            x_data = []
+            """x_data = []
             y_data = []
             y_dot_data = []
-            E_data = []
+            E_data = []"""
 
             def basis_dependent_wavef_y_dot(t, y, reg_timescale, semaphor_event_ID = None):
 
                 # y[a] = A_a(t)
 
-                x_data.append(t)
+                #x_data.append(t)
                 #y_data.append([])
                 #y_dot_data.append([])
 
@@ -132,58 +131,8 @@ class UNDASDB(bosonic_su_n):
 
                     #y_data[-1].append(np.sqrt(functions.square_mag(cur_weighted_basis_state[0])) * np.sqrt(functions.square_norm(cur_basis[n], self.S).real))
                     #y_dot_data[-1].append(np.sqrt(functions.square_mag(cur_weighted_basis_state_dot[0])) * np.sqrt(functions.square_norm(cur_basis_dot[n], self.S).real))
-                y_data.append([basis_solutions[0].sol(t)[0].real, basis_solutions[0].sol(t)[1].real, basis_solutions[0].sol(t)[1].imag])
-                y_dot_data.append([self.variational_y_dot(t, basis_solutions[0].sol(t))[0].real, self.variational_y_dot(t, basis_solutions[0].sol(t))[1].real, self.variational_y_dot(t, basis_solutions[0].sol(t))[1].imag])
-
-                """ # OLD
-                # Overlaps
-                X = np.zeros((self.N[b_i], self.N[b_i], 3), dtype=complex) #[i][j][r] = { z^(r) | z^(r) }
-                for i in range(self.N[b_i]):
-                    for j in range(self.N[b_i]):
-                        base_product = 1 + np.sum(np.conjugate(cur_basis[i]) * cur_basis[j])
-                        X[i][j][2] = np.power(base_product, self.S - 2)
-                        X[i][j][1] = X[i][j][2] * base_product
-                        X[i][j][0] = X[i][j][1] * base_product
-                Y = np.zeros((self.N[b_i], self.N[b_i]), dtype=complex)
-                for i in range(self.N[b_i]):
-                    for j in range(self.N[b_i]):
-                        Y[i][j] = np.sum(np.conjugate(cur_basis[i]) * cur_basis_dot[j])
-
-                # Regularisation
-                if reg_timescale != -1:
-                    X_inv = np.linalg.inv(X[:,:,0] + reg_timescale * np.identity(self.N[b_i], dtype=complex)) # inverse of the non-reduced overlap matrix
-                else:
-                    X_inv = np.linalg.inv(X[:,:,0]) # inverse of the non-reduced overlap matrix
-
-                def ebe(i, k): # extended basis element
-                    if k != self.M - 1:
-                        return(cur_basis[i][k])
-                    else:
-                        return(1.0)
-
-                # Hamiltonian tensors and differential vector
-                cur_H_A, cur_H_B = self.calculate_hamiltonian_tensors(t)
-                H_matrix = np.zeros((self.N[b_i], self.N[b_i]), dtype=complex)
-                for a in range(self.N[b_i]):
-                    for b in range(self.N[b_i]):
-                        one_body_interaction = 0.0
-                        two_body_interaction = 0.0
-                        for alpha in range(self.M):
-                            for beta in range(self.M):
-                                one_body_interaction += cur_H_A[alpha][beta] * np.conjugate(ebe(a, alpha)) * ebe(b, beta)
-                                for gamma in range(self.M):
-                                    for delta in range(self.M):
-                                        two_body_interaction += cur_H_B[alpha][beta][gamma][delta] * np.conjugate(ebe(a, alpha)) * np.conjugate(ebe(a, beta)) * ebe(b, gamma) * ebe(b, delta)
-                        H_matrix[a][b] = self.S * X[a][b][1] * one_body_interaction + 0.5 * self.S * (self.S - 1) * X[a][b][2] * two_body_interaction
-
-                E_data.append(0.0)
-                for a in range(self.N[b_i]):
-                    for b in range(self.N[b_i]):
-                        E_data[-1] += np.conjugate(y[a]) * y[b] * H_matrix[a][b]
-
-                # M matrix
-                #M = -1j * np.matmul(X_inv, H_matrix) - self.S * np.matmul(X_inv * (Y.T), X[:,:,1])
-                M = np.matmul(X_inv, -1j * H_matrix - self.S * X[:,:,1] * Y)"""
+                #y_data.append([basis_solutions[0].sol(t)[0].real, basis_solutions[0].sol(t)[1].real, basis_solutions[0].sol(t)[1].imag])
+                #y_dot_data.append([self.variational_y_dot(t, basis_solutions[0].sol(t))[0].real, self.variational_y_dot(t, basis_solutions[0].sol(t))[1].real, self.variational_y_dot(t, basis_solutions[0].sol(t))[1].imag])
 
                 def ebe(i, k): # extended basis element
                     if k != self.M - 1:
@@ -219,10 +168,10 @@ class UNDASDB(bosonic_su_n):
                                         two_body_interaction += cur_H_B[alpha][beta][gamma][delta] * np.conjugate(ebe(a, alpha)) * np.conjugate(ebe(a, beta)) * ebe(b, gamma) * ebe(b, delta)
                         eta[a][b] = self.S * Xi[1][a][b] * one_body_interaction + 0.5 * self.S * (self.S - 1) * Xi[2][a][b] * two_body_interaction
 
-                E_data.append(0.0)
+                """E_data.append(0.0)
                 for a in range(self.N[b_i]):
                     for b in range(self.N[b_i]):
-                        E_data[-1] += np.conjugate(y[a]) * y[b] * eta[a][b]
+                        E_data[-1] += np.conjugate(y[a]) * y[b] * eta[a][b]"""
 
 
                 # Regularisation
@@ -255,20 +204,20 @@ class UNDASDB(bosonic_su_n):
             y_0 = self.wavef[b_i].copy()
             iterated_solution = sp.integrate.solve_ivp(basis_dependent_wavef_y_dot, [self.t_space[0], self.t_space[-1]], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale_wavef, new_sem_ID), rtol = rtol_wavef)
 
-            plt.title("Interpolated basis values")
+            """plt.title("Interpolated basis values")
             plt.ylim((-1e2, 1e2))
             plt.plot(x_data, y_data, label = "z")
             plt.plot(x_data, y_dot_data, label = "dz/dt")
             plt.plot(x_data, np.gradient(np.array(y_data), np.array(x_data), axis = 0), label = "interpolated dz/dt", linestyle="dashed")
             plt.plot(x_data, E_data, label = "energy")
             plt.legend()
-            plt.show()
+            plt.show()"""
 
             # The issue is that after this method concludes, the basis norms are discarded, but they are now a vital part of the solution!
             # Two ways to resolve this:
             #     1. Store an extra set of values for basis norms
             #     2. Absorb N into A
-            # Let's firstly do method 2 because it's easier, and if the floating point error persists, we shall try method 1
+            # Let's firstly do method 2 because it's easier, and if the floating point error persists, we shall try method 1. It works!
 
 
             for t_i in range(1, N_dtp+1):

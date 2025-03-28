@@ -120,18 +120,22 @@ class UNDASDB(bosonic_su_n):
 
                 cur_basis = np.zeros((self.N[b_i], self.M - 1), dtype=complex)
                 cur_basis_dot = np.zeros((self.N[b_i], self.M - 1), dtype=complex)
+                cur_N = np.zeros(self.N[b_i], dtype=complex)
+                cur_N_dot = np.zeros(self.N[b_i], dtype=complex)
                 for n in range(self.N[b_i]):
                     cur_weighted_basis_state = basis_solutions[n].sol(t)
                     cur_weighted_basis_state_dot = self.variational_y_dot(t, cur_weighted_basis_state)
                     cur_basis[n] = cur_weighted_basis_state[1:]
                     cur_basis_dot[n] = cur_weighted_basis_state_dot[1:]
+                    cur_N[n] = cur_weighted_basis_state[0]
+                    cur_N_dot[n] = cur_weighted_basis_state_dot[0]
 
                     #y_data[-1].append(np.sqrt(functions.square_mag(cur_weighted_basis_state[0])) * np.sqrt(functions.square_norm(cur_basis[n], self.S).real))
                     #y_dot_data[-1].append(np.sqrt(functions.square_mag(cur_weighted_basis_state_dot[0])) * np.sqrt(functions.square_norm(cur_basis_dot[n], self.S).real))
                 y_data.append([basis_solutions[0].sol(t)[0].real, basis_solutions[0].sol(t)[1].real, basis_solutions[0].sol(t)[1].imag])
                 y_dot_data.append([self.variational_y_dot(t, basis_solutions[0].sol(t))[0].real, self.variational_y_dot(t, basis_solutions[0].sol(t))[1].real, self.variational_y_dot(t, basis_solutions[0].sol(t))[1].imag])
 
-
+                """ # OLD
                 # Overlaps
                 X = np.zeros((self.N[b_i], self.N[b_i], 3), dtype=complex) #[i][j][r] = { z^(r) | z^(r) }
                 for i in range(self.N[b_i]):
@@ -179,7 +183,56 @@ class UNDASDB(bosonic_su_n):
 
                 # M matrix
                 #M = -1j * np.matmul(X_inv, H_matrix) - self.S * np.matmul(X_inv * (Y.T), X[:,:,1])
-                M = np.matmul(X_inv, -1j * H_matrix - self.S * X[:,:,1] * Y)
+                M = np.matmul(X_inv, -1j * H_matrix - self.S * X[:,:,1] * Y)"""
+
+                def ebe(i, k): # extended basis element
+                    if k != self.M - 1:
+                        return(cur_basis[i][k])
+                    else:
+                        return(1.0)
+
+                cur_H_A, cur_H_B = self.calculate_hamiltonian_tensors(t)
+
+                Xi = np.zeros((3, self.N[b_i], self.N[b_i]), dtype=complex)
+                zeta = np.zeros((self.N[b_i], self.N[b_i]), dtype=complex)
+                epsilon = np.zeros((self.N[b_i], self.N[b_i]), dtype=complex)
+                eta = np.zeros((self.N[b_i], self.N[b_i]), dtype=complex)
+                for a in range(self.N[b_i]):
+                    for b in range(self.N[b_i]):
+                        cur_base_overlap = 1 + np.sum(np.conjugate(cur_basis[a]) * cur_basis[b])
+                        cur_xi = np.power(np.conjugate(cur_N[a]) * cur_N[b], 1.0 / self.S) * cur_base_overlap
+                        Xi[0][a][b] = np.power(cur_xi, self.S)
+                        Xi[1][a][b] = Xi[0][a][b] / cur_base_overlap
+                        Xi[2][a][b] = Xi[1][a][b] / cur_base_overlap
+
+                        zeta[a][b] = Xi[0][a][b] * cur_N_dot[b] / cur_N[b]
+
+                        epsilon[a][b] = Xi[1][a][b] * (np.sum(np.conjugate(cur_basis[a]) * cur_basis_dot[b]))
+
+                        one_body_interaction = 0.0
+                        two_body_interaction = 0.0
+                        for alpha in range(self.M):
+                            for beta in range(self.M):
+                                one_body_interaction += cur_H_A[alpha][beta] * np.conjugate(ebe(a, alpha)) * ebe(b, beta)
+                                for gamma in range(self.M):
+                                    for delta in range(self.M):
+                                        two_body_interaction += cur_H_B[alpha][beta][gamma][delta] * np.conjugate(ebe(a, alpha)) * np.conjugate(ebe(a, beta)) * ebe(b, gamma) * ebe(b, delta)
+                        eta[a][b] = self.S * Xi[1][a][b] * one_body_interaction + 0.5 * self.S * (self.S - 1) * Xi[2][a][b] * two_body_interaction
+
+                E_data.append(0.0)
+                for a in range(self.N[b_i]):
+                    for b in range(self.N[b_i]):
+                        E_data[-1] += np.conjugate(y[a]) * y[b] * eta[a][b]
+
+
+                # Regularisation
+                if reg_timescale != -1:
+                    Xi_inv = np.linalg.inv(Xi[0] + reg_timescale * np.identity(self.N[b_i], dtype=complex)) # inverse of the non-reduced overlap matrix
+                else:
+                    Xi_inv = np.linalg.inv(Xi[0]) # inverse of the non-reduced overlap matrix
+
+                M = np.matmul(Xi_inv, -1j * eta - zeta - self.S * epsilon)
+
 
                 # Semaphor
                 self.semaphor.update(semaphor_event_ID, t)
@@ -211,9 +264,16 @@ class UNDASDB(bosonic_su_n):
             plt.legend()
             plt.show()
 
+            # The issue is that after this method concludes, the basis norms are discarded, but they are now a vital part of the solution!
+            # Two ways to resolve this:
+            #     1. Store an extra set of values for basis norms
+            #     2. Absorb N into A
+            # Let's firstly do method 2 because it's easier, and if the floating point error persists, we shall try method 1
+
+
             for t_i in range(1, N_dtp+1):
                 for n in range(self.N[b_i]):
-                    cur_wavef_evol[t_i][n] = iterated_solution.y[n][t_i]
+                    cur_wavef_evol[t_i][n] = iterated_solution.y[n][t_i] * basis_solutions[n].sol(self.t_space[t_i])[0]
 
             self.semaphor.finish_event(new_sem_ID, "    Simulation")
 

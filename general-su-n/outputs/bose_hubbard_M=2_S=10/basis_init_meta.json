@@ -1,0 +1,10 @@
+{
+    "N": [
+        5,
+        1
+    ],
+    "basis_config": [
+        {
+            "method": "gaussian",
+            "z_0": {
+                "__ndarray__": 

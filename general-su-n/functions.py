@@ -128,3 +128,33 @@ def dtstr(seconds, max_depth = 2):
     # Milliseconds
     return(f"{int(np.round(seconds / 0.001))} ms")
 
+
+# ----------------------------- Casting functions -----------------------------
+
+def cast_dict_to_list(dict_obj, list_of_keys):
+    output = []
+    for key in list_of_keys:
+        output.append(dict_obj[key])
+    return(output)
+
+def cast_to_inhomogeneous_list(flat_list, N, obj_wise_casting = None, **obj_wise_casting_args):
+    # flat list is a list of objects, N is a list of lengths.
+    # Outputs a list containing all the objects from flat_list such that
+    # output[i] = list of length N[i]
+    # If obj_wise_casting is not None, it is applied to every object.
+    output = []
+    for l in range(len(N)):
+        output.append([])
+    cur_list_i = 0
+    cur_i = 0
+    for obj in flat_list:
+        if obj_wise_casting is None:
+            output[cur_list_i].append(obj)
+        else:
+            output[cur_list_i].append(obj_wise_casting(obj, **obj_wise_casting_args))
+        cur_i += 1
+        if cur_i == N[cur_list_i]:
+            cur_list_i += 1
+            cur_i = 0
+    return(output)
+

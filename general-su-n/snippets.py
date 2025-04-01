@@ -6,6 +6,7 @@ import functions
 
 import matplotlib.pyplot as plt
 
+"""
 def f(t, y, x):
     return(np.power(y * (y - x) / (x / 2 - y), 2))
 
@@ -27,6 +28,15 @@ for i in range(len(y_0)):
     plt.plot(t_eval, ode_result.sol(t_eval)[i], "--")
 plt.xlim((0, 1.5))
 plt.ylim((-2, 10))
-plt.show()
+plt.show()"""
+
+def lol(x, y):
+    return(x * y)
+
+def kek(list_of_obj, func_to_apply, **func_args):
+    for obj in list_of_obj:
+        print(f"Result = {func_to_apply(obj, **func_args)}")
+
+kek([1, 2, 3], lol, y = 5)
 
 

@@ -8,7 +8,9 @@ import inspect # callable handling
 from functools import partial
 from copy import deepcopy
 import time
+
 from class_Semaphor import Semaphor
+from class_DSM import DSM
 import functions
 
 import csv
@@ -102,6 +104,12 @@ class bosonic_su_n():
             "sample_gaussian(z_0 = np.array([]), width = 1.0, conditioning_limit = -1, N_max = 50, max_saturation_steps = 50)" : "J. Chem. Phys. 144, 094106 (2016); see Appendix"
         }
 
+    data_nodes = {
+        "system" : {"config" : "pkl", "H_A_func" : "txt", "H_B_func" : "txt", "fock_solution" : "csv"}, # The description of the physical system
+        "setup" : {"basis_init" : "csv", "wavef_init" : "pkl"}, # The specification of the experimental setup
+        "solution" : {"basis_evol" : "csv", "wavef_evol" : "csv"} # The solution as found by the CS method
+    }
+
     def __init__(self, ID):
         # Identification
         self.ID = ID
@@ -160,6 +168,11 @@ class bosonic_su_n():
         self.output_basis_evol_filename = "basis_evol" # Evolved basis
         self.output_wavef_evol_filename = "wavef_evol" # Evolved wavef
         self.output_solution_filename = "fock_solution" # Solution on the full Fock basis
+
+        # DSM
+        self.disk_jockey = DSM(f"outputs/{self.ID}")
+        self.disk_jockey.create_data_nodes(bosonic_su_n.data_nodes)
+
 
 
     ###########################################################################
@@ -1660,7 +1673,88 @@ class bosonic_su_n():
 
     # Loading and saving
 
-    def save_data(self):
+    def save_data(self, data_groups = None):
+        if data_groups is None:
+            data_groups = list(bosonic_su_n.data_nodes.keys())
+        # If they exist, stores the Hamiltonian tensors
+        if "system" in data_groups:
+            if self.is_phys_init:
+                self.disk_jockey.commit_datum_bulk("config", {"M" : self.M, "S" : self.S})
+                self.disk_jockey.commit_datum_bulk("H_A_func", inspect.getsource(self.H_A))
+                self.disk_jockey.commit_datum_bulk("H_B_func", inspect.getsource(self.H_B))
+            if self.is_solved:
+                header_row = ["t"]
+                for m in range(self.M):
+                    header_row.append(self.encode_solution_header(m))
+                solution_rows = [header_row]
+                for t_i in range(len(self.t_space)):
+                    cur_row = [self.t_space[t_i]]
+                    for m in range(self.M):
+                        cur_row.append(self.solution[t_i][m])
+                    solution_rows.append(cur_row)
+                self.disk_jockey.commit_datum_bulk("fock_solution", solution_rows, header_row = True)
+
+        if "setup" in data_groups:
+            if self.is_basis_init:
+                basis_init_header_row = []
+                for m in range(self.M - 1):
+                    basis_init_header_row.append(f"z_{m}")
+                basis_init_rows = [basis_init_header_row]
+
+                for b_i in range(len(self.basis)):
+                    for basis_vector in self.basis[b_i]:
+                        basis_init_rows.append([])
+                        for m in range(self.M - 1):
+                            basis_init_rows[-1].append(basis_vector[m])
+                self.disk_jockey.commit_datum_bulk("basis_init", basis_init_rows, header_row = True)
+                self.disk_jockey.commit_metadatum("basis_init", {"N" : self.N, "basis_config" : self.basis_config})
+
+            if self.is_wavef_init:
+                self.disk_jockey.commit_datum_bulk("wavef_init", self.wavef)
+                self.disk_jockey.commit_metadatum("wavef_init", {"wavef_message" : self.wavef_message})
+                if self.wavef_message != "NONE":
+                    self.disk_jockey.commit_metadatum_point("wavef_init", "wavef_initial_wavefunction", self.wavef_initial_wavefunction)
+
+        if "solution" in data_groups:
+            if self.is_basis_evol:
+                header_row = ["t"]
+                for b_i in range(len(self.basis)):
+                    for n in range(self.N[b_i]):
+                        for m in range(self.M - 1):
+                            header_row.append(self.encode_basis_evol_header(b_i, n, m))
+                basis_evol_rows = [header_row]
+
+                for t_i in range(len(self.t_space)):
+                    cur_row = [self.t_space[t_i]]
+                    for b_i in range(len(self.basis)):
+                        for n in range(self.N[b_i]):
+                            for m in range(self.M - 1):
+                                cur_row.append(self.basis_evol[b_i][t_i][n][m])
+                    basis_evol_rows.append(cur_row)
+                self.disk_jockey.commit_datum_bulk("basis_evol", basis_evol_rows, header_row = True)
+
+
+            if self.is_wavef_evol:
+                header_row = ["t"]
+                for b_i in range(len(self.basis)):
+                    for n in range(self.N[b_i]):
+                        header_row.append(self.encode_wavef_evol_header(b_i, n))
+                wavef_evol_rows = [header_row]
+
+                for t_i in range(len(self.t_space)):
+                    cur_row = [self.t_space[t_i]]
+                    for b_i in range(len(self.basis)):
+                        for n in range(self.N[b_i]):
+                            cur_row.append(self.wavef_evol[b_i][t_i][n])
+                    # TODO add physical descriptors such as <E> here?
+                    wavef_evol_rows.append(cur_row)
+                self.disk_jockey.commit_datum_bulk("wavef_evol", wavef_evol_rows, header_row = True)
+
+        self.disk_jockey.save_data(data_groups)
+
+
+        """
+
         # This creates (or accesses) a subfolder with ID name in outputs/
         # and saves the data which was initialized so far (i.e. we are
         # able to save e.g. configuration only, no evolution needed.)
@@ -1774,8 +1868,128 @@ class bosonic_su_n():
                 # TODO add physical descriptors such as <E> here?
                 solution_writer.writerow(cur_row)
             solution_file.close()
+                    """
 
-    def load_data(self, config_load = [True, True, True, True, True]):
+    def load_data(self, data_groups = None):
+        if data_groups is None:
+            data_groups = list(bosonic_su_n.data_nodes.keys())
+        self.disk_jockey.load_data(data_groups)
+
+        if "system" in data_groups:
+            if self.disk_jockey.is_data_initialised["config"]:
+                self.set_global_parameters(self.disk_jockey.data_bulks["config"]["M"], self.disk_jockey.data_bulks["config"]["S"])
+                if self.disk_jockey.is_data_initialised["H_A_func"] and self.disk_jockey.is_data_initialised["H_B_func"]:
+                    H_A_fn_body = self.disk_jockey.data_bulks["H_A_func"]
+                    H_B_fn_body = self.disk_jockey.data_bulks["H_B_func"]
+                    exec(H_A_fn_body) # This creates the function locally
+                    H_A_fn_name = H_A_fn_body.split(" ", 1)[-1].split("(")[0]
+                    self.H_A = eval(H_A_fn_name) # This refers to the function object
+                    exec(H_B_fn_body) # This creates the function locally
+                    H_B_fn_name = H_B_fn_body.split(" ", 1)[-1].split("(")[0]
+                    self.H_B = eval(H_B_fn_name) # This refers to the function object
+                    self.is_phys_init = True
+                    print("  Hamiltonian tensors loaded.")
+            if self.disk_jockey.is_data_initialised["fock_solution"]:
+                if not self.is_t_space_init:
+                    self.t_space = [] # np.zeros(N_dtp)
+                self.solution = [] # np.zeros((N_dtp, self.M))
+                for row in self.disk_jockey.data_bulks["fock_solution"]:
+                    if not self.is_t_space_init:
+                        self.t_space.append(float(row["t"]))
+                    # we append the empty ndarrays
+                    self.solution.append(np.zeros(self.M))
+                    for m in range(self.M):
+                        self.solution[-1][m] = float(row[self.encode_solution_header(m)])
+                self.is_solved = True
+                self.is_t_space_init = True
+                print(f"  Solution ({len(self.solution)} datapoints) loaded.")
+
+        if "setup" in data_groups:
+            if self.disk_jockey.is_data_initialised["basis_init"]:
+                self.N = self.disk_jockey.metadata["basis_init"]["N"]
+                self.basis_config = self.disk_jockey.metadata["basis_init"]["basis_config"]
+                self.basis = functions.cast_to_inhomogeneous_list(self.disk_jockey.data_bulks["basis_init"], self.N, functions.cast_dict_to_list, list_of_keys = [f"z_{m}" for m in range(self.M - 1)])
+                # Create the identity operator matrices
+                self.inverse_overlap_matrix = []
+
+                for b_i in range(len(self.basis)):
+                    X = np.zeros((self.N[b_i], self.N[b_i]), dtype = complex)
+                    for m in range(self.N[b_i]):
+                        for n in range(self.N[b_i]):
+                            X[m][n] = overlap(self.basis[b_i][m], self.basis[b_i][n], self.S)
+                    self.inverse_overlap_matrix.append(np.linalg.inv(X))
+                self.is_basis_init = True
+                for b_i in range(len(self.basis)):
+                    if self.basis_config[b_i]["method"] == "gaussian":
+                        print(f"  A sample of N = {self.N[b_i]} basis vectors around z_0 = {self.basis_config[b_i]["z_0"]} drawn from a normal distribution of width {self.basis_config[b_i]["width"]} has been loaded.")
+            if self.disk_jockey.is_data_initialised["wavef_init"]:
+                self.wavef_message = self.disk_jockey.metadata["wavef_init"]["wavef_message"]
+                if self.wavef_message != "NONE":
+                    self.wavef_initial_wavefunction = self.disk_jockey.metadata["wavef_init"]["wavef_initial_wavefunction"]
+                self.wavef = self.disk_jockey.data_bulks["wavef_init"]
+                self.is_wavef_init = True
+                if self.wavef_message == "manual":
+                    print("  An initial wavefunction decomposition has been loaded from a manual decomposition input.")
+                elif self.wavef_message == "aguiar":
+                    print(f"  An initial wavefunction decomposition has been loaded from a pure Aguiar coherent state | z }} = {self.wavef_initial_wavefunction}.")
+                elif self.wavef_message == "grossmann":
+                    print(f"  An initial wavefunction decomposition has been loaded from a pure Grossmann coherent state | xi > = {self.wavef_initial_wavefunction}.")
+                elif self.wavef_message == "NONE":
+                    if self.is_basis_init:
+                        print(f"  An initial wavefunction decomposition has been loaded from a pure Aguar coherent state (the first element of the basis set), | z }} = {self.basis[0][0]}.")
+                    else:
+                        print(f"  An initial wavefunction decomposition has been loaded from a pure Aguar coherent state (the first element of the basis set), but the basis has not been initialized.")
+        if "solution" in data_groups:
+            if self.disk_jockey.is_data_initialised["basis_evol"]:
+                self.basis_evol = []
+                if not self.is_t_space_init:
+                    self.t_space = [] # np.zeros(N_dtp)
+                    for basis_evol_row in self.disk_jockey.data_bulks["basis_evol"]:
+                        self.t_space.append(basis_evol_row["t"])
+                    self.is_t_space_init = True
+
+                for b_i in range(len(self.basis)):
+                    self.basis_evol.append([])
+                    for basis_evol_row in self.disk_jockey.data_bulks["basis_evol"]:
+                        cur_basis_evol = np.zeros((self.N[b_i], self.M-1), dtype=complex)
+                        for n in range(self.N[b_i]):
+                            for m in range(self.M - 1):
+                                cur_basis_evol[n][m] = basis_evol_row[self.encode_basis_evol_header(b_i, n, m)]
+                        self.basis_evol[b_i].append(cur_basis_evol)
+                self.is_basis_evol = True
+                print(f"  Basis evolution ({len(self.basis_evol[0])} datapoints) loaded.")
+            if self.disk_jockey.is_data_initialised["wavef_evol"]:
+                if not self.is_phys_init:
+                    print("ERROR: You cannot load wavefunction evolution without loading or setting the physics configuration.")
+                    return(-1)
+                if not self.is_basis_init:
+                    print("ERROR: You cannot load wavefunction evolution without loading the basis initialization.")
+                    return(-1)
+
+                if not self.is_t_space_init:
+                    self.t_space = [] # np.zeros(N_dtp)
+                    for wavef_evol_row in self.disk_jockey.data_bulks["wavef_evol"]:
+                        self.t_space.append(wavef_evol_row["t"])
+                    self.is_t_space_init = True
+                self.wavef_evol = [] # [b_i] = np.zeros((N_dtp, self.N), dtype=complex)
+                for b_i in range(len(self.basis)):
+                    self.wavef_evol.append([])
+
+                for wavef_evol_row in self.disk_jockey.data_bulks["wavef_evol"]:
+                    for b_i in range(len(self.basis)):
+                        # we append the empty ndarrays
+                        self.wavef_evol[b_i].append(np.zeros(self.N[b_i], dtype = complex))
+
+                        for n in range(self.N[b_i]):
+                            self.wavef_evol[b_i][-1][n] = wavef_evol_row[self.encode_wavef_evol_header(b_i, n)]
+                self.is_wavef_evol = True
+                print(f"  Wavefunction evolution ({len(self.t_space)} datapoints) loaded.")
+        if self.is_t_space_init:
+            self.t_space = np.array(self.t_space)
+
+
+
+    def OLD_load_data(self, config_load = [True, True, True, True, True]):
         # config_load specifies which properties should we load. I.e. even if there exists data
         # for basis_evol, if we pass config_load = [True, True, True, False, False], only
         # H_A, H_B, and basis_init and wavef_init will load.

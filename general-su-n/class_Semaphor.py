@@ -112,9 +112,9 @@ class Semaphor():
             ETA = time.strftime(self.time_format, time.localtime( (time.time()-self.start_time[event_ID]) / progress_fraction + self.start_time[event_ID] ))
 
             if self.newline[event_ID]:
-                print(f"  {self.message[event_ID]}: " + str(int(100 * progress_fraction)).zfill(2) + "% done; est. time of finish: " + ETA)
+                print(f"  {self.message[event_ID]}: {str(int(100 * progress_fraction)).zfill(2)}% done; est. time of finish: {ETA} (sim. t = {tau:.2f})")
             else:
-                msg = "  " + str(int(100 * progress_fraction)).zfill(2) + "% done; est. time of finish: " + ETA
+                msg = f"  {self.message[event_ID]}: {str(int(100 * progress_fraction)).zfill(2)}% done; est. time of finish: {ETA} (sim. t = {tau:.2f})"
                 if len(msg) < self.max_msg_len[event_ID]:
                     # padding
                     msg += " " * (self.max_msg_len[event_ID] - len(msg))

@@ -72,12 +72,12 @@ bose_hubbard.save_data()
 
 bose_hubbard.plot_data()"""
 
-
+"""
 bose_hubbard = bosonic_su_n("bose_hubbard_M=2_S=10")
 bose_hubbard.load_data(["system"])
 
-"""bose_hubbard.set_global_parameters(M = 2, S = 10)
-bose_hubbard.set_hamiltonian_tensors(A_BH, B_BH)"""
+#bose_hubbard.set_global_parameters(M = 2, S = 10)
+#bose_hubbard.set_hamiltonian_tensors(A_BH, B_BH)
 
 z_0 = np.array([1.00+ 1j * 0.00], dtype=complex)
 # Note: to get more basis vectors in a sample, increase particle number! It makes saturation less probable :)
@@ -92,15 +92,15 @@ bose_hubbard.simulate_uncoupled_basis(max_t = 2.0, N_dtp = 200, rtol = (1e-10, 1
 bose_hubbard.save_data(["setup", "solution"])
 
 bose_hubbard.plot_data(graph_list = ["basis_expected_mode_occupancy", "expected_mode_occupancy"])
+"""
 
 
 
 
+bose_hubbard = bosonic_su_n("bose_hubbard_M=3_S=20")
+bose_hubbard.load_data()
 
-"""bose_hubbard = bosonic_su_n("bose_hubbard_M=3_S=20")
-#bose_hubbard.load_data()
-
-bose_hubbard.set_global_parameters(M = 3, S = 20)
+"""bose_hubbard.set_global_parameters(M = 3, S = 20)
 bose_hubbard.set_hamiltonian_tensors(A_BH, B_BH)
 
 z_0 = np.array([0.50+ 1j * 0.50, 0.50 + -1j * 0.50], dtype=complex)
@@ -114,6 +114,6 @@ bose_hubbard.set_initial_wavefunction()
 
 bose_hubbard.simulate_uncoupled_basis(max_t = 2.0, N_dtp = 200, rtol = (1e-10, 1e-10), reg_timescale = (1e-4, 1e-4))
 #bose_hubbard.fock_solution()
-bose_hubbard.save_data()
+bose_hubbard.save_data()"""
 
-bose_hubbard.plot_data( graph_list = ["basis_expected_mode_occupancy", "expected_mode_occupancy"])"""
+bose_hubbard.plot_data( graph_list = ["basis_expected_mode_occupancy", "expected_mode_occupancy"])

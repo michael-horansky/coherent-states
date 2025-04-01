@@ -493,9 +493,9 @@ class bosonic_su_n():
 
         if not self.is_t_space_init:
             if len(t_range) == 2:
-                self.t_space = np.linspace(0, t_range[0], t_range[1])
-            if len(t_range) == 3:
-                self.t_space = np.linspace(t_range[0], t_range[1], t_range[2])
+                self.t_space = np.linspace(0, t_range[0], t_range[1] + 1)
+            elif len(t_range) == 3:
+                self.t_space = np.linspace(t_range[0], t_range[1], t_range[2] + 1)
             else:
                 print("  ERROR: t_space is a required argument when t_space has not been initialized, and must be a list of form [(t_start,) t_stop, N_dtps]")
                 return(-1)
@@ -1908,7 +1908,7 @@ class bosonic_su_n():
             if self.disk_jockey.is_data_initialised["basis_init"]:
                 self.N = self.disk_jockey.metadata["basis_init"]["N"]
                 self.basis_config = self.disk_jockey.metadata["basis_init"]["basis_config"]
-                self.basis = functions.cast_to_inhomogeneous_list(self.disk_jockey.data_bulks["basis_init"], self.N, functions.cast_dict_to_list, list_of_keys = [f"z_{m}" for m in range(self.M - 1)])
+                self.basis = functions.cast_to_inhomogeneous_list(self.disk_jockey.data_bulks["basis_init"], self.N, functions.cast_dict_to_list, list_of_keys = [f"z_{m}" for m in range(self.M - 1)], convert_to_ndarray = True)
                 # Create the identity operator matrices
                 self.inverse_overlap_matrix = []
 

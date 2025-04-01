@@ -131,10 +131,12 @@ def dtstr(seconds, max_depth = 2):
 
 # ----------------------------- Casting functions -----------------------------
 
-def cast_dict_to_list(dict_obj, list_of_keys):
+def cast_dict_to_list(dict_obj, list_of_keys, convert_to_ndarray = False):
     output = []
     for key in list_of_keys:
         output.append(dict_obj[key])
+    if convert_to_ndarray:
+        output = np.array(output)
     return(output)
 
 def cast_to_inhomogeneous_list(flat_list, N, obj_wise_casting = None, **obj_wise_casting_args):

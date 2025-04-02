@@ -64,6 +64,7 @@ class Semaphor():
         return(new_ID)
 
     def finish_event(self, event_ID, final_message = None):
+        # Returns the duration in ms
         if event_ID not in self.tau_space.keys():
             #print(f"  ERROR: Semaphor {event_ID} does not exist.")
             return(-1)
@@ -75,6 +76,7 @@ class Semaphor():
             # padding
             msg += " " * (self.max_msg_len[event_ID] - len(msg))
         print(msg)
+        process_duration = time.time() - self.start_time[event_ID]
         del self.tau_space[event_ID]
         del self.start_tau[event_ID]
         del self.start_time[event_ID]
@@ -84,6 +86,7 @@ class Semaphor():
         del self.message[event_ID]
         del self.max_msg_len[event_ID]
         del self.newline[event_ID]
+        return(process_duration)
 
     def update(self, event_ID, tau):
         if event_ID not in self.tau_space.keys():

@@ -132,6 +132,7 @@ class bosonic_su_n():
         self.evol_benchmarks = [] # For each b_i, this is the time in seconds it takes to evolve both the basis AND the wavefunction
 
         self.solution = [] # Can be found on the Fock basis for small M,S. A list of expected occupancies in time. np.array((N_dtp, self.M), dtype=float)
+        self.solution_benchmark = None
 
         # Config
         self.basis_config = [] # Every element is a dictionary
@@ -523,7 +524,7 @@ class bosonic_su_n():
 
         sol = sp.integrate.solve_ivp(c_dot, [self.t_space[0], self.t_space[-1]], c_0, method = 'RK45', t_eval = self.t_space, args = (new_sem_ID,))
 
-        self.semaphor.finish_event(new_sem_ID, "    Simulation")
+        self.solution_benchmark = self.semaphor.finish_event(new_sem_ID, "    Simulation")
 
         print("  Translating Fock basis coefficients into mode occupancies...")
 
@@ -538,7 +539,7 @@ class bosonic_su_n():
                 for i in range(fock_N):
                     self.solution[t_i][m] += fock_basis[i][m] * (cur_c[i].real * cur_c[i].real + cur_c[i].imag * cur_c[i].imag) / self.S
 
-        print("  Done!")
+        print(f"  Done! Solution on the full occupancy basis found in {functions.dtstr(self.solution_benchmark)}")
 
 
         self.is_solved = True
@@ -1469,8 +1470,22 @@ class bosonic_su_n():
 
 
     # ---------------------------------------------------------
-    # --------------- Graphical output methods ----------------
+    # -------------------- Output methods ---------------------
     # ---------------------------------------------------------
+
+    # ------------------ Text output methods ------------------
+
+    def summarise_data(self):
+        # Summarises obtained data and benchmarks
+
+        if self.is_wavef_evol:
+            print(f"System solved on {len(self.basis)} CS basis sets.")
+            for b_i in range(len(self.basis)):
+                print(f"  Basis {b_i + 1} of size {self.N[b_i]}: solution benchmark is {functions.dtstr(self.evol_benchmarks[b_i])} (basis & wavef)")
+        if self.is_solved:
+            print(f"System solved on the full occupancy basis; solution benchmark is {functions.dtstr(self.solution_benchmark)}")
+
+    # --------------- Graphical output methods ----------------
 
     def plot_data(self, graph_list = ["expected_mode_occupancy", "initial_decomposition"], save_graph=True):
 
@@ -1655,9 +1670,9 @@ class bosonic_su_n():
 
 
 
-    # ---------------------------------------------------------
-    # ----------------- Data storage methods ------------------
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # ------------------------- Data storage methods --------------------------
+    # -------------------------------------------------------------------------
     # Encoders and decoders for .csv headers
     def encode_basis_evol_header(self, b_i, n, m):
         # Returns the name of the column for the b_i-th basis, n-th vector, m-th parameter
@@ -1693,6 +1708,7 @@ class bosonic_su_n():
                         cur_row.append(self.solution[t_i][m])
                     solution_rows.append(cur_row)
                 self.disk_jockey.commit_datum_bulk("fock_solution", solution_rows, header_row = True)
+                self.disk_jockey.commit_metadatum("fock_solution", {"benchmark" : self.solution_benchmark})
 
         if "setup" in data_groups:
             if self.is_basis_init:
@@ -1749,126 +1765,9 @@ class bosonic_su_n():
                     # TODO add physical descriptors such as <E> here?
                     wavef_evol_rows.append(cur_row)
                 self.disk_jockey.commit_datum_bulk("wavef_evol", wavef_evol_rows, header_row = True)
+                self.disk_jockey.commit_metadatum("wavef_evol", {"evol_benchmarks" : self.evol_benchmarks})
 
         self.disk_jockey.save_data(data_groups)
-
-
-        """
-
-        # This creates (or accesses) a subfolder with ID name in outputs/
-        # and saves the data which was initialized so far (i.e. we are
-        # able to save e.g. configuration only, no evolution needed.)
-
-        # Create subfolder if not exists
-        Path(f"outputs/{self.output_subfolder_name}").mkdir(parents=True, exist_ok=True)
-        dir_path = f"outputs/{self.output_subfolder_name}/"
-
-
-        # Saves configuration
-        config_file = open(dir_path + self.output_config_filename + ".txt", "w")
-        config_file.write(", ".join(str(x) for x in [self.is_phys_init, self.is_basis_init, self.is_wavef_init, self.is_basis_evol, self.is_wavef_evol, self.is_solved]) + "\n")
-        # The following lines dynamically describe the aforementioned initializations
-        if self.is_phys_init:
-            config_file.write(", ".join(str(x) for x in [self.M, self.S]) + "\n")
-        if self.is_basis_init:
-            # For every basis set, we input two lines
-            # First, the number of basis sets
-            config_file.write(str(len(self.basis)) + "\n")
-
-            # Then, for each basis, we print the basis size + sampling config
-            for b_i in range(len(self.basis)):
-                if self.basis_config[b_i]["method"] == "gaussian":
-                    config_file.write(", ".join(str(x) for x in [self.basis_config[b_i]["method"], self.N[b_i], self.basis_config[b_i]["width"], self.basis_config[b_i]["conditioning_limit"], self.basis_config[b_i]["N_max"], self.basis_config[b_i]["max_saturation_steps"]]) + "\n")
-                    config_file.write(", ".join(str(x) for x in self.basis_config[b_i]["z_0"]) + "\n")
-        if self.is_wavef_init:
-            config_file.write(self.wavef_message + "\n")
-            if self.wavef_message != "NONE":
-                config_file.write(", ".join(str(x) for x in self.wavef_initial_wavefunction) + "\n")
-
-        config_file.close()
-
-
-        # If they exist, stores the Hamiltonian tensors
-        if self.is_phys_init:
-            H_A_file = open(dir_path + self.output_H_A_filename + ".txt", "w")
-            H_A_file.write(inspect.getsource(self.H_A))
-            H_A_file.close()
-            H_B_file = open(dir_path + self.output_H_B_filename + ".txt", "w")
-            H_B_file.write(inspect.getsource(self.H_B))
-            H_B_file.close()
-
-        # If they exist, stores basis and wavef initialization
-        if self.is_basis_init:
-            basis_init_file = open(dir_path + self.output_basis_init_filename + ".txt", "w")
-            for b_i in range(len(self.basis)):
-                for basis_vector in self.basis[b_i]:
-                    basis_init_file.write(", ".join(str(x) for x in basis_vector) + "\n")
-            basis_init_file.close()
-
-        if self.is_wavef_init:
-            wavef_init_file = open(dir_path + self.output_wavef_init_filename + ".txt", "w")
-            for b_i in range(len(self.basis)):
-                wavef_init_file.write(", ".join(str(x) for x in self.wavef[b_i]) + "\n")
-            wavef_init_file.close()
-
-        # If they exist, stores basis and wavef evolution
-        # The evolutions are stored side by side for each basis
-        if self.is_basis_evol:
-            basis_evol_file = open(dir_path + self.output_basis_evol_filename + ".csv", "w")
-            basis_evol_writer = csv.writer(basis_evol_file)
-            header_row = ["t"]
-
-            for b_i in range(len(self.basis)):
-                for n in range(self.N[b_i]):
-                    for m in range(self.M - 1):
-                        header_row.append(self.encode_basis_evol_header(b_i, n, m))
-            basis_evol_writer.writerow(header_row)
-
-            for t_i in range(len(self.t_space)):
-                cur_row = [self.t_space[t_i]]
-                for b_i in range(len(self.basis)):
-                    for n in range(self.N[b_i]):
-                        for m in range(self.M - 1):
-                            cur_row.append(self.basis_evol[b_i][t_i][n][m])
-                basis_evol_writer.writerow(cur_row)
-            basis_evol_file.close()
-
-        if self.is_wavef_evol:
-            wavef_evol_file = open(dir_path + self.output_wavef_evol_filename + ".csv", "w")
-            wavef_evol_writer = csv.writer(wavef_evol_file)
-            header_row = ["t"]
-
-            for b_i in range(len(self.basis)):
-                for n in range(self.N[b_i]):
-                    header_row.append(self.encode_wavef_evol_header(b_i, n))
-            wavef_evol_writer.writerow(header_row)
-
-            for t_i in range(len(self.t_space)):
-                cur_row = [self.t_space[t_i]]
-                for b_i in range(len(self.basis)):
-                    for n in range(self.N[b_i]):
-                        cur_row.append(self.wavef_evol[b_i][t_i][n])
-                # TODO add physical descriptors such as <E> here?
-                wavef_evol_writer.writerow(cur_row)
-            wavef_evol_file.close()
-
-        if self.is_solved:
-            solution_file = open(dir_path + self.output_solution_filename + ".csv", "w")
-            solution_writer = csv.writer(solution_file)
-            header_row = ["t"]
-
-            for m in range(self.M):
-                header_row.append(self.encode_solution_header(m))
-            solution_writer.writerow(header_row)
-
-            for t_i in range(len(self.t_space)):
-                cur_row = [self.t_space[t_i]]
-                for m in range(self.M):
-                    cur_row.append(self.solution[t_i][m])
-                # TODO add physical descriptors such as <E> here?
-                solution_writer.writerow(cur_row)
-            solution_file.close()
-                    """
 
     def load_data(self, data_groups = None):
         if data_groups is None:
@@ -1902,6 +1801,7 @@ class bosonic_su_n():
                         self.solution[-1][m] = float(row[self.encode_solution_header(m)])
                 self.is_solved = True
                 self.is_t_space_init = True
+                self.solution_benchmark = self.disk_jockey.metadata["fock_solution"]["benchmark"]
                 print(f"  Solution ({len(self.solution)} datapoints) loaded.")
 
         if "setup" in data_groups:
@@ -1982,270 +1882,13 @@ class bosonic_su_n():
 
                         for n in range(self.N[b_i]):
                             self.wavef_evol[b_i][-1][n] = wavef_evol_row[self.encode_wavef_evol_header(b_i, n)]
+                self.evol_benchmarks = self.disk_jockey.metadata["wavef_evol"]["evol_benchmarks"]
                 self.is_wavef_evol = True
                 print(f"  Wavefunction evolution ({len(self.t_space)} datapoints) loaded.")
         if self.is_t_space_init:
             self.t_space = np.array(self.t_space)
 
-
-
-    def OLD_load_data(self, config_load = [True, True, True, True, True]):
-        # config_load specifies which properties should we load. I.e. even if there exists data
-        # for basis_evol, if we pass config_load = [True, True, True, False, False], only
-        # H_A, H_B, and basis_init and wavef_init will load.
-
-        dir_path = f"outputs/{self.output_subfolder_name}/"
-        # First, we load the config
-        config_file = open(dir_path + self.output_config_filename + ".txt", 'r')
-        config_lines = [line.rstrip('\n') for line in config_file]
-        config_file.close()
-
-        first_line_list = config_lines[0].split(", ")
-        past_is_phys_init = bool(first_line_list[0])
-        past_is_basis_init = bool(first_line_list[1])
-        past_is_wavef_init = bool(first_line_list[2])
-        past_is_basis_evol = bool(first_line_list[3])
-        past_is_wavef_evol = bool(first_line_list[4])
-        past_is_solved     = bool(first_line_list[5])
-
-        cur_config_line_index = 1
-
-        if past_is_phys_init:
-            if not config_load[0]:
-                cur_config_line_index += 1
-            else:
-                # Load phys
-                cur_line_list = config_lines[cur_config_line_index].split(", ")
-                cur_config_line_index += 1
-                M = int(cur_line_list[0])
-                S = int(cur_line_list[1])
-                self.set_global_parameters(M, S)
-
-                H_A_file = open(dir_path + self.output_H_A_filename + ".txt", "r")
-                H_A_fn_body = H_A_file.read()
-                H_A_file.close()
-                exec(H_A_fn_body) # This creates the function locally
-                H_A_fn_name = H_A_fn_body.split(" ", 1)[-1].split("(")[0]
-                self.H_A = eval(H_A_fn_name) # This refers to the function object
-
-                H_B_file = open(dir_path + self.output_H_B_filename + ".txt", "r")
-                H_B_fn_body = H_B_file.read()
-                H_B_file.close()
-                exec(H_B_fn_body) # This creates the function locally
-                H_B_fn_name = H_B_fn_body.split(" ", 1)[-1].split("(")[0]
-                self.H_B = eval(H_B_fn_name) # This refers to the function object
-
-                self.is_phys_init = True
-
-                print("  Hamiltonian tensors loaded.")
-
-        if past_is_basis_init:
-            # Load basis init
-            cur_line_list = config_lines[cur_config_line_index].split(", ")
-            cur_config_line_index += 1
-
-            number_of_bases = int(cur_line_list[0])
-
-            if not config_load[1]:
-                cur_config_line_index += 2 * number_of_bases
-            else:
-                self.basis_config = []
-                self.N = []
-
-                for b_i in range(number_of_bases):
-                    cur_line_list_a = config_lines[cur_config_line_index].split(", ") # config
-                    cur_config_line_index += 1
-                    cur_line_list_b = config_lines[cur_config_line_index].split(", ") # z_0
-                    cur_config_line_index += 1
-
-                    self.basis_config.append({})
-
-                    self.basis_config[b_i]["method"] = cur_line_list_a[0]
-                    self.N.append(int(cur_line_list_a[1]))
-                    if self.basis_config[b_i]["method"] == "gaussian":
-                        self.basis_config[b_i]["width"]              = float(cur_line_list_a[2])
-                        self.basis_config[b_i]["conditioning_limit"] = float(cur_line_list_a[3])
-                        self.basis_config[b_i]["N_max"]                = int(cur_line_list_a[4])
-                        self.basis_config[b_i]["max_saturation_steps"] = int(cur_line_list_a[5])
-
-                        self.basis_config[b_i]["z_0"] = np.array([complex(x) for x in cur_line_list_b], dtype=complex)
-                    if self.basis_config[b_i]["method"]== "gaussian":
-                        print(f"  A sample of N = {self.N[b_i]} basis vectors around z_0 = {self.basis_config[b_i]["z_0"]} drawn from a normal distribution of width {self.basis_config[b_i]["width"]} has been loaded.")
-
-                basis_init_file = open(dir_path + self.output_basis_init_filename + ".txt", "r")
-                basis_init_lines = [line.rstrip('\n') for line in basis_init_file]
-                basis_init_file.close()
-
-                self.basis = []
-                for b_i in range(number_of_bases):
-                    self.basis.append([])
-                cur_b_i = 0
-                cur_b_vec_i = 0
-                for basis_vec_line in basis_init_lines:
-                    self.basis[cur_b_i].append(np.array([complex(x) for x in basis_vec_line.split(", ")], dtype=complex))
-                    cur_b_vec_i += 1
-                    if cur_b_vec_i == self.N[cur_b_i]:
-                        cur_b_i += 1
-                        cur_b_vec_i = 0
-
-                # Create the identity operator matrices
-                self.inverse_overlap_matrix = []
-
-                for b_i in range(len(self.basis)):
-                    X = np.zeros((self.N[b_i], self.N[b_i]), dtype = complex)
-                    for m in range(self.N[b_i]):
-                        for n in range(self.N[b_i]):
-                            X[m][n] = overlap(self.basis[b_i][m], self.basis[b_i][n], self.S)
-                    self.inverse_overlap_matrix.append(np.linalg.inv(X))
-
-                self.is_basis_init = True
-
-        if past_is_wavef_init:
-
-            # Load wavef init
-            self.wavef_message = config_lines[cur_config_line_index]
-            cur_config_line_index += 1
-            if self.wavef_message != "NONE":
-                cur_line_list = config_lines[cur_config_line_index].split(", ")
-                cur_config_line_index += 1
-                self.wavef_initial_wavefunction = np.array([complex(x) for x in cur_line_list], dtype=complex)
-
-            if not config_load[2]:
-                self.wavef_message = None
-                self.wavef_initial_wavefunction = None
-            else:
-                wavef_init_file = open(dir_path + self.output_wavef_init_filename + ".txt", "r")
-                wavef_init_lines = [line.rstrip('\n') for line in wavef_init_file]
-                wavef_init_file.close()
-
-                self.wavef = []
-
-                for b_i in range(len(self.basis)):
-                    self.wavef.append(np.array([complex(x) for x in wavef_init_lines[0].split(", ")], dtype=complex))
-
-                self.is_wavef_init = True
-                if self.wavef_message == "manual":
-                    print("  An initial wavefunction decomposition has been loaded from a manual decomposition input.")
-                elif self.wavef_message == "aguiar":
-                    print(f"  An initial wavefunction decomposition has been loaded from a pure Aguiar coherent state | z }} = {self.wavef_initial_wavefunction}.")
-                elif self.wavef_message == "grossmann":
-                    print(f"  An initial wavefunction decomposition has been loaded from a pure Grossmann coherent state | xi > = {self.wavef_initial_wavefunction}.")
-                elif self.wavef_message == "NONE":
-                    if self.is_basis_init:
-                        print(f"  An initial wavefunction decomposition has been loaded from a pure Aguar coherent state (the first element of the basis set), | z }} = {self.basis[0][0]}.")
-                    else:
-                        print(f"  An initial wavefunction decomposition has been loaded from a pure Aguar coherent state (the first element of the basis set), but the basis has not been initialized.")
-
-        if past_is_basis_evol and config_load[3]:
-
-            if not self.is_phys_init:
-                print("ERROR: You cannot load basis evolution without loading or setting the physics configuration.")
-                return(-1)
-            if not self.is_basis_init:
-                print("ERROR: You cannot load basis evolution without loading the basis initialization.")
-                return(-1)
-
-            # Load basis evol
-            basis_evol_file = open(dir_path + self.output_basis_evol_filename + ".csv", newline='')
-            basis_evol_reader = csv.DictReader(basis_evol_file, delimiter=',', quotechar='"')
-
-            self.t_space = [] # np.zeros(N_dtp)
-            self.basis_evol = [] # [b_i] = np.zeros((N_dtp, self.N, self.M-1), dtype=complex)
-            for b_i in range(len(self.basis)):
-                self.basis_evol.append([])
-
-
-            for row in basis_evol_reader:
-                self.t_space.append(float(row["t"]))
-
-                for b_i in range(len(self.basis)):
-                    # we append the empty ndarrays
-                    self.basis_evol[b_i].append(np.zeros((self.N[b_i], self.M - 1), dtype = complex))
-
-                    for n in range(self.N[b_i]):
-                        for m in range(self.M-1):
-                            self.basis_evol[b_i][-1][n][m] = complex(row[self.encode_basis_evol_header(b_i, n, m)])
-
-            basis_evol_file.close()
-            self.is_basis_evol = True
-            self.is_t_space_init = True
-            print(f"  Basis evolution ({len(self.basis_evol[0])} datapoints) loaded.")
-
-        if past_is_wavef_evol and config_load[4]:
-
-            if not self.is_phys_init:
-                print("ERROR: You cannot load wavefunction evolution without loading or setting the physics configuration.")
-                return(-1)
-            if not self.is_basis_init:
-                print("ERROR: You cannot load wavefunction evolution without loading the basis initialization.")
-                return(-1)
-
-            # Load wavef evol
-            wavef_evol_file = open(dir_path + self.output_wavef_evol_filename + ".csv", newline='')
-            wavef_evol_reader = csv.DictReader(wavef_evol_file, delimiter=',', quotechar='"')
-
-            """if len(self.t_space) not in [0, N_dtp]:
-                print(f"ERROR: Attempted to load {N_dtp} wavef_evol datapoints, but the internal length of t_space is already set to {len(self.t_space)}.")
-                return(-1)"""
-            self.t_space = [] # np.zeros(N_dtp)
-            self.wavef_evol = [] # [b_i] = np.zeros((N_dtp, self.N), dtype=complex)
-            for b_i in range(len(self.basis)):
-                self.wavef_evol.append([])
-
-            for row in wavef_evol_reader:
-                self.t_space.append(float(row["t"]))
-                for b_i in range(len(self.basis)):
-                    # we append the empty ndarrays
-                    self.wavef_evol[b_i].append(np.zeros(self.N[b_i], dtype = complex))
-
-                    for n in range(self.N[b_i]):
-                        self.wavef_evol[b_i][-1][n] = complex(row[self.encode_wavef_evol_header(b_i, n)])
-
-            wavef_evol_file.close()
-            self.is_wavef_evol = True
-            self.is_t_space_init = True
-            print(f"  Wavefunction evolution ({len(self.wavef_evol[0])} datapoints) loaded.")
-
-        if past_is_solved:
-
-            # Load solution
-            solution_file = open(dir_path + self.output_solution_filename + ".csv", newline='')
-            solution_reader = csv.DictReader(solution_file, delimiter=',', quotechar='"')
-
-            self.t_space = [] # np.zeros(N_dtp)
-            self.solution = [] # np.zeros((N_dtp, self.M))
-
-            for row in solution_reader:
-                self.t_space.append(float(row["t"]))
-                # we append the empty ndarrays
-                self.solution.append(np.zeros(self.M))
-
-                for m in range(self.M):
-                    self.solution[-1][m] = float(row[self.encode_solution_header(m)])
-
-            solution_file.close()
-            self.is_solved = True
-            self.is_t_space_init = True
-            print(f"  Solution ({len(self.solution)} datapoints) loaded.")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        self.summarise_data()
 
 
 

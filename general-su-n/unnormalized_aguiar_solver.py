@@ -120,7 +120,7 @@ class bosonic_su_n():
 
         # initial conditions. Unchanged when simulation occurs.
         self.basis = [] # This is a LIST of bases, i.e. each element is a basis = np.array((self.N, self.M - 1), dtype=complex)
-        self.wavef = [] # This is a LIST of initial decomposition coefficient arrays, one for each basis
+        #self.wavef = [] # This is a LIST of initial decomposition coefficient arrays, one for each basis
 
         self.N = [] # A list of basis lengths
         self.inverse_overlap_matrix = [] # A list of overlap operators
@@ -218,10 +218,13 @@ class bosonic_su_n():
                 decomposition[i] += cur_overlap * self.inverse_overlap_matrix[basis_index][i][a]
         return(decomposition)
 
-    def decompose_aguiar_into_fock(self, z, fock_basis):
+    def decompose_aguiar_into_fock(self, z, fock_basis, renormalise = True):
         c = np.zeros(len(fock_basis), dtype = complex)
 
-        normalisation_coef = np.power(1 / np.sqrt(1 + np.sum(z.real * z.real + z.imag * z.imag)), self.S)
+        if renormalise:
+            normalisation_coef = np.power(1 / np.sqrt(1 + np.sum(z.real * z.real + z.imag * z.imag)), self.S)
+        else:
+            normalisation_coef = 1.0
 
         for i in range(len(fock_basis)):
             c[i] = np.sqrt( float(math.factorial(self.S)) ) * normalisation_coef
@@ -239,6 +242,29 @@ class bosonic_su_n():
                 c[i] /= np.sqrt(math.factorial(fock_basis[i][m]))
                 c[i] *= np.power(xi[m], fock_basis[i][m])
         return(c)
+
+    def decompose_init_wavef_into_basis(self, basis_index):
+        if self.wavef_message in ["aguiar_pure"]:
+            # We also normalise here
+            return(self.decompose_aguiar(self.wavef_initial_wavefunction, basis_index) / np.sqrt(square_norm(self.wavef_initial_wavefunction, self.S)))
+        elif self.wavef_message in ["aguiar_disc"]:
+            total_decomp = np.zeros(self.N[basis_index], dtype=complex)
+            for i in range(len(self.wavef_initial_wavefunction[0])):
+                total_decomp += self.wavef_initial_wavefunction[1][i] * self.decompose_aguiar(self.wavef_initial_wavefunction[0][i], basis_index)
+            return(total_decomp)
+        else:
+            print("ERROR: Unsupported init_wavef type")
+
+    def decompose_init_wavef_into_fock(self, fock_basis):
+        if self.wavef_message in ["aguiar_pure"]:
+            return(self.decompose_aguiar_into_fock(self.wavef_initial_wavefunction, fock_basis, renormalise = True))
+        elif self.wavef_message in ["aguiar_disc"]:
+            total_decomp = np.zeros(len(fock_basis), dtype=complex)
+            for i in range(len(self.wavef_initial_wavefunction[0])):
+                total_decomp += self.wavef_initial_wavefunction[1][i] * self.decompose_aguiar_into_fock(self.wavef_initial_wavefunction[0][i], fock_basis, renormalise = False)
+            return(total_decomp)
+        else:
+            print("ERROR: Unsupported init_wavef type")
 
 
 
@@ -507,7 +533,7 @@ class bosonic_su_n():
         # Decomposition of initial state from self.wavef_initial_wavefunction, self.wavef_message
         # c_i(t = 0) = < u_i | z_0 }
 
-        if self.wavef_message in ["aguiar"]:
+        """if self.wavef_message in ["aguiar"]:
             # initial_wavefunction describes an Aguiar unnormalized coherent state.
             c_0 = self.decompose_aguiar_into_fock(np.array(self.wavef_initial_wavefunction), fock_basis)
         elif self.wavef_message in ["grossmann", "frank"]:
@@ -517,7 +543,8 @@ class bosonic_su_n():
             c_0 = self.decompose_aguiar_into_fock(self.basis[0][0], fock_basis)
         else:
             print(f"  ERROR: self.wavef_message {self.wavef_message} not recognized.")
-            return(-1)
+            return(-1)"""
+        c_0 = self.decompose_init_wavef_into_fock(fock_basis)
 
         msg = f"  Solving the Schrodinger equation discretised on the full Fock basis on a timescale of t = ({self.t_space[0]} - {self.t_space[-1]})..."
         new_sem_ID = self.semaphor.create_event(np.linspace(self.t_space[0], self.t_space[-1], N_semaphor + 1), msg)
@@ -892,9 +919,9 @@ class bosonic_su_n():
     ###########################################################################
     # Methods intended to be invoked by the user
 
-    # ---------------------------------------------------------
-    # ------------------- Physical methods --------------------
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------------------
+    # ------------------ Physical system description methods ------------------
+    # ------------------------------------------------------------------------
 
     def set_global_parameters(self, M, S):
         self.M = M
@@ -903,46 +930,6 @@ class bosonic_su_n():
         print("A driven Bose-Hubbard model with %i bosons over %i modes has been initialized." % (self.S, self.M))
 
     # The general SU(N) Hamiltonian is fully described by the tensors A_a,b and B_a,b,c,d
-
-    def OLD_set_hamiltonian_tensors(self, A, B):
-        # TODO optimalize these due to their symmetries? (A twofold and B eightfold) Maybe by allowing them to be callable?
-        if self.M == 0:
-            print("ERROR: You have attempted to initialize the Hamiltonian tensors before initializing the mode and particle number of the system. You can do this by calling set_global_parameters(M, S).")
-            return(-1)
-
-        candidate_A = np.array(A)
-        candidate_B = np.array(B)
-
-        if candidate_A.shape != (self.M, self.M):
-            print("ERRORL: The A_a,b tensor should be of dimension (M x M).")
-            return(-1)
-
-        if candidate_B.shape != (self.M, self.M, self.M, self.M):
-            print("ERROR: The B_a,b,c,d tensor should be of dimension (M x M x M x M).")
-            return(-1)
-
-        # Test the symmetry
-        for a in range(self.M):
-            for b in range(self.M):
-                if candidate_A[a][b] != np.conjugate(candidate_A[b][a]):
-                    print("ERROR: The A_a,b tensor should be Hermitian.")
-                    return(-1)
-
-        for a in range(self.M):
-            for b in range(self.M):
-                for c in range(self.M):
-                    for d in range(self.M):
-                        if len(set([candidate_B[a][b][c][d], candidate_B[b][a][c][d], candidate_B[a][b][d][c], candidate_B[b][a][d][c] ])) > 1:
-                            print("ERROR: The B_a,b,c,d tensor should be symmetric with respect to inverting both the first and the second pair of indices.")
-                            return(-1)
-                        if candidate_B[a][b][c][d] != np.conjugate(candidate_B[d][c][b][a]):
-                            print("ERROR: The B_a,b,c,d tensor should be be Hermitian with respect to the two index pairs like so: B_a,b,c,d = (B_c,d,a,b)*.")
-                            return(-1)
-
-        self.H_A = candidate_A
-        self.H_B = candidate_B
-
-        self.is_phys_init = True #TODO these have to be callable, otherwise there can be no time dependence!
 
     def set_hamiltonian_tensors(self, A, B):
         # A(t,a,b) and B(t,a,b,c,d) are CALLABLE objects!!!
@@ -985,12 +972,78 @@ class bosonic_su_n():
         self.is_phys_init = True #TODO these have to be callable, otherwise there can be no time dependence!
 
     # ---------------------------------------------------------
+    # --------------- Experiment setup methods ----------------
+    # ---------------------------------------------------------
+
+    def set_initial_wavefunction(self, initial_wavefunction, message = ""):
+        # initial_wavefunction is an object interpreted contextually based on
+        # the method specified by message, as per the table:
+        #   "aguiar_pure" : a z-vec (i.e. complex ndarray of len M - 1), which represents an unnormalised state | z }
+        #   "aguiar_disc": a list of two lists, first with z-vecs and second with weights
+        #   "aguiar_cont": a function which takes a z-vec and outputs the overlap { z | psi }. NOT SUPPORTED YET
+
+        # The wavef need not be normalised. For aguiar_disc, the normalisation occurs automatically.
+
+        self.wavef_init_supplementary = {} # derived quantities which need not be stored
+
+        if message in ["aguiar_pure"]:
+            self.wavef_initial_wavefunction = initial_wavefunction
+        elif message in ["aguiar_disc"]:
+            # The suer-input method takes the coefficients of the normalised states | z >, although it is stored as the coefficients as the unnormalised states | z }.
+            # Hence first we re-weight every coefficient by the norm of the corresponding state
+            self.wavef_initial_wavefunction = initial_wavefunction
+            for i in range(len(self.wavef_initial_wavefunction[0])):
+                self.wavef_initial_wavefunction[1][i] /= np.sqrt(square_norm(self.wavef_initial_wavefunction[0][i], self.S))
+            Psi_mag = 0.0
+            for i in range(len(self.wavef_initial_wavefunction[0])):
+                for j in range(len(self.wavef_initial_wavefunction[0])):
+                    Psi_mag += np.conjugate(self.wavef_initial_wavefunction[1][i]) * self.wavef_initial_wavefunction[1][j] * overlap(self.wavef_initial_wavefunction[0][i], self.wavef_initial_wavefunction[0][j], self.S)
+            print(f"  Initial wavefunction normalized with square magnitude {Psi_mag.real:.4f}. The final decomposition will be naively renormalized...")
+
+            # Naive renormalization
+            self.wavef_init_supplementary["p"] = np.zeros(len(self.wavef_initial_wavefunction[1]))
+            for i in range(len(self.wavef_initial_wavefunction[1])):
+                self.wavef_initial_wavefunction[1][i] /= np.sqrt(Psi_mag.real)
+                self.wavef_init_supplementary["p"][i] = (self.wavef_initial_wavefunction[1][i].real * self.wavef_initial_wavefunction[1][i].real + self.wavef_initial_wavefunction[1][i].imag * self.wavef_initial_wavefunction[1][i].imag) * np.sqrt(square_norm(self.wavef_initial_wavefunction[0][i], self.S))
+            self.wavef_init_supplementary["p"] /= np.sum(self.wavef_init_supplementary["p"])
+
+
+
+        self.wavef_message = message
+        self.is_wavef_init = True
+
+        """if self.message == "aguiar_disc":
+            # we calculate p
+            self.init_wavef_supplementary["p"] = np.array(initial_wavefunction[1]).real * np.array(initial_wavefunction[1]).real + np.array(initial_wavefunction[1]).imag * np.array(initial_wavefunction[1]).imag
+            self.init_wavef_supplementary["p"] /= np.sum(self.init_wavef_supplementary["p"])"""
+    # ---------------------------------------------------------
     # ------------------- Sampling methods --------------------
     # ---------------------------------------------------------
 
     # We will always use the inverted overlap matrix identity, and so sampling may be done with any method.
+    # The sampling interprets magnitude squared overlap with init_wavef as the weight function.
 
-    def sample_gaussian(self, z_0 = np.array([]), width = 1.0, conditioning_limit = -1, N_max = 50, max_saturation_steps = 50):
+    def get_random_basis_vector(self, width):
+        # this is the "goofy gaussians" method
+        z_0_std = np.zeros(2 * (self.M - 1))
+        if self.wavef_message in ["aguiar_pure"]:
+            for m in range(self.M - 1):
+                z_0_std[m] = self.wavef_initial_wavefunction[m].real
+                z_0_std[self.M - 1 + m] = self.wavef_initial_wavefunction[m].imag
+        elif self.wavef_message in ["aguar_disc"]:
+            # First we randomly choose one of the foci
+            z_focal_index = np.random.choice(len(self.wavef_initial_wavefunction[0]), p = self.wavef_init_supplementary["p"])
+            for m in range(self.M - 1):
+                z_0_std[m] = self.wavef_initial_wavefunction[0][z_focal_index][m].real
+                z_0_std[self.M - 1 + m] = self.wavef_initial_wavefunction[0][z_focal_index][m].imag
+        candidate_basis_vector_std = np.random.normal(z_0_std, width)
+        candidate_basis_vector = np.zeros(self.M - 1, dtype=complex)
+        for m in range(self.M - 1):
+            candidate_basis_vector[m] = candidate_basis_vector_std[m] + candidate_basis_vector_std[self.M - 1 + m] * 1j
+        return(candidate_basis_vector)
+
+
+    def sample_gaussian(self, width = 1.0, conditioning_limit = -1, N_max = 50, max_saturation_steps = 50, include_every_focal_point = True):
 
         if self.M == 0:
             print("ERROR: You have attempted to sample a basis set before initializing the mode and particle number of the system. You can do this by calling set_global_parameters(M, S).")
@@ -999,38 +1052,45 @@ class bosonic_su_n():
         # z_0 must be of the Aguiar variety
         self.basis_config.append({
                 "method" : "gaussian",
-                "z_0" : z_0,
                 "width" : width,
                 "conditioning_limit" : conditioning_limit,
                 "N_max" : N_max,
-                "max_saturation_steps" : max_saturation_steps
+                "max_saturation_steps" : max_saturation_steps,
+                "include_every_focal_point" : include_every_focal_point
             })
 
-        if len(z_0) == 0:
-            z_0 = np.zeros(self.M-1, dtype=complex)
+        new_basis = []
 
-        new_basis = [z_0]
+        if self.wavef_message in ["aguiar_pure"]:
+            new_basis.append(self.wavef_initial_wavefunction)
+        elif self.wavef_message in ["aguiar_disc"]:
+            if include_every_focal_point:
+                if len(self.wavef_initial_wavefunction[0]) > N_max:
+                    print(f"  Sampling with N_max = {N_max} queued with include_every_focal_point = True, but the number of focal points is {len(self.wavef_initial_wavefunction[0])}. Overriding N_max...")
+                for i in range(len(self.wavef_initial_wavefunction[0])):
+                    new_basis.append(self.wavef_initial_wavefunction[0][i])
 
-        print(f"Sampling the neighbourhood of z_0 = {z_0} with a normal distribution of width {width}...")
+        print(f"Sampling the neighbourhood of every focal point with a normal distribution of width {width}...")
         steps_since_last_addition = 0
 
         # Complex positive-definite Hermitian matrix with positive real eigenvalues
-        overlap_matrix = [[square_norm(z_0, self.S)]]
+        overlap_matrix = []
+        for i in range(len(new_basis)):
+            overlap_matrix.append([])
+            for j in range(len(new_basis)):
+                if j > i:
+                    overlap_matrix[i].append(overlap(new_basis[i], new_basis[j], self.S))
+                elif j == i:
+                    overlap_matrix[i].append(square_norm(new_basis[i], self.S))
+                else:
+                    overlap_matrix[i].append(np.conjugate(overlap_matrix[j][i]))
 
         # we omit the normalizations, since what we really care about is the properties of X_ab = {z_a | z_b}, NOT the normalized version
 
-        z_0_std = np.zeros(2 * (self.M - 1))
-        for m in range(self.M - 1):
-            z_0_std[m] = z_0[m].real
-            z_0_std[self.M - 1 + m] = z_0[m].imag
 
         while(len(new_basis) < N_max):
             # Grab a new candidate
-
-            candidate_basis_vector_std = np.random.normal(z_0_std, width)
-            candidate_basis_vector = np.zeros(self.M - 1, dtype=complex)
-            for m in range(self.M - 1):
-                candidate_basis_vector[m] = candidate_basis_vector_std[m] + candidate_basis_vector_std[self.M - 1 + m] * 1j
+            candidate_basis_vector = self.get_random_basis_vector(width)
 
             # If conditioning factor specified, see if satisfies
             satisfying = True
@@ -1065,7 +1125,7 @@ class bosonic_su_n():
         self.basis.append(new_basis)
 
         self.N.append(len(new_basis))
-        print(f"  A sample of N = {self.N[-1]} basis vectors around z_0 = {z_0} drawn from a normal distribution of width {width} has been initialized.")
+        print(f"  A sample of N = {self.N[-1]} basis vectors drawn from a normal distribution of width {width} centered randomly around the focal points has been initialized.")
 
         # Create the identity operator matrix
         X = np.zeros((self.N[-1], self.N[-1]), dtype = complex)
@@ -1082,7 +1142,7 @@ class bosonic_su_n():
     # ------------------ Simulation methods -------------------
     # ---------------------------------------------------------
 
-    def set_initial_wavefunction(self, initial_wavefunction = [], message = ""):
+    """def set_initial_wavefunction(self, initial_wavefunction = [], message = ""):
         # Allows different methods for finding the initial decomposition, as
         # encoded by the 'message' argument
 
@@ -1148,7 +1208,7 @@ class bosonic_su_n():
         self.wavef_message = message
 
         self.is_wavef_init = True
-        return(0)
+        return(0)"""
 
 
     # From the initialized basis and having inputted the initial wavefunction,
@@ -1326,8 +1386,9 @@ class bosonic_su_n():
             # We propagate the wavefunction
             print("  Propagating wavefunction decomposition...")
             cur_wavef_evol = [np.zeros(self.N[b_i], dtype=complex)]
+            cur_wavef_init_decomposition = self.decompose_init_wavef_into_basis(b_i)
             for i in range(self.N[b_i]):
-                cur_wavef_evol[0][i] = self.wavef[b_i][i]
+                cur_wavef_evol[0][i] = cur_wavef_init_decomposition[i]
             for t_i in range(1, N_dtp+1):
                 cur_wavef_evol.append(np.zeros(self.N[b_i], dtype=complex))
 
@@ -1335,7 +1396,7 @@ class bosonic_su_n():
             msg = f"  Wavefunction propagation over the evolved uncoupled basis on a timescale of t = ({self.t_space[0]} - {self.t_space[-1]}), rtol = {rtol_wavef}"
             new_sem_ID = self.semaphor.create_event(np.linspace(self.t_space[0], self.t_space[-1], N_semaphor + 1), msg)
 
-            y_0 = self.wavef[b_i].copy()
+            y_0 = cur_wavef_init_decomposition.copy()
             for n in range(self.N[b_i]):
                 y_0[n] /= basis_solutions[n].sol(self.t_space[0])[0]
             iterated_solution = sp.integrate.solve_ivp(basis_dependent_wavef_y_dot, [self.t_space[0], self.t_space[-1]], y_0, method = 'RK45', t_eval = self.t_space, args = (reg_timescale_wavef, new_sem_ID), rtol = rtol_wavef)
@@ -1405,6 +1466,8 @@ class bosonic_su_n():
             print(f"# Analyzing basis no. {b_i + 1}")
             cur_start_time = time.time()
 
+            cur_wavef_init_decomposition = self.decompose_init_wavef_into_basis(b_i)
+
             # Initialize basis_evol and wavef_evol from initial conditions
             cur_basis_evol = [np.zeros((self.N[b_i], self.M-1), dtype=complex)]
             for i in range(self.N[b_i]):
@@ -1414,7 +1477,7 @@ class bosonic_su_n():
                 cur_basis_evol.append(np.zeros((self.N[b_i], self.M-1), dtype=complex))
             cur_wavef_evol = [np.zeros(self.N[b_i], dtype=complex)]
             for i in range(self.N[b_i]):
-                cur_wavef_evol[0][i] = self.wavef[b_i][i]
+                cur_wavef_evol[0][i] = cur_wavef_init_decomposition[i]
             for t_i in range(1, N_dtp+1):
                 cur_wavef_evol.append(np.zeros(self.N[b_i], dtype=complex))
 
@@ -1422,7 +1485,7 @@ class bosonic_su_n():
             msg = f"Fully variational basis and wavefunction propagation on a timescale of t = ({self.t_space[0]} - {self.t_space[-1]}), rtol = {rtol}, reg_t = {reg_timescale}"
             new_sem_ID = self.semaphor.create_event(np.linspace(self.t_space[0], self.t_space[-1], N_semaphor + 1), msg)
 
-            y_0 = self.standardise_dynamic_variables(self.basis[b_i], self.wavef[b_i])
+            y_0 = self.standardise_dynamic_variables(self.basis[b_i], cur_wavef_init_decomposition)
 
             # Set up the RK45 (Dormand-Prince) iterator and iterate
             t_dense = [self.t_space[0]]
@@ -1726,10 +1789,8 @@ class bosonic_su_n():
                 self.disk_jockey.commit_metadatum("basis_init", {"N" : self.N, "basis_config" : self.basis_config})
 
             if self.is_wavef_init:
-                self.disk_jockey.commit_datum_bulk("wavef_init", self.wavef)
+                self.disk_jockey.commit_datum_bulk("wavef_init", self.wavef_initial_wavefunction)
                 self.disk_jockey.commit_metadatum("wavef_init", {"wavef_message" : self.wavef_message})
-                if self.wavef_message != "NONE":
-                    self.disk_jockey.commit_metadatum_point("wavef_init", "wavef_initial_wavefunction", self.wavef_initial_wavefunction)
 
         if "solution" in data_groups:
             if self.is_basis_evol:
@@ -1821,24 +1882,12 @@ class bosonic_su_n():
                 self.is_basis_init = True
                 for b_i in range(len(self.basis)):
                     if self.basis_config[b_i]["method"] == "gaussian":
-                        print(f"  A sample of N = {self.N[b_i]} basis vectors around z_0 = {self.basis_config[b_i]["z_0"]} drawn from a normal distribution of width {self.basis_config[b_i]["width"]} has been loaded.")
+                        print(f"  A sample of N = {self.N[b_i]} basis vectors drawn from a normal distribution of width {self.basis_config[b_i]["width"]} has been loaded.")
             if self.disk_jockey.is_data_initialised["wavef_init"]:
-                self.wavef_message = self.disk_jockey.metadata["wavef_init"]["wavef_message"]
-                if self.wavef_message != "NONE":
-                    self.wavef_initial_wavefunction = self.disk_jockey.metadata["wavef_init"]["wavef_initial_wavefunction"]
-                self.wavef = self.disk_jockey.data_bulks["wavef_init"]
-                self.is_wavef_init = True
-                if self.wavef_message == "manual":
-                    print("  An initial wavefunction decomposition has been loaded from a manual decomposition input.")
-                elif self.wavef_message == "aguiar":
-                    print(f"  An initial wavefunction decomposition has been loaded from a pure Aguiar coherent state | z }} = {self.wavef_initial_wavefunction}.")
-                elif self.wavef_message == "grossmann":
-                    print(f"  An initial wavefunction decomposition has been loaded from a pure Grossmann coherent state | xi > = {self.wavef_initial_wavefunction}.")
-                elif self.wavef_message == "NONE":
-                    if self.is_basis_init:
-                        print(f"  An initial wavefunction decomposition has been loaded from a pure Aguar coherent state (the first element of the basis set), | z }} = {self.basis[0][0]}.")
-                    else:
-                        print(f"  An initial wavefunction decomposition has been loaded from a pure Aguar coherent state (the first element of the basis set), but the basis has not been initialized.")
+                wavef_message = self.disk_jockey.metadata["wavef_init"]["wavef_message"]
+                wavef_initial_wavefunction = self.disk_jockey.data_bulks["wavef_init"]
+                self.set_initial_wavefunction(wavef_initial_wavefunction, wavef_message)
+
         if "solution" in data_groups:
             if self.disk_jockey.is_data_initialised["basis_evol"]:
                 self.basis_evol = []

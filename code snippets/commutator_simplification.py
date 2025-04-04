@@ -380,7 +380,7 @@ def decode_expression(expression_string):
 
 def save_TeX_equation(equation_sequence, filename = "output"):
     tex_output = open(f"{filename}.tex", "w")
-    tex_output.write(f"\\documentclass[12pt]{{article}}\n\n\\begin{{document}}\n\n  \\begin{{equation}}\n    {equation_sequence}\n  \\end{{equation}}\n\n\\end{{document}}")
+    tex_output.write(f"\\documentclass[12pt]{{article}}\n\\usepackage{{breqn}}\n\\begin{{document}}\n\n  \\begin{{dmath*}}\n    {equation_sequence}\n  \\end{{dmath*}}\n\n\\end{{document}}")
     tex_output.close()
 
 

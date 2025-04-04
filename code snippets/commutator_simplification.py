@@ -1,29 +1,6 @@
 
 # This code simplifies the expression [ A, B ], where A and B are general products of raising and lowering operators
 
-def contraction_specific_indices(list_of_indices, number_of_contractions):
-    if number_of_contractions == 0:
-        return([[]]) # Returns one contraction, which has no contraction pairs (the empty contraction)
-    # The added contraction lower-higher, to avoid duplicates
-    res = []
-    for lower_paired_element in range(len(list_of_indices)-1-(number_of_contractions - 1)*2):
-        for higher_paired_element in range(lower_paired_element+1, len(list_of_indices)):
-            cur_prefix = [list_of_indices[lower_paired_element], list_of_indices[higher_paired_element]]
-            cur_reduced_indices = list_of_indices.copy()
-            del cur_reduced_indices[higher_paired_element]
-            del cur_reduced_indices[0:lower_paired_element+1]
-            reduced_contractions = contraction_specific_indices(cur_reduced_indices, number_of_contractions - 1)
-            for i in range(len(reduced_contractions)):
-                res.append([cur_prefix] + reduced_contractions[i])
-    return(res)
-
-def contraction_indices(number_of_elements, number_of_contractions):
-    # Returns [contraction configuration][contraction pairing index] = [first index, second index]
-    specific_indices = []
-    for i in range(number_of_elements):
-        specific_indices.append(i)
-    return(contraction_specific_indices(specific_indices, number_of_contractions))
-
 def optimized_contraction_indices(lowering_indices, raising_indices):
     # Optimized algorithm
     # lowering/raising_indices are arrays of indices of L/R ladder operators in the given sequence, in ascending order
@@ -92,11 +69,20 @@ class Operator():
                 return("plus", Operator("K", [self.i, other.i]))
         return(f"ERROR: Unknown types ({self.t}, {other.t})")
 
-    def to_string(self):
+    def to_string(self, use_TeX = False):
         if self.cls == "ladder":
-            return(f"{self.t}{self.i}")
+            if use_TeX:
+                if self.t == "L":
+                    return(f"\\hat{{a}}_{{{self.i}}}")
+                elif self.t == "R":
+                    return(f"\\hat{{a}}^\\dagger_{{{self.i}}}")
+            else:
+                return(f"{self.t}{self.i}")
         elif self.cls == "kronecker":
-            return(f"{{{self.i[0]},{self.i[1]}}}")
+            if use_TeX:
+                return(f"\\delta_{{{self.i[0]},{self.i[1]}}}")
+            else:
+                return(f"{{{self.i[0]},{self.i[1]}}}")
 
 class Expression():
 
@@ -225,21 +211,28 @@ class Expression():
         self.operator_sequence = ladder_operator_sequence + kronecker_operator_sequence
 
 
-    def to_string(self):
+    def to_string(self, use_TeX = False):
         self.simplify_expression()
         res_list = []
-        if self.prefactor != 1:
+        if self.prefactor not in [1, -1]:
             res_list.append(str(self.prefactor))
         for operator in self.operator_sequence:
             """if operator.cls == "ladder":
                 res_list.append(f"{operator.t}{operator.i}")
             elif operator.cls == "kronecker":
                 res_list.append(f"{{{operator.i[0]},{operator.i[1]}}}")"""
-            res_list.append(operator.to_string())
+            res_list.append(operator.to_string(use_TeX))
+        if self.prefactor == -1:
+            prefix = "-"
+        else:
+            prefix = ""
         if len(res_list) == 0:
             # Just one
-            return("1")
-        return(".".join(res_list))
+            return(prefix + "1")
+        if use_TeX:
+            return(prefix + " ".join(res_list))
+        else:
+            return(prefix + ".".join(res_list))
 
     def is_equal(self, other):
         # Determines if is equal to another Expression up to prefactor.
@@ -317,35 +310,6 @@ class Expression_sum():
                 for uncontracted_i in uncontracted_indices:
                     new_operator_sequence.append(unordered_expression.operator_sequence[uncontracted_i])
                 res_expression_sum.list_of_expressions.append(Expression(new_operator_sequence).normal_ordered_expression())
-        """number_of_contractions = 0
-        res_expression_sum = Expression_sum([])
-        while(number_of_contractions * 2 <= len(unordered_expression.operator_sequence)):
-            cur_contractions = contraction_indices(len(unordered_expression.operator_sequence), number_of_contractions)
-            for contraction in cur_contractions:
-                uncontracted_indices = []
-                for i in range(len(unordered_expression.operator_sequence)):
-                    uncontracted_indices.append(i)
-                for pair in contraction:
-                    if pair[0] in uncontracted_indices:
-                        uncontracted_indices.remove(pair[0])
-                    if pair[1] in uncontracted_indices:
-                        uncontracted_indices.remove(pair[1])
-                new_operator_sequence = []
-                # First, we add the contracted operators
-                is_term_destroyed = False
-                for pair in contraction:
-                    pair_sign, pair_operator = unordered_expression.operator_sequence[pair[0]].contraction(unordered_expression.operator_sequence[pair[1]])
-                    if pair_sign == "zero":
-                        is_term_destroyed = True
-                        break
-                    elif pair_sign == "plus":
-                        new_operator_sequence.append(pair_operator)
-                if not is_term_destroyed:
-                    for uncontracted_i in uncontracted_indices:
-                        new_operator_sequence.append(unordered_expression.operator_sequence[uncontracted_i])
-                    res_expression_sum.list_of_expressions.append(Expression(new_operator_sequence).normal_ordered_expression())
-
-            number_of_contractions += 1"""
         res_expression_sum.join_equal_terms()
         # We multiply every constituent expression by the prefactor of the original expression
         for i in range(len(res_expression_sum.list_of_expressions)):
@@ -355,16 +319,16 @@ class Expression_sum():
     def __init__(self, list_of_expressions):
         self.list_of_expressions = list_of_expressions
 
-    def to_string(self):
+    def to_string(self, use_TeX = False):
         self.join_equal_terms()
-        res = self.list_of_expressions[0].to_string()
+        res = self.list_of_expressions[0].to_string(use_TeX)
         for i in range(1, len(self.list_of_expressions)):
             self.list_of_expressions[i].simplify_expression()
             if self.list_of_expressions[i].prefactor < 0:
                 # There's already a leading sign of minus
-                res += self.list_of_expressions[i].to_string()
+                res += self.list_of_expressions[i].to_string(use_TeX)
             else:
-                res += "+" + self.list_of_expressions[i].to_string()
+                res += "+" + self.list_of_expressions[i].to_string(use_TeX)
         return(res)
 
     def normal_order_self(self):
@@ -412,7 +376,15 @@ def decode_expression(expression_string):
         return(None)
 
 
-"""print("Syntax: a_i.a^dag_j is encoded as \"Li.Rj\", i.e. every operator is either R(aising) or L(owering). The Kronecker delta is represented as {i,j} in the output.")
+
+
+def save_TeX_equation(equation_sequence, filename = "output"):
+    tex_output = open(f"{filename}.tex", "w")
+    tex_output.write(f"\\documentclass[12pt]{{article}}\n\n\\begin{{document}}\n\n  \\begin{{equation}}\n    {equation_sequence}\n  \\end{{equation}}\n\n\\end{{document}}")
+    tex_output.close()
+
+
+print("Syntax: a_i.a^dag_j is encoded as \"Li.Rj\", i.e. every operator is either R(aising) or L(owering). The Kronecker delta is represented as {i,j} in the output.")
 print("The only rules for simplification are: [Li, Lj] = [Ri, Rj] = 0, [Li, Rj] = {i, j}, and [A, B.C] = [A, B].C + B.[A, C].")
 
 expression_A = Expression.user_input_expression("Input the expression on the left:")
@@ -421,11 +393,14 @@ expression_B = Expression.user_input_expression("Input the expression on the rig
 commutator_result = expression_A.commutator(expression_B)
 commutator_result.normal_order_self()
 
-print(commutator_result.to_string())"""
+print(commutator_result.to_string())
 
-expression_A = Expression.user_input_expression("Input the expression on the left:")
+tex_commutator_equation = f"\\left[ {expression_A.to_string(True)}, {expression_B.to_string(True)} \\right] = {commutator_result.to_string(True)}"
+save_TeX_equation(tex_commutator_equation)
+
+"""expression_A = Expression.user_input_expression("Input the expression on the left:")
 print("Nonequivalent normal ordered:", expression_A.normal_ordered_expression().to_string())
 
 normal_ordered_A = Expression_sum.normal_ordering(expression_A)
-print("Wick's theorem:", normal_ordered_A.to_string())
+print("Wick's theorem:", normal_ordered_A.to_string())"""
 

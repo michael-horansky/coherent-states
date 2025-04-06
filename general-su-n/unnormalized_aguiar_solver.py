@@ -1760,6 +1760,9 @@ class bosonic_su_n():
                 self.disk_jockey.commit_datum_bulk("config", {"M" : self.M, "S" : self.S})
                 self.disk_jockey.commit_datum_bulk("H_A_func", inspect.getsource(self.H_A))
                 self.disk_jockey.commit_datum_bulk("H_B_func", inspect.getsource(self.H_B))
+            if self.is_wavef_init:
+                self.disk_jockey.commit_datum_bulk("wavef_init", self.wavef_initial_wavefunction)
+                self.disk_jockey.commit_metadatum("wavef_init", {"wavef_message" : self.wavef_message})
             if self.is_solved:
                 header_row = ["t"]
                 for m in range(self.M):
@@ -1787,10 +1790,6 @@ class bosonic_su_n():
                             basis_init_rows[-1].append(basis_vector[m])
                 self.disk_jockey.commit_datum_bulk("basis_init", basis_init_rows, header_row = True)
                 self.disk_jockey.commit_metadatum("basis_init", {"N" : self.N, "basis_config" : self.basis_config})
-
-            if self.is_wavef_init:
-                self.disk_jockey.commit_datum_bulk("wavef_init", self.wavef_initial_wavefunction)
-                self.disk_jockey.commit_metadatum("wavef_init", {"wavef_message" : self.wavef_message})
 
         if "solution" in data_groups:
             if self.is_basis_evol:
@@ -1849,6 +1848,10 @@ class bosonic_su_n():
                     self.H_B = eval(H_B_fn_name) # This refers to the function object
                     self.is_phys_init = True
                     print("  Hamiltonian tensors loaded.")
+            if self.disk_jockey.is_data_initialised["wavef_init"]:
+                wavef_message = self.disk_jockey.metadata["wavef_init"]["wavef_message"]
+                wavef_initial_wavefunction = self.disk_jockey.data_bulks["wavef_init"]
+                self.set_initial_wavefunction(wavef_initial_wavefunction, wavef_message)
             if self.disk_jockey.is_data_initialised["fock_solution"]:
                 if not self.is_t_space_init:
                     self.t_space = [] # np.zeros(N_dtp)
@@ -1883,10 +1886,6 @@ class bosonic_su_n():
                 for b_i in range(len(self.basis)):
                     if self.basis_config[b_i]["method"] == "gaussian":
                         print(f"  A sample of N = {self.N[b_i]} basis vectors drawn from a normal distribution of width {self.basis_config[b_i]["width"]} has been loaded.")
-            if self.disk_jockey.is_data_initialised["wavef_init"]:
-                wavef_message = self.disk_jockey.metadata["wavef_init"]["wavef_message"]
-                wavef_initial_wavefunction = self.disk_jockey.data_bulks["wavef_init"]
-                self.set_initial_wavefunction(wavef_initial_wavefunction, wavef_message)
 
         if "solution" in data_groups:
             if self.disk_jockey.is_data_initialised["basis_evol"]:

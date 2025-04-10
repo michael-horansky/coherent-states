@@ -1,0 +1,13 @@
+
+	Looking at the exponential form of $\unnormket{Z}$ in Eq. \ref{eq:exponential ket}, we see that the operator $\exp(\hat{D}(ZR^{\pi_1}_i))$ contains no terms $\hat{T}_{ab}$ for which $a$ or $b$ equal $i$. This means the destruction operator commutes with $\exp(\hat{D}(ZR^{\pi_1}_i))$ and can be brought in front of it, acting directly on the reference state $\ket{\phi_0}=\ket{\pi_1}$. This yields
+	\begin{equation}
+	\hat{f}_i\unnormket{Z}=(-1)^{i-1}\exp(\sum_{a\in\pi_0}\sum_{b\in\pi_1}(-1)^{S+j}(ZR^{\pi_1}_i)_{ab}\hat{T}_{ab})\ket{\pi_1-\{i\}}
+	\end{equation}
+	The reference state operator in this case becomes
+	\begin{equation}
+	\hat{\phi}_0'=\hat{f}\hc_{\seq{\pi_1-\{i\}}}
+	\end{equation}
+	The commutator with $\hat{D}(ZR^{\pi_1}_i)$ is then
+	\begin{equation}
+	\comm{\hat{D}(Z)}{\hat{\phi}_0}_1=\sum_{a\in\pi_0}\sum_{b\in\pi_1}(-1)^{S+b}(ZR_i)_{ab}\hat{f}\hc_1\dots \hat{f}\hc_{b-1}\hat{f}\hc_{a}\hat{f}\hc_{b+1}\dots \hat{f}\hc_{S}
+	\end{equation}

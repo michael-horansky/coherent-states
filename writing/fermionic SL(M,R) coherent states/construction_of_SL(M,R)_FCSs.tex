@@ -271,7 +271,7 @@
 	\hat{f}_i\unnormket{Z}=(-1)^{i-1}\unnormket{(ZQ^{\pi_1}_iR^{\pi_1}_i)^-_{\{i\}}}
 	\end{equation}
 	where the CS label with superscript $-$ and subscript $\{i\}$ means the occupancy of the $i$-th mode is "forced" to be zero. This equation can be generalised to any sequence of $n$ annihilation operators:
-	\begin{equation}
+	\begin{equation} \label{eq:effect of pi_1 lowering operator}
 	\hat{f}_{P\seq{\sigma}}\unnormket{Z}=\sgn(P)(-1)^{-n+\sum\seq{\sigma}}\unnormket{(ZQ^{\pi_1}_{\seq{\sigma}}R^{\pi_1}_{\seq{\sigma}})^{-}_{\seq{\sigma}}}
 	\end{equation}
 	where the sequence in the subscript of $R, Q$ implies product over all elements in $\seq{\sigma}$.
@@ -300,11 +300,32 @@
 	where the sequence in the subscript of $R, Q$ implies product over all elements in $\seq{\sigma}$.
 	
 	\subsubsection{Overlap of two $\pi_1$-reduced coherent states}
-	Now: consider the overlap between two reduced coherent states, $\hat{f}_i\unnormket{Z_a}$ and $\hat{f}_j\unnormket{Z_b}$ where $i,j\in \pi_1$. In the occupancy basis decomposition of $\unnormket{Z_a}$, the occupancy of the $i$-th mode is always zero; the same is true for the occupancy of the $j$-th mode for $\unnormket{Z_b}$. Therefore, when calculating their overlap, only the overlaps of those occupancy basis states which have zero occupancy at both the $i$-th and the $j$-th mode will not vanish. Therefore we can reduce each coherent state with both reduction matrices without affecting the overlap:
+	Now: consider the overlap between two reduced coherent states, $\hat{f}_i\unnormket{Z_a}$ and $\hat{f}_j\unnormket{Z_b}$ where $i,j\in \pi_1$. By Eq. \ref{eq:effect of pi_1 lowering operator}, we have
 	\begin{equation}
-	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_j}{Z_b}=\unnormmel{Z_aR^{\pi_1}_iR^{\pi_1}_j}{\hat{f}\hc_i\hat{f}_j}{Z_bR^{\pi_1}_iR^{\pi_1}_j}
+	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_i}{Z_b}=(-1)^{i+j}\unnormbraket{(Z_aQ^{\pi_1}_iR^{\pi_1}_i)^{-}_{\{i\}}}{(Z_bQ^{\pi_1}_jR^{\pi_1}_j)^{-}_{\{j\}}}
 	\end{equation}
-	Note that this holds even if $i=j$, since $R^{\pi_1}_xR^{\pi_1}_x=R^{\pi_1}_x$, i.e. the reduction matrix is a projection.
+	\textbf{The case $i\neq j$:}
+	
+	The overlap can be expanded as
+	\begin{align*}
+	&\unnormbraket{(Z_aQ^{\pi_1}_iR^{\pi_1}_i)^{-}_{\{i\}}}{(Z_bQ^{\pi_1}_jR^{\pi_1}_j)^{-}_{\{j\}}}\\
+	&=\sum_{r=0}^{\min(S-1,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1-\{i\}}}\sum_{\seq{b'}\in\Gamma_r\seq{\pi_1-\{j\}}}\\
+	&\qquad\qquad\qquad\qquad\det((R^{\pi_1}_iQ^{\pi_1}_iZ_a\hc)_{\seq{b}, \seq{a}})\det((Z_bQ^{\pi_1}_jR^{\pi_1}_j)_{\seq{a},\seq{b'}})\delta_{b+\{i\},b'+\{j\}}\\
+	&=\sum_{r=0}^{\min(S-1,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_{r-1}\seq{\pi_1-\{i, j\}}}\det((R^{\pi_1}_iQ^{\pi_1}_iZ_a\hc)_{\seq{b}\cup \{j\}, \seq{a}})\det((Z_bQ^{\pi_1}_jR^{\pi_1}_j)_{\seq{a},\seq{b}\cup \{i\}})
+	\end{align*}
+	Taking an arbitrary minor with one column (row) specified to be at index $m$ is equivalent to taking an arbitrary minor of the original matrix transformed in a specific way with one column (row) specified to be at index one. That transformation entails multiplying the first $m-1$ columns (rows) by $-1$ and then bringing the $m$-th column (row) to index one. Also, since the $Z_a\hc$ ($Z_b$) minor cannot contain row $i$ (column $j$), we can account for these additional restrictions by removing the associated row (column). Therefore the unnormalised braket is equal to
+	\begin{equation}
+	=\sum_{r=0}^{\min(S-1,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_{r-1}\seq{\pi'_1-\{1\}}}\det((Q^{\pi_1}_{\{i,j\}}Z_a\hc)^{(i)}_{\seq{b}\cup \{1\}, \seq{a}})\det((Z_bQ^{\pi_1}_{\{i,j\}})^{(j)}_{\seq{a},\seq{b}\cup \{1\}})
+	\end{equation}
+	where $Q^{\pi_1}_{\{i,j\}}$ is understood to represent the product $Q^{\pi_1}_iQ^{\pi_1}_j$, $\pi'_1$ is $\pi_1$ once-reduced, omitting the final element $S$, and the superscript in parentheses for $Z_a\hc$ ($Z_b$) means the $i$-th row ($j$-th column) is removed. The determinant product over minors with a constraining index we utilise the modified Cauchy-Binet formula, which is stated and proven in \cite[App. C]{modified_cauchy_binet}, and which yields
+	\begin{equation}
+	=-\sum_{r=0}^{\min(S-1,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\det(\mqty{
+		0 & (Q^{\pi_1}_{\{i,j\}}Z_a\hc)^{(i)}_{1, \seq{a}}\\
+		(Z_bQ^{\pi_1}_{\{i,j\}})^{(j)}_{\seq{a},1} & (Z_bQ^{\pi_1}_{\{i,j\}})^{(j)}_{\seq{a},\seq{\pi'_1-\{1\}}} (Q^{\pi_1}_{\{i,j\}}Z_a\hc)^{(i)}_{\seq{\pi'_1-\{1\}}, \seq{a}}
+	})
+	\end{equation}
+	
+	
 	
 	\subsection{Action of the transition operator}
 	
@@ -391,6 +412,45 @@
 		\item For $S>1$, the naive construction vanishes.
 	\end{enumerate}
 	
+	\section{Determinant of the upper-left zero block matrix}
+	
+	Consider an $(m+n,m+n)$ matrix in the form
+	\begin{equation}
+	M = \mqty(0_{(m,m)} & A_{(m, n)} \\ B_{(n, m)} & C_{(n, n)})
+	\end{equation}
+	whose determinant we wish to calculate. If $m>n$, the determinant is trivially zero. Therefore, we can assume $m\leq n$ for the non-trivial case.
+	
+	Consider the matrices
+	\begin{equation}
+	X = \mqty(I_{(m,m)} & A_{(m, n)})\qq{and}Y = \mqty(I_{(m,m)} \\ B_{(n, m)})
+	\end{equation}
+	Their product is
+	\begin{equation}
+	YX = \mqty(I_{(m,m)} & A_{(m, n)} \\ B_{(n, m)} & (BA)_{(n, n)})\qq{therefore}M-YX=\mqty(I_{(m,m)} & 0_{(m, n)} \\ 0_{(m, n)} & (C - BA)_{(n, n)})
+	\end{equation}
+	Then, using the matrix determinant lemma we obtain
+	\begin{align}\label{eq:upper-left zero-block intermediate}
+	\det(M)&=\det(M-YX+YX)\nonumber\\
+	&= \det(I_{(m, m)}+X(M-YX)^{-1}Y)\det(M-YX)
+	\end{align}
+	Since $M-YX$ is block-diagonal, its determinant and inverse can be expressed like so:
+	\begin{equation}
+	\det(M-YX)=(-1)^m\det(C-BA)\qq{and} (M-YX)^{-1}=\mqty(I_{(m,m)} & 0_{(m, n)} \\ 0_{(m, n)} & (C - BA)^{-1}_{(n, n)})
+	\end{equation}
+	Therefore
+	\begin{equation}
+	X(M-YX)^{-1}Y=A(C-BA)^{-1}B-I_{(m,m)}
+	\end{equation}
+	We substitute these results into Eq. \ref{eq:upper-left zero-block intermediate} and use the matrix determinant lemma again to expand $\det(C-BA)$:
+	\begin{equation}
+	\det(M)=(-1)^m \det(A(C-BA)^{-1}B)\det(I_{(m,m)}-AC^{-1}B)\det(C)
+	\end{equation}
+	We shall also use the Woodbury matrix identity to expand the inverse of $C-BA$ and express the product of the first two determinants as the determinant of the product of their respective matrices, finally obtaining
+	\begin{align}
+	\det(M)&=(-1)^m \det((AC^{-1}B+AC^{-1}B(I_{(m,m)}-AC^{-1}B)^{-1}AC^{-1}B)(I_{(m,m)}-AC^{-1}B))\det(C)\nonumber\\
+	&= (-1)^m \det(AC^{-1}B)\det(C)
+	\end{align}
+	
 	\begin{thebibliography}{10}
 	
 	\bibitem{dynamical_groups}
@@ -401,6 +461,9 @@
 	
 	\bibitem{buonsante}
 	Buonsante, P., Penna, V. (2008), Some remarks on the coherent-state variational approach to nonlinear boson models. \textit{J. Phys. A: Math. Theor.}, \textbf{41}, 175301. \href{https://doi.org/10.1088/1751-8113/41/17/175301}{doi.org/10.1088/1751-8113/41/17/175301}
+	
+	\bibitem{modified_cauchy_binet}
+	Chapman, A., Miyake, A. (2018), Classical simulation of quantum circuits by dynamical localization: analytic results for Pauli-observable scrambling in time-dependent disorder. Available at \href{https://arxiv.org/pdf/1704.04405v2}{arxiv.org/pdf/1704.04405v2 [quant-ph]}
 
 	\end{thebibliography}	
 	

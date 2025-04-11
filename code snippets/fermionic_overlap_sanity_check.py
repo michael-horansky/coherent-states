@@ -185,27 +185,39 @@ class CS():
         return(res)"""
         return(self.occupancy_basis_decomposition.overlap(other.occupancy_basis_decomposition))
 
-    def overlap_with_transition(self, other, i, j):
+    def OLD_overlap_with_transition(self, other, i, j):
         # for now: both i and j are in pi_1
         self_signed = flip_lower_signs(self.Z, [], [i])
         other_signed = flip_lower_signs(other.Z, [], [j])
-        sus = reduced_matrix(np.matmul(np.conjugate(self_signed.T), other_signed), [j], [i])
-        return(sign(i+j)*np.dot(other_signed[:,i], np.conjugate(self_signed[:,j]))*np.linalg.det(np.identity(self.S - 1) + sus))
-        # TODO wrong: https://arxiv.org/pdf/1704.04405
+        #sus = reduced_matrix(np.matmul(np.conjugate(self_signed.T), other_signed), [j], [i])
+        sus = np.matmul(reduced_matrix(other_signed, [], [i,j]), np.conjugate(reduced_matrix(self_signed, [], [i,j]).T))
+        return(sign(i+j)*np.dot(other_signed[:,i], np.conjugate(self_signed[:,j]))*np.linalg.det(np.identity(self.M - self.S) + sus))
+        # https://arxiv.org/pdf/1704.04405
+
+    def overlap_with_transition(self, other, i, j):
+        # for now: both i and j are in pi_1
+        self_signed = flip_lower_signs(self.Z, [], i+j)
+        other_signed = flip_lower_signs(other.Z, [], i+j)
+        fast_M = np.zeros((self.M - self.S + len(i), self.M - self.S + len(i)), dtype=complex)
+        fast_M[len(i):,:len(i)] = np.take(other_signed, i, axis = 1)
+        fast_M[:len(i),len(i):] = np.conjugate(np.take(self_signed, j, axis = 1).T)
+        fast_M[len(i):,len(i):] = np.identity(self.M - self.S) + np.matmul(reduced_matrix(other.Z, [], i+j), np.conjugate(reduced_matrix(self.Z, [], i+j).T))
+        return(np.linalg.det(fast_M))
 
     def overlap(self, other, c = [], a = []):
         reduction_summants = []
         # As long as c and a are in pi_1, we treat them the same, as they just end up being "applied" to the bra maybe
         self_signed = flip_lower_signs(self.Z, [], c)
         other_signed = flip_lower_signs(other.Z, [], a)
-        for col in set(c).union(set(a)):
-            reduction_summants.append(np.outer(other_signed[:,col], np.conjugate(self_signed[:,col])))
+        """for col in set(c).union(set(a)):
+            reduction_summants.append(np.outer(other_signed[:,col], np.conjugate(self_signed[:,col])))"""
         #reduction_summants.append(np.outer(other.Z[:,0], np.conjugate(self.Z[:,0])))
         #reduction_summants.append(np.outer(other.Z[:,1], np.conjugate(self.Z[:,1])))
         #for col in a:
         #    reduction_summants.append(np.outer(other.Z[:,col], np.conjugate(self.Z[:,col])))
         sus = np.matmul(other_signed, np.conjugate(self_signed.T))
-        return(np.linalg.det(np.identity(self.M - self.S) + sus - np.sum(reduction_summants, axis = 0)))
+        #return(np.linalg.det(np.identity(self.M - self.S) + sus - np.sum(reduction_summants, axis = 0)))
+        return(np.linalg.det(np.identity(self.M - self.S) + np.matmul(reduced_matrix(other_signed, [], a), np.conjugate(reduced_matrix(self_signed, [], c).T))))
 
 
 
@@ -218,12 +230,12 @@ print(lol)"""
 
 
 
-M = 5
-S = 2
+M = 8
+S = 5
 N = 5
 
-global_c_sequence = [0]
-global_a_sequence = [1]
+global_c_sequence = [1, 0]
+global_a_sequence = [2, 3]
 
 print(f"Calculating < Z_a | creation({global_c_sequence}) annihilation({global_a_sequence}) | Z_b >")
 is_all_equal = True
@@ -237,20 +249,20 @@ for i in range(N):
 
     A.occupancy_basis_decomposition.apply_operators([], global_c_sequence)
     B.occupancy_basis_decomposition.apply_operators([], global_a_sequence)
-    print("  Dir. r. A:", A.occupancy_basis_decomposition)
-    print("  Dir. r. B:", B.occupancy_basis_decomposition)
+    #print("  Dir. r. A:", A.occupancy_basis_decomposition)
+    #print("  Dir. r. B:", B.occupancy_basis_decomposition)
 
     A_var = CS(M, S, np.matmul(A.Z, np.matmul(Q(global_c_sequence[0], 1), R(global_c_sequence[0], 1))))
     B_var = CS(M, S, np.matmul(B.Z, np.matmul(Q(global_a_sequence[0], 1), R(global_a_sequence[0], 1))))
     A_var.occupancy_basis_decomposition.scale(sign(global_c_sequence[0]))
     B_var.occupancy_basis_decomposition.scale(sign(global_a_sequence[0]))
-    print("  Equiv. A:", A_var.occupancy_basis_decomposition)
-    print("  Equiv. B:", B_var.occupancy_basis_decomposition)
+    #print("  Equiv. A:", A_var.occupancy_basis_decomposition)
+    #print("  Equiv. B:", B_var.occupancy_basis_decomposition)
 
 
     slow = A.occupancy_basis_decomposition.overlap(B.occupancy_basis_decomposition)
     #quick = A.overlap(B, global_c_sequence, global_a_sequence)
-    quick = A.overlap_with_transition(B, global_c_sequence[0], global_a_sequence[0])
+    quick = A.overlap_with_transition(B, global_c_sequence, global_a_sequence)
 
     print(f"  Slow, trustworthy overlap: {slow:.4f}")
     print(f"  Fast overlap:              {quick:.4f}")

@@ -53,7 +53,7 @@ def overlap(A, B, reduced_columns = []):
     return np.linalg.det(np.identity(M-S) + np.matmul(B, hc(A)) - np.sum(reduction_summants, axis = 0))
 
 
-
+"""
 A = random_complex_matrix((M-S), S, (-1, 1))
 B = random_complex_matrix((M-S), S, (-1, 1))
 print("A matrix:")
@@ -70,7 +70,7 @@ print("  B.R_3")
 print(np.array_str(np.matmul(B, R(2, 1)), precision=2))
 
 print("---------------------- using R-matrices ----------------------")
-print(f"  overlap value: {overlap(A, B, [1, 2])}")
+print(f"  overlap value: {overlap(A, B, [1, 2])}")"""
 
 """print("---------------------- using reduction ----------------------")
 print(f"  using reduction: {overlap(reduced_matrix(A, [], [1]), reduced_matrix(B, [], [2]))}")

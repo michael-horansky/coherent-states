@@ -48,6 +48,17 @@ def flip_lower_signs(m, row_sign_sequence = [], column_sign_sequence = []):
             res[:,i] *= cur_parity
     return(res)
 
+def tail_sublist_sign(l, sub):
+
+    res = 0
+    mutable_l = l.copy()
+    for i in range(len(sub)):
+        j = mutable_l.index(sub[i]) # this has to be brought to index 0
+        res += j
+        del mutable_l[j]
+    return(sign(res))
+
+
 def R(i, pi):
     if pi == 1:
         res = np.identity(S)
@@ -196,15 +207,15 @@ class CS():
 
     def overlap_with_transition(self, other, i, j):
         # for now: both i and j are in pi_1
-        self_signed = flip_lower_signs(self.Z, [], i+j)
-        other_signed = flip_lower_signs(other.Z, [], i+j)
+        #self_signed = flip_lower_signs(self.Z, [], i+j)
+        #other_signed = flip_lower_signs(other.Z, [], i+j)
         fast_M = np.zeros((self.M - self.S + len(i), self.M - self.S + len(i)), dtype=complex)
-        fast_M[len(i):,:len(i)] = np.take(other_signed, i, axis = 1)
-        fast_M[:len(i),len(i):] = np.conjugate(np.take(self_signed, j, axis = 1).T)
+        fast_M[len(i):,:len(i)] = np.take(other.Z, i, axis = 1)
+        fast_M[:len(i),len(i):] = np.conjugate(np.take(self.Z, j, axis = 1).T)
         fast_M[len(i):,len(i):] = np.identity(self.M - self.S) + np.matmul(reduced_matrix(other.Z, [], i+j), np.conjugate(reduced_matrix(self.Z, [], i+j).T))
-        return(np.linalg.det(fast_M))
+        return(sign(sum(i + j)) * np.linalg.det(fast_M))
 
-    def overlap(self, other, c = [], a = []):
+    def OLD_overlap(self, other, c = [], a = []):
         reduction_summants = []
         # As long as c and a are in pi_1, we treat them the same, as they just end up being "applied" to the bra maybe
         self_signed = flip_lower_signs(self.Z, [], c)
@@ -217,7 +228,23 @@ class CS():
         #    reduction_summants.append(np.outer(other.Z[:,col], np.conjugate(self.Z[:,col])))
         sus = np.matmul(other_signed, np.conjugate(self_signed.T))
         #return(np.linalg.det(np.identity(self.M - self.S) + sus - np.sum(reduction_summants, axis = 0)))
-        return(np.linalg.det(np.identity(self.M - self.S) + np.matmul(reduced_matrix(other_signed, [], a), np.conjugate(reduced_matrix(self_signed, [], c).T))))
+        return(np.linalg.det(np.identity(self.M - self.S) + np.matmul(reduced_matrix(other.Z, [], c), np.conjugate(reduced_matrix(self.Z, [], a).T))))
+
+
+    def overlap(self, other, c = [], a = []):
+        # for now: both i and j are in pi_1
+        # c and a are both in the order in which they act on the ket, right to left
+        tau = list(set(c).intersection(set(a)))
+        rho = list(set(c) - set(tau))
+        sigma = list(set(a) - set(tau))
+
+        tau_sorting_prefactor = tail_sublist_sign(c, tau) * tail_sublist_sign(a, tau)
+
+        fast_M = np.zeros((self.M - self.S + len(rho), self.M - self.S + len(rho)), dtype=complex)
+        fast_M[len(rho):,:len(rho)] = np.take(other.Z, rho, axis = 1)
+        fast_M[:len(rho),len(rho):] = np.conjugate(np.take(self.Z, sigma, axis = 1).T)
+        fast_M[len(rho):,len(rho):] = np.identity(self.M - self.S) + np.matmul(reduced_matrix(other.Z, [], rho+sigma+tau), np.conjugate(reduced_matrix(self.Z, [], rho+sigma+tau).T))
+        return(sign(sum(rho + sigma)) * tau_sorting_prefactor * np.linalg.det(fast_M))
 
 
 
@@ -229,13 +256,13 @@ lol.apply_operators([2], [0])
 print(lol)"""
 
 
-
-M = 8
-S = 5
+M = 12
+S = 7
 N = 5
 
-global_c_sequence = [1, 0]
-global_a_sequence = [2, 3]
+# The order of application is c_last ... c_first a_first ... a_last
+global_c_sequence = [2, 3, 1]
+global_a_sequence = [1, 2, 0]
 
 print(f"Calculating < Z_a | creation({global_c_sequence}) annihilation({global_a_sequence}) | Z_b >")
 is_all_equal = True
@@ -261,8 +288,8 @@ for i in range(N):
 
 
     slow = A.occupancy_basis_decomposition.overlap(B.occupancy_basis_decomposition)
-    #quick = A.overlap(B, global_c_sequence, global_a_sequence)
-    quick = A.overlap_with_transition(B, global_c_sequence, global_a_sequence)
+    quick = A.overlap(B, global_c_sequence, global_a_sequence)
+    #quick = A.overlap_with_transition(B, global_c_sequence, global_a_sequence)
 
     print(f"  Slow, trustworthy overlap: {slow:.4f}")
     print(f"  Fast overlap:              {quick:.4f}")

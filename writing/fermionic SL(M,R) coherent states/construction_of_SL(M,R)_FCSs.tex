@@ -178,40 +178,9 @@
 	\end{equation}
 	where we used the fact that $\comm{\hat{D}(Z)}{\hat{\phi}_0}_r=0$ if $r$ is bigger than either $S$ or $M-S$, as there are no subsequences of $\pi_1$ and $\pi_0$ of size $r$.
 	
-	\section{Properties of $U(1)\otimes SL(M,\mathbb{R})$ coherent states}
+	\section{Action of the fermionic creation and annihilation operators on the coherent state}
 	
-	\subsection{Overlap of two coherent states}
-	
-	Consider two unnormalised fermionic coherent states $\unnormket{Z_a}, \unnormket{Z_b}$. To calculate their overlap, we use Eq. \ref{eq:unnormalised coherent state}:
-	\begin{equation}
-	\unnormbraket{Z_a}{Z_b}=\sum_{r=0}^{\min(S,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\det((Z_a)_{\seq{a},\seq{b}})^*\det((Z_b)_{\seq{a},\seq{b}})
-	\end{equation}
-	where we used the fact that the full occupancy basis is orthonormal. Let us express $Z_a$ using its Hermitian conjugate, using the fact that $\det(A)^*=\det(A^*)$:
-	\begin{equation}
-	\unnormbraket{Z_a}{Z_b}=\sum_{r=0}^{\min(S,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\det((Z_a\hc)_{\seq{b}, \seq{a}})\det((Z_b)_{\seq{a},\seq{b}})
-	\end{equation}
-	Invoking the Cauchy-Binet formula for both possible reductions yields
-	\begin{equation}
-	\unnormbraket{Z_a}{Z_b}=\sum_{r=0}^{\min(S,M-S)}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\det((Z_a\hc Z_b)_{\seq{b}, \seq{b}})=\sum_{r=0}^{\min(S,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\det((Z_b Z_a\hc)_{\seq{a}, \seq{a}})
-	\end{equation}
-	We identify the determinant of a submatrix with row indices equal to column indices as a principal minor of the square matrix $Z_a\hc Z_b$ (or $Z_b Z_a\hc$). The sum over all $k$-order principal minors of a square matrix $A_{(n\cross n)}$, here denoted $T^A_k$, is easily calculable from the characteristic polynomial of $A$ defined as $p_A(\lambda)=\det(\lambda I_n-A)$, using the well-known formula
-	\begin{equation}
-	\det(\lambda I_n-A)=\sum_{k=0}^n \lambda^{n-k}(-1)^k T^A_k
-	\end{equation}
-	Evaluating the characteristic polynomial at $\lambda = -1$ yields
-	\begin{equation}
-	\det(-I_n-A)=\sum_{k=0}^n (-1)^n T^A_k\qq{or, to standardise the sign,} \det(I_n+A)=\sum_{k=0}^n T^A_k
-	\end{equation}
-	Since the overlap is a sum of all principal minors of all orders, it can be evaluated as
-	\begin{equation}
-	\unnormbraket{Z_a}{Z_b}=\det(I_{S}+Z_a\hc Z_b)=\det(I_{M-S}+Z_b Z_a\hc)
-	\end{equation}
-	This also gives us the normalisation function $N(Z)$:
-	\begin{equation}
-	N(Z)=\frac{1}{\sqrt{\det(I_{S}+Z\hc Z)}}=\frac{1}{\sqrt{\det(I_{M-S}+ZZ\hc)}}
-	\end{equation}
-	
-	\subsection{Action of the fermionic creation and annihilation operators on the coherent state}
+	\subsection{Reductions of coherent states}
 	Let us define $\eta_x(S)$ as the number of elements of $S$ smaller than $x$. Then the action of the creation and annihilation operator on an occupancy basis state is
 	\begin{eqnarray}
 	\hat{f}\hc_i\ket{\sigma}=\begin{cases}
@@ -249,6 +218,8 @@
 	%\begin{equation}\label{eq:reduced coherent state}
 	%\unnormket{Z'}=\sum_{r=0}^{\min(S-1,M-S)}(-1)^{\frac{1}{2}r(r+1)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0'}}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1'}}\det(Z_{\seq{a},\seq{b}})\ket{\pi_1-\{b\}+\{a\}}
 	%\end{equation}
+	
+	
 	\subsubsection{Reduction of coherent state in $\pi_1$} \label{sec: reduction in pi 1}
 	Consider this: setting all the elements in the $i$-th column of $Z$ does a single thing: it removes all terms from the occupancy basis decomposition which have $n_i=0$ when $i\in\pi_1$. Formally, if we let $R^{\pi_1}_i$ be an $(S,S)$ matrix such that
 	\begin{equation}\label{eq:reduction projection}
@@ -299,12 +270,67 @@
 	\end{equation}
 	where the sequence in the subscript of $R, Q$ implies product over all elements in $\seq{\sigma}$.
 	
-	\subsubsection{Overlap of two $\pi_1$-reduced coherent states}
-	Now: consider the overlap between two reduced coherent states, $\hat{f}_i\unnormket{Z_a}$ and $\hat{f}_j\unnormket{Z_b}$ where $i,j\in \pi_1$. By Eq. \ref{eq:effect of pi_1 lowering operator}, we have
+	\subsection{Action of the transition operator}
+	
+	The transition operator $\hat{T}_{ij}=\hat{f}\hc_i\hat{f}_j$ not only generates the quotient space of $(U(1)\otimes SL(M,\mathbb{R}), \ket{\phi_0})$ when restricting the domain of $i,j$, but, in general, constitues any $S$-preserving operator. This can be readily seen from the fact that an arbitrary sequence $\hat{f}\hc_{a_1}\dots\hat{f}\hc_{a_X}\hat{f}_{b_1}\dots\hat{f}_{b_Y}$ can commute with $\hat{N}=\sum_{m=1}^M\hat{f}\hc_m\hat{f}_m$ only if $X=Y$, i.e. the numbers of creation and annihilation operators are equal. Using Eq. \ref{eq:transition commutator}, we have
+	\begin{align}\label{eq:transition commutes with N}
+	\comm{\hat{T}_{ij}}{\hat{N}}&=\sum_{m=1}^M\comm{\hat{T}_{ij}}{\hat{T}_{mm}}=\sum_{m=1}^M\left(\hat{T}_{im}\delta_{jm}-\hat{T}_{mj}\delta_{im}\right)=\hat{T}_{ij}-\hat{T}_{ij}=0
+	\end{align}
+	and we see that any operator which commutes with $\hat{N}$ (other than the identity) can be expressed as a sum of products of $\hat{T}_{ij}$. Therefore, the action of $\hat{T}_{ij}$ on a coherent state $\ket{Z}$ is of great interest to us.
+	
+	\section{Overlaps of $U(1)\otimes SL(M,\mathbb{R})$ coherent states} \label{sec:overlaps}
+	
+	\subsection{Overlap of two coherent states}
+	
+	Consider two unnormalised fermionic coherent states $\unnormket{Z_a}, \unnormket{Z_b}$. To calculate their overlap, we use Eq. \ref{eq:unnormalised coherent state}:
 	\begin{equation}
-	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_i}{Z_b}=(-1)^{i+j}\unnormbraket{(Z_aQ^{\pi_1}_iR^{\pi_1}_i)^{-}_{\{i\}}}{(Z_bQ^{\pi_1}_jR^{\pi_1}_j)^{-}_{\{j\}}}
+	\unnormbraket{Z_a}{Z_b}=\sum_{r=0}^{\min(S,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\det((Z_a)_{\seq{a},\seq{b}})^*\det((Z_b)_{\seq{a},\seq{b}})
 	\end{equation}
-	\textbf{The case $i\neq j$:}
+	where we used the fact that the full occupancy basis is orthonormal. Let us express $Z_a$ using its Hermitian conjugate, using the fact that $\det(A)^*=\det(A^*)$:
+	\begin{equation}\label{eq: overlap intermediate step}
+	\unnormbraket{Z_a}{Z_b}=\sum_{r=0}^{\min(S,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\det((Z_a\hc)_{\seq{b}, \seq{a}})\det((Z_b)_{\seq{a},\seq{b}})
+	\end{equation}
+	Invoking the Cauchy-Binet formula for both possible reductions yields
+	\begin{equation}
+	\unnormbraket{Z_a}{Z_b}=\sum_{r=0}^{\min(S,M-S)}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\det((Z_a\hc Z_b)_{\seq{b}, \seq{b}})=\sum_{r=0}^{\min(S,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\det((Z_b Z_a\hc)_{\seq{a}, \seq{a}})
+	\end{equation}
+	We identify the determinant of a submatrix with row indices equal to column indices as a principal minor of the square matrix $Z_a\hc Z_b$ (or $Z_b Z_a\hc$). The sum over all $k$-order principal minors of a square matrix $A_{(n\cross n)}$, here denoted $T^A_k$, is easily calculable from the characteristic polynomial of $A$ defined as $p_A(\lambda)=\det(\lambda I_n-A)$, using the well-known formula
+	\begin{equation}
+	\det(\lambda I_n-A)=\sum_{k=0}^n \lambda^{n-k}(-1)^k T^A_k
+	\end{equation}
+	Evaluating the characteristic polynomial at $\lambda = -1$ yields
+	\begin{equation}
+	\det(-I_n-A)=\sum_{k=0}^n (-1)^n T^A_k\qq{or, to standardise the sign,} \det(I_n+A)=\sum_{k=0}^n T^A_k
+	\end{equation}
+	Since the overlap is a sum of all principal minors of all orders, it can be evaluated as
+	\begin{equation}
+	\unnormbraket{Z_a}{Z_b}=\det(I_{S}+Z_a\hc Z_b)=\det(I_{M-S}+Z_b Z_a\hc)
+	\end{equation}
+	This also gives us the normalisation function $N(Z)$:
+	\begin{equation}
+	N(Z)=\frac{1}{\sqrt{\det(I_{S}+Z\hc Z)}}=\frac{1}{\sqrt{\det(I_{M-S}+ZZ\hc)}}
+	\end{equation}
+	
+	\subsection{Standardisation of transition operator sequences in overlap integrals}
+	
+	Consider the overlap integral of a general normal-ordered product sequence of creation and annihilation operators:
+	\begin{equation}
+	\mel{Z_a}{\hat{f}\hc_{P_1\seq{\rho}}\hat{f}_{P_2\seq{\sigma}}}{Z_b}
+	\end{equation}
+	The rest of Sec. \ref{sec:overlaps} is dedicated to calculating this overlap integral. We can observe certain general rules which apply to the expression, which allow us to rewrite it as a composition of simpler problems, each of which is tackled below.
+	
+	First, the overlap integral can be conceptualised as the overlap of $\hat{f}_{P_1\seq{\rho}}\ket{Z_a}$ and $\hat{f}_{P_2\seq{\sigma}}\ket{Z_b}$. Since each annihilation operator lowers the total particle number by one, this overlap vanishes if $\abs{\seq{\rho}}\neq\abs{\seq{\sigma}}$.
+	
+	Second, due to the normal ordering, the overlap vanishes if any index repeats more than once in either $\seq{\sigma}$ or $\seq{\rho}$. This guarantees that strictly ascending sequences $\seq{\rho},\seq{\sigma}$ exist, and can be constructed by undoing the permutations $P_1,P_2$.
+	
+	\subsection{Overlap of two $\pi_1$-reduced coherent states}
+	Now: consider the overlap between two reduced coherent states, $\hat{f}_i\unnormket{Z_a}$ and $\hat{f}_j\unnormket{Z_b}$ where $i,j\in \pi_1$. By Eq. \ref{eq:effect of pi_1 lowering operator}, we have
+	\begin{equation} \label{eq: overlap of two pi_1 reduced coherent states problem}
+	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_j}{Z_b}=(-1)^{i+j}\unnormbraket{(Z_aQ^{\pi_1}_iR^{\pi_1}_i)^{-}_{\{i\}}}{(Z_bQ^{\pi_1}_jR^{\pi_1}_j)^{-}_{\{j\}}}
+	\end{equation}
+	
+	\subsubsection{Disjoint $\pi_1$-reduction overlap}
+	In this subsubsection, we treat the case $i\neq j$.
 	
 	The overlap can be expanded as
 	\begin{align*}
@@ -315,25 +341,72 @@
 	\end{align*}
 	Taking an arbitrary minor with one column (row) specified to be at index $m$ is equivalent to taking an arbitrary minor of the original matrix transformed in a specific way with one column (row) specified to be at index one. That transformation entails multiplying the first $m-1$ columns (rows) by $-1$ and then bringing the $m$-th column (row) to index one. Also, since the $Z_a\hc$ ($Z_b$) minor cannot contain row $i$ (column $j$), we can account for these additional restrictions by removing the associated row (column). Therefore the unnormalised braket is equal to
 	\begin{equation}
-	=\sum_{r=0}^{\min(S-1,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_{r-1}\seq{\pi'_1-\{1\}}}\det((Q^{\pi_1}_{\{i,j\}}Z_a\hc)^{(i)}_{\seq{b}\cup \{1\}, \seq{a}})\det((Z_bQ^{\pi_1}_{\{i,j\}})^{(j)}_{\seq{a},\seq{b}\cup \{1\}})
+	=\sum_{r=0}^{\min(S-1,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_{r-1}\seq{\pi'_1-\{1\}}}\det((P_{j\to 1}Q^{\pi_1}_{\{i,j\}}Z_a\hc)^{(i)}_{\seq{b}\cup \{1\}, \seq{a}})\det((P_{i\to 1}Z_bQ^{\pi_1}_{\{i,j\}})^{(j)}_{\seq{a},\seq{b}\cup \{1\}})
 	\end{equation}
 	where $Q^{\pi_1}_{\{i,j\}}$ is understood to represent the product $Q^{\pi_1}_iQ^{\pi_1}_j$, $\pi'_1$ is $\pi_1$ once-reduced, omitting the final element $S$, and the superscript in parentheses for $Z_a\hc$ ($Z_b$) means the $i$-th row ($j$-th column) is removed. The determinant product over minors with a constraining index we utilise the modified Cauchy-Binet formula, which is stated and proven in \cite[App. C]{modified_cauchy_binet}, and which yields
 	\begin{equation}
 	=-\sum_{r=0}^{\min(S-1,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\det(\mqty{
-		0 & (Q^{\pi_1}_{\{i,j\}}Z_a\hc)^{(i)}_{1, \seq{a}}\\
-		(Z_bQ^{\pi_1}_{\{i,j\}})^{(j)}_{\seq{a},1} & (Z_bQ^{\pi_1}_{\{i,j\}})^{(j)}_{\seq{a},\seq{\pi'_1-\{1\}}} (Q^{\pi_1}_{\{i,j\}}Z_a\hc)^{(i)}_{\seq{\pi'_1-\{1\}}, \seq{a}}
+		0 & (Q^{\pi_1}_{\{i,j\}}Z_a\hc)_{j, \seq{a}}\\
+		(Z_bQ^{\pi_1}_{\{i,j\}})_{\seq{a},i} & (Z_bQ^{\pi_1}_{\{i,j\}})^{(i, j)}_{\seq{a},\seq{\pi''_1}} (Q^{\pi_1}_{\{i,j\}}Z_a\hc)^{(i,j)}_{\seq{\pi''_1}, \seq{a}}
 	})
 	\end{equation}
-	
-	
-	
-	\subsection{Action of the transition operator}
-	
-	The transition operator $\hat{T}_{ij}=\hat{f}\hc_i\hat{f}_j$ not only generates the quotient space of $(U(1)\otimes SL(M,\mathbb{R}), \ket{\phi_0})$ when restricting the domain of $i,j$, but, in general, constitues any $S$-preserving operator. This can be readily seen from the fact that an arbitrary sequence $\hat{f}\hc_{a_1}\dots\hat{f}\hc_{a_X}\hat{f}_{b_1}\dots\hat{f}_{b_Y}$ can commute with $\hat{N}=\sum_{m=1}^M\hat{f}\hc_m\hat{f}_m$ only if $X=Y$, i.e. the numbers of creation and annihilation operators are equal. Using Eq. \ref{eq:transition commutator}, we have
-	\begin{align}\label{eq:transition commutes with N}
-	\comm{\hat{T}_{ij}}{\hat{N}}&=\sum_{m=1}^M\comm{\hat{T}_{ij}}{\hat{T}_{mm}}=\sum_{m=1}^M\left(\hat{T}_{im}\delta_{jm}-\hat{T}_{mj}\delta_{im}\right)=\hat{T}_{ij}-\hat{T}_{ij}=0
+	The determinant is the principal minor of a matrix
+	\begin{equation}
+	M = \mqty(0 & (Q^{\pi_1}_{\{i,j\}}Z_a\hc)_{j, \seq{\pi_0}}\\
+		(Z_bQ^{\pi_1}_{\{i,j\}})_{\seq{\pi_0},i} & (Z_bQ^{\pi_1}_{\{i,j\}})^{(i,j)} (Q^{\pi_1}_{\{i,j\}}Z_a\hc)^{(i, j)}) = \mqty(0 & (Q^{\pi_1}_{\{i,j\}}Z_a\hc)_{j, \seq{\pi_0}}\\
+		(Z_bQ^{\pi_1}_{\{i,j\}})_{\seq{\pi_0},i} & (Z_b)^{(i,j)} (Z_a\hc)^{(i, j)})
+	\end{equation}
+	determined by indices $\seq{a}\cup\{1\}$. The sum over all such principal minors of rank $r+1$ is equivalent to the sum over all principal minors of rank $r+1$ minus the sum of all principal minors of the lower-right block of rank $r$. Since we take the sum of this over all values of $r$ on which either of the aforementioned sums is non-zero, the result becomes
+	\begin{align}
+	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_j}{Z_b} &= (-1)^{i+j}\left[\det(I+(Z_b)^{(i,j)} (Z_a\hc)^{(i, j)})-\det(I+M)\right]\nonumber\\
+	&= (-1)^{i+j+1}\det(\mqty{
+		0 & (Q^{\pi_1}_{\{i,j\}}Z_a\hc)_{j, \seq{\pi_0}}\\
+		(Z_bQ^{\pi_1}_{\{i,j\}})_{\seq{\pi_0},i} & I+(Z_b)^{(i,j)} (Z_a\hc)^{(i, j)}
+	})
 	\end{align}
-	and we see that any operator which commutes with $\hat{N}$ (other than the identity) can be expressed as a sum of products of $\hat{T}_{ij}$. Therefore, the action of $\hat{T}_{ij}$ on a coherent state $\ket{Z}$ is of great interest to us.
+	where we used the Laplace expansion of $\det(I+M)$ for the final step. We also notice that whether $i>j$ or $j<i$, the overall effect of the two $Q^{\pi_1}_{\{i,j\}}$ terms is introducing a single sign flip to the determinant. Therefore we have
+	\begin{equation} \label{eq:single disjoint pi_1 reduction overlap}
+	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_j}{Z_b} = (-1)^{i+j}\det(\mqty{
+		0 & (Z_a\hc)_{j, \seq{\pi_0}}\\
+		(Z_b)_{\seq{\pi_0},i} & I+(Z_b)^{(i,j)} (Z_a\hc)^{(i, j)}
+	})
+	\end{equation}
+	Eq. \ref{eq:single disjoint pi_1 reduction overlap} can be trivially generalised for two disjoint sequences $\hat{f}_{\seq{a}},\hat{f}_{\seq{b}}$ of equal length acting on $\unnormket{Z_a},\unnormket{Z_b}$ respectively. The overlap becomes
+	\begin{equation} \label{eq:disjoint pi_1 reduction overlap}
+	\unnormmel{Z_a}{\hat{f}\hc_{\seq{a}^-}\hat{f}_{\seq{b}}}{Z_b} = (-1)^{\sum_i\seq{a}_i + \seq{b}_i}\det(\mqty{
+		0 & (Z_a\hc)_{\seq{b}, \seq{\pi_0}}\\
+		(Z_b)_{\seq{\pi_0},\seq{a}} & I+(Z_b)^{(\seq{a}\cup \seq{b})} (Z_a\hc)^{(\seq{a}\cup \seq{b})}
+	})
+	\end{equation}
+	Permuting the order of the index sequences is reflected by permuting the rows (columns) of the upper-right (lower-left) block, effecting a sign change equivalent to the permutation sign.
+	
+	\subsubsection{Repeated $\pi_1$-reduction overlap}
+	Going back to Eq. \ref{eq: overlap of two pi_1 reduced coherent states problem}, let us investigate the case $i=j$. Since the mode occupancy reduction occurs on the same mode for both the bra and the ket, the occupancy basis overlap restricts $\seq{a}=\seq{a'}, \seq{b}=\seq{b'}$. After removing the $i$-th ($j$-th) column from $Z_a$ ($Z_b$), the sum reduces to an analogy of Eq. \ref{eq: overlap intermediate step} with the respective columns removed, from which the same process yields
+	\begin{equation}
+	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_i}{Z_b}=(-1)^{2i}\det(I+Z_b^{(i)}(Z_a\hc)^{(i)})=\det(I+Z_b^{(i)}(Z_a\hc)^{(i)})
+	\end{equation}
+	This process trivially generalises to any sequence of annihilation operators acting on two coherent states, so that their overlap may be written as
+	\begin{equation} \label{eq:repeated pi_1 reduction}
+	\unnormmel{Z_a}{(\hat{f}_{\seq{\sigma}})\hc\hat{f}_{\seq{\sigma}}}{Z_b}=\unnormmel{Z_a}{\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma}}}{Z_b}=\det(I+Z_b^{(\sigma)}(Z_a\hc)^{(\sigma)})
+	\end{equation}
+	where $\seq{\sigma}^-$ is the descending sequence over the indices in $\sigma$.
+	
+	\subsubsection{Compound $\pi_1$-reduction overlap}
+	Restricting the operator indices to $\pi_1$, the general overlap integral can be constructed as
+	\begin{equation}
+	\mel{Z_a}{\hat{f}\hc_{P_1\seq{\rho\cup\tau}}\hat{f}_{P_2\seq{\sigma\cup\tau}}}{Z_b}
+	\end{equation}
+	where $\rho,\sigma,\tau$ are disjoint subsets of $\pi_1$. To solve this overlap integral we permute the sequence like so:
+	\begin{equation}
+	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\rho}^-}\hat{f}_{\seq{\sigma}}\hat{f}_{\seq{\tau}}}{Z_b}
+	\end{equation}
+	The point here is to keep the sign factor of the repeated $\pi_1$-reduction trivial by mimicking Eq. \ref{eq:repeated pi_1 reduction}. Afterwards, the disjoint $\pi_1$-reduction has a "non-trivial" sign factor given by the sum of $\seq{\rho}$ and $\seq{\sigma}$, and permutations within these sequences are reflected in permutations of the rows or columns of the off-diagonal blocks in Eq. \ref{eq:disjoint pi_1 reduction overlap}. Since both the disjoint and the repeated $\pi_1$-reduction transforms $Z$ in the overlap expression only with regard to a specific column, a sequence of such transformations can be composed trivially. The full overlap integral therefore becomes
+	\begin{equation} \label{eq:compound pi_1 reduction overlap}
+	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\rho}^-}\hat{f}_{\seq{\sigma}}\hat{f}_{\seq{\tau}}}{Z_b} = (-1)^{\sum_i\seq{\rho}_i + \seq{\sigma}_i}\det(\mqty{
+		0 & (Z_a\hc)_{\seq{\sigma}, \seq{\pi_0}}\\
+		(Z_b)_{\seq{\pi_0},\seq{\rho}} & I+(Z_b)^{(\rho\cup\sigma\cup\tau)} (Z_a\hc)^{(\rho\cup \sigma\cup\tau)}
+	})
+	\end{equation}
 	
 	\subsection{Matrix element of the quadratic $S$-preserving Hamiltonian}
 	For an $S$-preserving Hamiltonian, the one-body interaction can be expressed as $V^{(1)}_{\alpha,\beta}\hat{f}\hc_\alpha\hat{f}_\beta$, and two-body interaction as $\frac{1}{2}V^{(2)}_{\alpha,\beta,\gamma,\delta}\hat{f}\hc_\alpha\hat{f}\hc_\beta\hat{f}_\gamma\hat{f}_\delta$, where
@@ -351,8 +424,10 @@
 	\section{Notation in this article}
 	\begin{itemize}
 		\item $\seq{S}$: A sequence constructed from the elements of set $S\subset \mathbb{N}^+$ such that\\ $\seq{S}_i< \seq{S}_j\iff i<j$. Such sequence shall be referred to as ascending. If $S$ is a number, the sequence is explicitly $\seq{1, 2\dots S}$. The length of $\seq{S}$ shall be denoted as $\abs{\seq{S}}$.
+		\item $\seq{S}^-$: An object analogous to $\seq{S}$, except the sequence is strictly descending.
 		\item $\Gamma_n\seq{S}$: Set of all subsequences of length $n$ of sequence $\seq{S}$.
 		\item $\seq{S_1}\oplus\seq{S_2}$: An ascending sequence constructed from ascending sequences $\seq{S_1}$ and $\seq{S_2}$ with no common elements, such that it contains every element from $\seq{S_1}$ and $\seq{S_2}$.
+		\item Two sequences are said to be disjoint if the sets upon which they are built are disjoint; that is, they share no common index.
 		\item $M_{\seq{S_1},\seq{S_2}}$ where $M$ is a matrix: This denotes a matrix $M'$ such that $M'_{ij}=\nolinebreak M_{\seq{S_1}_i,\seq{S_2}_j}$, which is a submatrix of $M$.
 		\item $\ket{\seq{S}}$: An element of the full occupancy basis where the $i$-th mode is occupied iff $i\in\seq{S}$.
 		\item $\hat{f}\hc_{\seq{S}}$: A product of $N=\abs{\seq{S}}$ fermionic creation operators $\hat{f}\hc_{\seq{S}_1}\dots \hat{f}\hc_{\seq{S}_N}$. An analogous construction can be defined for a sequence of annihilation operators.

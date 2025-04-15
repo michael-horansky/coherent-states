@@ -11,3 +11,37 @@
 	\begin{equation}
 	\comm{\hat{D}(Z)}{\hat{\phi}_0}_1=\sum_{a\in\pi_0}\sum_{b\in\pi_1}(-1)^{S+b}(ZR_i)_{ab}\hat{f}\hc_1\dots \hat{f}\hc_{b-1}\hat{f}\hc_{a}\hat{f}\hc_{b+1}\dots \hat{f}\hc_{S}
 	\end{equation}
+
+
+
+
+
+\subsection{Overlap of two $\pi_0$-reduced coherent states}
+	In this section, we derive the analogues of results from Sec. \ref{sec:pi_1 reduction overlaps} for creation and annihilation operators acting solely on modes in $\pi_0$. For a single transition operator, the overlap integral becomes
+	\begin{align} \label{eq: overlap of two pi_0 reduced coherent states problem}
+	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_j}{Z_b}&= \unnormmel{Z_a}{(\delta_{ij}-\hat{f}_j\hat{f}\hc_i)}{Z_b}\\
+	&=\unnormbraket{Z_a}{Z_b}\delta_{ij}-\unnormbraket{(R^{\pi_0}_jQ^{\pi_0}_jZ_a)^{+}_{\{j\}}}{(R^{\pi_0}_iQ^{\pi_0}_iZ_b)^{+}_{\{i\}}}
+	\end{align}
+	
+	\subsubsection{Disjoint $\pi_0$-reduction overlap}
+	In this subsubsection, we treat the case $i\neq j$. The process is analogous to that in Sec. \ref{sec:disjoint pi_1 reduction overlap}:
+	\begin{align*}
+	&\unnormbraket{(R^{\pi_0}_jQ^{\pi_0}_jZ_a)^{+}_{\{j\}}}{(R^{\pi_0}_iQ^{\pi_0}_iZ_b)^{+}_{\{i\}}}\\
+	&=\sum_{r=0}^{\min(S,M-S-1)}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0-\{j\}}}\sum_{\seq{a'}\in\Gamma_r\seq{\pi_0-\{i\}}}\\
+	&\qquad\qquad\qquad\qquad\det((Z_a\hc Q^{\pi_0}_jR^{\pi_0}_j)_{\seq{b}, \seq{a}})\det((R^{\pi_0}_i Q^{\pi_0}_i Z_b)_{\seq{a},\seq{b'}})\delta_{a+\{j\},a'+\{i\}}\\
+	&=\sum_{r=0}^{\min(S,M-S-1)}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\sum_{\seq{a}\in\Gamma_{r-1}\seq{\pi_0-\{i, j\}}}\det((Z_a\hc Q^{\pi_0}_j R^{\pi_0}_j)_{\seq{b}, \seq{a}\cup \{i\}})\det((R^{\pi_0}_i Q^{\pi_0}_i Z_b)_{\seq{a}\cup\{j\},\seq{b}})
+	\end{align*}
+	Moving the $i$-th column ($j$-th row) of $Z_a\hc$ ($Z_b$) to the first index introduces a sign flip to the first $(i-1)$ columns ($j-1$) rows. This can be accounted for by multiplication by $Q^{\pi_0}_i$ of $Z_a\hc$ from the right ($Q^{\pi_0}_j$ of $Z_b$ from the left), and then flipping the sign of every element except the $i$-th row ($j$-th column), which reduces to a factor of $(-1)^{r-1}$ for each minor, which cancels out. Therefore, we may proceed as before with removing the redundant column (row) and applying the modified Cauchy-Binet formula:
+	\begin{align*}
+	&= \sum_{r=0}^{\min(S,M-S-1)}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\sum_{\seq{a}\in\Gamma_{r-1}\seq{\pi'_0-\{1\}}}\det((P_{i\to 1} Z_a\hc Q^{\pi_0}_{\{i,j\}})^{(j)}_{\seq{b}, \seq{a}\cup \{1\}})\det((P_{j\to 1} Q^{\pi_0}_{\{i,j\}} Z_b)^{(i)}_{\seq{a}\cup\{1\},\seq{b}})\\
+	&=-\sum_{r=0}^{\min(S,M-S-1)}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\det(\mqty{
+		0 & (Q^{\pi_0}_{\{i,j\}} Z_b)_{j,\seq{b}}\\
+		(Z_a\hc Q^{\pi_0}_{\{i,j\}})_{\seq{b}, i} & (Z_a\hc Q^{\pi_0}_{\{i,j\}})^{(i,j)}_{\seq{b}, \seq{\pi''_0}} (Q^{\pi_0}_{\{i,j\}} Z_b)^{(i, j)}_{\seq{\pi''_0}, \seq{b}}
+	})\\
+	&= \left[\det(I+(Z_a\hc)^{(i, j)}(Z_b)^{(i,j) })-\det(I+\mqty(0 & (Q^{\pi_0}_{\{i,j\}} Z_b)_{j,\seq{\pi_1}}\\
+		(Z_a\hc Q^{\pi_0}_{\{i,j\}})_{\seq{\pi_1}, i} & (Z_a\hc)^{(i,j)} ( Z_b)^{(i, j)}))\right]\nonumber\\
+	&= \det(\mqty{
+		0 & (Z_b)_{j, \seq{\pi_1}}\\
+		(Z_a\hc)_{\seq{\pi_1},i} & I+(Z_a\hc)^{(i, j)}(Z_b)^{(i,j)}
+	})
+	\end{align*}

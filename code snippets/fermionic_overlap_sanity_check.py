@@ -56,7 +56,7 @@ def tail_sublist_sign(l, sub):
         j = mutable_l.index(sub[i]) # this has to be brought to index 0
         res += j
         del mutable_l[j]
-    return(sign(res))
+    return(sign(res), mutable_l)
 
 
 def R(i, pi):
@@ -235,16 +235,79 @@ class CS():
         # for now: both i and j are in pi_1
         # c and a are both in the order in which they act on the ket, right to left
         tau = list(set(c).intersection(set(a)))
-        rho = list(set(c) - set(tau))
-        sigma = list(set(a) - set(tau))
+        rho_sign, rho = tail_sublist_sign(c, tau)
+        sigma_sign, sigma = tail_sublist_sign(a, tau)
 
-        tau_sorting_prefactor = tail_sublist_sign(c, tau) * tail_sublist_sign(a, tau)
+        tau_sorting_prefactor = rho_sign * sigma_sign
 
         fast_M = np.zeros((self.M - self.S + len(rho), self.M - self.S + len(rho)), dtype=complex)
         fast_M[len(rho):,:len(rho)] = np.take(other.Z, rho, axis = 1)
         fast_M[:len(rho),len(rho):] = np.conjugate(np.take(self.Z, sigma, axis = 1).T)
         fast_M[len(rho):,len(rho):] = np.identity(self.M - self.S) + np.matmul(reduced_matrix(other.Z, [], rho+sigma+tau), np.conjugate(reduced_matrix(self.Z, [], rho+sigma+tau).T))
         return(sign(sum(rho + sigma)) * tau_sorting_prefactor * np.linalg.det(fast_M))
+
+    # pi_0-reductions
+    def disjoint_pi_zero_overlap(self, other, c = [], a = []):
+        c = np.array(c, dtype=int)-self.S
+        a = np.array(a, dtype=int)-self.S
+        fast_M = np.zeros((self.S + len(c), self.S + len(c)), dtype=complex)
+        fast_M[len(c):,:len(c)] = np.conjugate(np.take(self.Z, c, axis = 0).T)
+        fast_M[:len(c),len(c):] = np.take(other.Z, a, axis = 0)
+        fast_M[len(c):,len(c):] = np.identity(self.S) + np.matmul(np.conjugate(reduced_matrix(self.Z, np.concatenate((c, a)), []).T), reduced_matrix(other.Z, np.concatenate((c, a)), []))
+        return(sign(len(c)) * np.linalg.det(fast_M))
+    def repeated_pi_zero_overlap(self, other, c = [], a = []):
+        c = np.array(c, dtype=int)-self.S
+        a = np.array(a, dtype=int)-self.S
+        fast_M = np.zeros((self.S + len(c), self.S + len(c)), dtype=complex)
+        fast_M[len(c):,:len(c)] = np.conjugate(np.take(self.Z, c, axis = 0).T)
+        fast_M[:len(c),len(c):] = np.take(other.Z, a, axis = 0)
+        fast_M[len(c):,len(c):] = np.identity(self.S) + np.matmul(np.conjugate(reduced_matrix(self.Z, c, []).T), reduced_matrix(other.Z, c, []))
+        return(sign(len(c)) * np.linalg.det(fast_M))
+    def pi_zero_overlap(self, other, c = [], a = []):
+        tau = list(set(c).intersection(set(a)))
+        rho_sign, rho = tail_sublist_sign(c, tau)
+        sigma_sign, sigma = tail_sublist_sign(a, tau)
+
+        tau_sorting_prefactor = rho_sign * sigma_sign
+        print(f"Sublist sign of {tau} in {c} = {tail_sublist_sign(c, tau)}")
+        print(f"Sublist sign of {tau} in {a} = {tail_sublist_sign(a, tau)}")
+
+        tau = np.array(tau, dtype=int)-self.S
+        rho = np.array(rho, dtype=int)-self.S
+        sigma = np.array(sigma, dtype=int)-self.S
+
+        print(f"tau = {tau}, rho = {rho}, sigma = {sigma}")
+
+        X = len(tau) + len(rho)
+        fast_M = np.zeros((self.S + X, self.S + X), dtype=complex)
+        fast_M[X:,:X] = np.conjugate(np.take(self.Z, np.concatenate((tau, rho)), axis = 0).T)
+        fast_M[:X,X:] = np.take(other.Z, np.concatenate((tau, sigma)), axis = 0)
+        fast_M[X:,X:] = np.identity(self.S) + np.matmul(np.conjugate(reduced_matrix(self.Z, np.concatenate((tau, rho, sigma)), []).T), reduced_matrix(other.Z, np.concatenate((tau, rho, sigma)), []))
+        #print(fast_M)
+        return(sign(len(tau) + len(sigma)) * tau_sorting_prefactor * np.linalg.det(fast_M))
+
+    def mixed_reduction_overlap(self, other, i, j):
+        # i is in pi_0, j is in pi_1
+        i -= self.S
+
+        fast_M = np.zeros((self.M - self.S, self.M - self.S), dtype=complex)
+        fast_M[0][0] = np.conjugate(self.Z[i][j])
+        fast_M[:1,1:] = np.conjugate(np.take(reduced_matrix(self.Z, [i], []), j, axis = 1).T)
+        fast_M[1:,:1] = np.matmul(reduced_matrix(other.Z, [i], [j]), np.conjugate(np.take(reduced_matrix(self.Z, [], [j]), [i], axis = 0).T ))
+        fast_M[1:,1:] = np.identity(self.M - self.S - 1) + np.matmul(reduced_matrix(other.Z, [i], [j]), np.conjugate(reduced_matrix(self.Z, [i], [j]).T ))
+        return(sign(self.S + j) * np.linalg.det(fast_M))
+        # Note that when indexing modes from 0, the sign flip (j+1) becomes (j), since a mode at index x has x lower-index modes, rather than x-1
+    def mixed_reduction_overlap_alt(self, other, i, j):
+        # i is in pi_0, j is in pi_1
+        i -= self.S
+
+        fast_M = np.zeros((self.S, self.S), dtype=complex)
+        fast_M[0][0] = np.conjugate(self.Z[i][j])
+        fast_M[1:,:1] = np.conjugate(np.take(reduced_matrix(self.Z, [], [j]), [i], axis = 0).T)
+        fast_M[:1,1:] = np.matmul(np.conjugate(np.take(reduced_matrix(self.Z, [i], []), [j], axis = 1).T ), reduced_matrix(other.Z, [i], [j]))
+        fast_M[1:,1:] = np.identity(self.S - 1) + np.matmul(np.conjugate(reduced_matrix(self.Z, [i], [j]).T ), reduced_matrix(other.Z, [i], [j]))
+        return(sign(self.S + j) * np.linalg.det(fast_M))
+        # Note that when indexing modes from 0, the sign flip (j+1) becomes (j), since a mode at index x has x lower-index modes, rather than x-1
 
 
 
@@ -256,15 +319,19 @@ lol.apply_operators([2], [0])
 print(lol)"""
 
 
-M = 12
-S = 7
+M = 7
+S = 5
 N = 5
 
 # The order of application is c_last ... c_first a_first ... a_last
 global_c_sequence = [2, 3, 1]
 global_a_sequence = [1, 2, 0]
+#global_c_sequence = [7, 9, 10]
+#global_a_sequence = [9, 11, 8]
+mixed_i = 6
+mixed_j = 2
 
-print(f"Calculating < Z_a | creation({global_c_sequence}) annihilation({global_a_sequence}) | Z_b >")
+print(f"Calculating < Z_a | creation({list(reversed(global_c_sequence))}) annihilation({global_a_sequence}) | Z_b >")
 is_all_equal = True
 for i in range(N):
     print("---------- test no.", i)
@@ -274,15 +341,15 @@ for i in range(N):
     #print("  Origin. A:", A.occupancy_basis_decomposition)
     #print("  Origin. B:", B.occupancy_basis_decomposition)
 
-    A.occupancy_basis_decomposition.apply_operators([], global_c_sequence)
+    """A.occupancy_basis_decomposition.apply_operators([], global_c_sequence)
     B.occupancy_basis_decomposition.apply_operators([], global_a_sequence)
     #print("  Dir. r. A:", A.occupancy_basis_decomposition)
     #print("  Dir. r. B:", B.occupancy_basis_decomposition)
 
-    A_var = CS(M, S, np.matmul(A.Z, np.matmul(Q(global_c_sequence[0], 1), R(global_c_sequence[0], 1))))
-    B_var = CS(M, S, np.matmul(B.Z, np.matmul(Q(global_a_sequence[0], 1), R(global_a_sequence[0], 1))))
-    A_var.occupancy_basis_decomposition.scale(sign(global_c_sequence[0]))
-    B_var.occupancy_basis_decomposition.scale(sign(global_a_sequence[0]))
+    #A_var = CS(M, S, np.matmul(A.Z, np.matmul(Q(global_c_sequence[0], 1), R(global_c_sequence[0], 1))))
+    #B_var = CS(M, S, np.matmul(B.Z, np.matmul(Q(global_a_sequence[0], 1), R(global_a_sequence[0], 1))))
+    #A_var.occupancy_basis_decomposition.scale(sign(global_c_sequence[0]))
+    #B_var.occupancy_basis_decomposition.scale(sign(global_a_sequence[0]))
     #print("  Equiv. A:", A_var.occupancy_basis_decomposition)
     #print("  Equiv. B:", B_var.occupancy_basis_decomposition)
 
@@ -290,11 +357,20 @@ for i in range(N):
     slow = A.occupancy_basis_decomposition.overlap(B.occupancy_basis_decomposition)
     quick = A.overlap(B, global_c_sequence, global_a_sequence)
     #quick = A.overlap_with_transition(B, global_c_sequence, global_a_sequence)
+    #quick = A.pi_zero_overlap(B, global_c_sequence, global_a_sequence) """
+
+    A.occupancy_basis_decomposition.apply_operators([], [mixed_i])
+    B.occupancy_basis_decomposition.apply_operators([], [mixed_j])
+
+    slow = A.occupancy_basis_decomposition.overlap(B.occupancy_basis_decomposition)
+    quick = A.mixed_reduction_overlap(B, mixed_i, mixed_j)
+    quick_alt = A.mixed_reduction_overlap_alt(B, mixed_i, mixed_j)
 
     print(f"  Slow, trustworthy overlap: {slow:.4f}")
     print(f"  Fast overlap:              {quick:.4f}")
+    print(f"  Fast alt. overlap:         {quick_alt:.4f}")
 
-    if(np.round(slow, 5) != np.round(quick, 5)):
+    if(np.round(slow, 4) != np.round(quick, 4)):
         is_all_equal = False
 if is_all_equal:
     print("Both methods are equivalent")

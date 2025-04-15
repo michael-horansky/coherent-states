@@ -73,8 +73,8 @@ bose_hubbard.save_data()
 bose_hubbard.plot_data()"""
 
 
-bose_hubbard = bosonic_su_n("bose_hubbard_M=2_S=10_mixed_init")
-#bose_hubbard.load_data()
+"""bose_hubbard = bosonic_su_n("bose_hubbard_M=2_S=10_mixed_init")
+bose_hubbard.load_data()
 
 bose_hubbard.set_global_parameters(M = 2, S = 10)
 bose_hubbard.set_hamiltonian_tensors(A_BH, B_BH)
@@ -94,7 +94,7 @@ bose_hubbard.simulate_uncoupled_basis(max_t = 2.0, N_dtp = 200, rtol = (1e-10, 1
 bose_hubbard.fock_solution()
 bose_hubbard.save_data()
 
-bose_hubbard.plot_data(graph_list = ["expected_mode_occupancy"])
+bose_hubbard.plot_data(graph_list = ["expected_mode_occupancy"])"""
 
 
 
@@ -120,3 +120,13 @@ bose_hubbard.simulate_uncoupled_basis(max_t = 2.0, N_dtp = 200, rtol = (1e-10, 1
 #bose_hubbard.save_data(["system", "setup"])
 
 bose_hubbard.plot_data( graph_list = ["expected_mode_occupancy"])"""
+
+
+
+
+
+#bose_hubbard = bosonic_su_n("bose_hubbard_M=3_S=20")
+bose_hubbard = bosonic_su_n("bose_hubbard_M=2_S=10_mixed_init")
+bose_hubbard.load_data()
+
+bose_hubbard.plot_data(graph_list = ["expected_mode_occupancy"])

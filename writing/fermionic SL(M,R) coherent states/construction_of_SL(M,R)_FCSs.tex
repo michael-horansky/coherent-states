@@ -77,7 +77,7 @@
 	\begin{equation}\label{eq:exponential ket}
 	\unnormket{Z}=\exp(\sum_{i\in\pi_0}\sum_{j\in\pi_1}(-1)^{S+j}Z_{ij}\hat{T}_{ij})\ket{\phi_0}
 	\end{equation}
-	We see that the general coherent state has $S(M-S)$ complex parameters\footnote{There is no further reduction of degrees of freedom due to normalisation or fixing the global phase, as it can be trivially seen that, in the decomposition into the full occupancy basis, the reference state always appears with coefficient $1$. A trivial but interesting consequence is that normalisation, which projects an element of the space of $\unnormket{Z}$ onto the space of $\unnormket{Z}$ (by definition equivalent to the space of all normalised vectors in the full Hilbert space) is bijective.}. The normalised state $\ket{Z}$ can be constructed like so:
+	We see that the general coherent state has $S(M-S)$ complex parameters\footnote{There is no further reduction of degrees of freedom due to normalisation or fixing the global phase, as it can be trivially seen that, in the decomposition into the full occupancy basis, the reference state always appears with coefficient $1$. A trivial but interesting consequence is that normalisation, which projects an element of the space of $\unnormket{Z}$ onto the space of $\ket{Z}$ is bijective.}. The normalised state $\ket{Z}$ can be constructed like so:
 	\begin{equation}
 	\ket{Z} = N(Z)\unnormket{Z}\qq{where}N(Z)=\frac{1}{\sqrt{\unnormbraket{Z}{Z}}}
 	\end{equation}
@@ -195,16 +195,20 @@
 	Therefore, the action of the creation operator on an unnormalised fermionic coherent state is
 	\begin{multline}
 	i\in\pi_1\qq{:}\hat{f}\hc_{i}\unnormket{Z}=\\
-	kkk
+	\sum_{r=0}^{\min(S,M-S)}(-1)^{\frac{1}{2}r(r+1)}\sum_{\seq{a}\in\Gamma_{r}\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_{r-1}\seq{\pi_1-\{i\}}}\det(Z_{\seq{a},\seq{b\cup\{i\}}})(-1)^{i-1-\eta_i(\seq{b})}\ket{\pi_1-\{b\}+\{a\}}
+	\end{multline}
+	\begin{multline}
+	i\in\pi_0\qq{:}\hat{f}\hc_{i}\unnormket{Z}=\\
+	\sum_{r=0}^{\min(S,M-S-1)}(-1)^{\frac{1}{2}r(r+1)}\sum_{\seq{a}\in\Gamma_{r}\seq{\pi_0-\{i\}}}\sum_{\seq{b}\in\Gamma_{r}\seq{\pi_1}}\det(Z_{\seq{a},\seq{b}})(-1)^{S-r-\eta_i(\seq{a})}\ket{\pi_1-\{b\}+\{a\}+\{i\}}
 	\end{multline}
 	And, the action of the annihilation operator on an unnormalised fermionic coherent state is
-	\begin{multline}
+	\begin{multline} \label{eq: pi_1 reduction action}
 	i\in\pi_1\qq{:}\hat{f}_{i}\unnormket{Z}=\\
 	\sum_{r=0}^{\min(S-1,M-S)}(-1)^{\frac{1}{2}r(r+1)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1-\{i\}}}\det(Z_{\seq{a},\seq{b}})(-1)^{i-1-\eta_i(\seq{b})}\ket{\pi_1-\{b\}+\{a\}-\{i\}}
 	\end{multline}
-	\begin{multline}
+	\begin{multline} \label{eq: pi_0 reduction action}
 	i\in\pi_0\qq{:}\hat{f}_{i}\unnormket{Z}=\\
-	\sum_{r=0}^{\min(S,M-S)}(-1)^{\frac{1}{2}r(r+1)}\sum_{\seq{a}\in\Gamma_{r-1}\seq{\pi_0-\{i\}}}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\det(Z_{\seq{a}\oplus\{i\},\seq{b}})(-1)^{S-r-\eta_i(\seq{a})}\ket{\pi_1-\{b\}+\{a\}}
+	\sum_{r=0}^{\min(S,M-S)}(-1)^{\frac{1}{2}r(r+1)}\sum_{\seq{a}\in\Gamma_{r-1}\seq{\pi_0-\{i\}}}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\det(Z_{\seq{a\cup\{i\}},\seq{b}})(-1)^{S-r-\eta_i(\seq{a})}\ket{\pi_1-\{b\}+\{a\}}
 	\end{multline}
 	%Consider now the $(S,S-1)$ reduction matrix $R_i, i\in\pi_1$, defined as follows:
 	%\begin{equation}
@@ -265,7 +269,7 @@
 	\hat{f}_i\unnormket{Z}=(-1)^{S}\unnormket{(R^{\pi_0}_iQ^{\pi_0}_iZ)^+_{\{i\}}}
 	\end{equation}
 	where the CS label with superscript $+$ and subscript $\{i\}$ means the occupancy of the $i$-th mode is "forced" to be one. This equation can be generalised to any sequence of $n$ creation operators:
-	\begin{equation}
+	\begin{equation} \label{eq:effect of pi_0 lowering operator}
 	\hat{f}\hc_{P\seq{\sigma}}\unnormket{Z}=\sgn(P)(-1)^{Sn}\unnormket{(R^{\pi_0}_{\seq{\sigma}}Q^{\pi_0}_{\seq{\sigma}}Z)^{+}_{\seq{\sigma}}}
 	\end{equation}
 	where the sequence in the subscript of $R, Q$ implies product over all elements in $\seq{\sigma}$.
@@ -323,13 +327,13 @@
 	
 	Second, due to the normal ordering, the overlap vanishes if any index repeats more than once in either $\seq{\sigma}$ or $\seq{\rho}$. This guarantees that strictly ascending sequences $\seq{\rho},\seq{\sigma}$ exist, and can be constructed by undoing the permutations $P_1,P_2$.
 	
-	\subsection{Overlap of two $\pi_1$-reduced coherent states}
+	\subsection{Overlap of two $\pi_1$-reduced coherent states} \label{sec:pi_1 reduction overlaps}
 	Now: consider the overlap between two reduced coherent states, $\hat{f}_i\unnormket{Z_a}$ and $\hat{f}_j\unnormket{Z_b}$ where $i,j\in \pi_1$. By Eq. \ref{eq:effect of pi_1 lowering operator}, we have
 	\begin{equation} \label{eq: overlap of two pi_1 reduced coherent states problem}
 	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_j}{Z_b}=(-1)^{i+j}\unnormbraket{(Z_aQ^{\pi_1}_iR^{\pi_1}_i)^{-}_{\{i\}}}{(Z_bQ^{\pi_1}_jR^{\pi_1}_j)^{-}_{\{j\}}}
 	\end{equation}
 	
-	\subsubsection{Disjoint $\pi_1$-reduction overlap}
+	\subsubsection{Disjoint $\pi_1$-reduction overlap} \label{sec:disjoint pi_1 reduction overlap}
 	In this subsubsection, we treat the case $i\neq j$.
 	
 	The overlap can be expanded as
@@ -371,16 +375,16 @@
 		(Z_b)_{\seq{\pi_0},i} & I+(Z_b)^{(i,j)} (Z_a\hc)^{(i, j)}
 	})
 	\end{equation}
-	Eq. \ref{eq:single disjoint pi_1 reduction overlap} can be trivially generalised for two disjoint sequences $\hat{f}_{\seq{a}},\hat{f}_{\seq{b}}$ of equal length acting on $\unnormket{Z_a},\unnormket{Z_b}$ respectively. The overlap becomes
+	Eq. \ref{eq:single disjoint pi_1 reduction overlap} can be trivially generalised for two disjoint sequences $\hat{f}_{\seq{\rho}},\hat{f}_{\seq{\sigma}}$ of equal length acting on $\unnormket{Z_a},\unnormket{Z_b}$ respectively. The overlap becomes
 	\begin{equation} \label{eq:disjoint pi_1 reduction overlap}
-	\unnormmel{Z_a}{\hat{f}\hc_{\seq{a}^-}\hat{f}_{\seq{b}}}{Z_b} = (-1)^{\sum_i\seq{a}_i + \seq{b}_i}\det(\mqty{
-		0 & (Z_a\hc)_{\seq{b}, \seq{\pi_0}}\\
-		(Z_b)_{\seq{\pi_0},\seq{a}} & I+(Z_b)^{(\seq{a}\cup \seq{b})} (Z_a\hc)^{(\seq{a}\cup \seq{b})}
+	\unnormmel{Z_a}{\hat{f}\hc_{\seq{\rho}^-}\hat{f}_{\seq{\sigma}}}{Z_b} = (-1)^{\sum_i\seq{\rho}_i + \seq{\sigma}_i}\det(\mqty{
+		0 & (Z_a\hc)_{\seq{\sigma}, \seq{\pi_0}}\\
+		(Z_b)_{\seq{\pi_0},\seq{\rho}} & I+(Z_b)^{(\rho\cup \sigma)} (Z_a\hc)^{(\rho\cup\sigma)}
 	})
 	\end{equation}
 	Permuting the order of the index sequences is reflected by permuting the rows (columns) of the upper-right (lower-left) block, effecting a sign change equivalent to the permutation sign.
 	
-	\subsubsection{Repeated $\pi_1$-reduction overlap}
+	\subsubsection{Repeated $\pi_1$-reduction overlap} \label{sec:repeated pi_1 reduction overlap}
 	Going back to Eq. \ref{eq: overlap of two pi_1 reduced coherent states problem}, let us investigate the case $i=j$. Since the mode occupancy reduction occurs on the same mode for both the bra and the ket, the occupancy basis overlap restricts $\seq{a}=\seq{a'}, \seq{b}=\seq{b'}$. After removing the $i$-th ($j$-th) column from $Z_a$ ($Z_b$), the sum reduces to an analogy of Eq. \ref{eq: overlap intermediate step} with the respective columns removed, from which the same process yields
 	\begin{equation}
 	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_i}{Z_b}=(-1)^{2i}\det(I+Z_b^{(i)}(Z_a\hc)^{(i)})=\det(I+Z_b^{(i)}(Z_a\hc)^{(i)})
@@ -389,9 +393,9 @@
 	\begin{equation} \label{eq:repeated pi_1 reduction}
 	\unnormmel{Z_a}{(\hat{f}_{\seq{\sigma}})\hc\hat{f}_{\seq{\sigma}}}{Z_b}=\unnormmel{Z_a}{\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma}}}{Z_b}=\det(I+Z_b^{(\sigma)}(Z_a\hc)^{(\sigma)})
 	\end{equation}
-	where $\seq{\sigma}^-$ is the descending sequence over the indices in $\sigma$.
+	where $\seq{\sigma}^-$ is the descending sequence over the indices in $\sigma$. The sign is trivial if the orders of applying the annihilation operators to both states are equal.
 	
-	\subsubsection{Compound $\pi_1$-reduction overlap}
+	\subsubsection{Compound $\pi_1$-reduction overlap} \label{sec: compound pi_1 reduction overlap}
 	Restricting the operator indices to $\pi_1$, the general overlap integral can be constructed as
 	\begin{equation}
 	\mel{Z_a}{\hat{f}\hc_{P_1\seq{\rho\cup\tau}}\hat{f}_{P_2\seq{\sigma\cup\tau}}}{Z_b}
@@ -407,6 +411,127 @@
 		(Z_b)_{\seq{\pi_0},\seq{\rho}} & I+(Z_b)^{(\rho\cup\sigma\cup\tau)} (Z_a\hc)^{(\rho\cup \sigma\cup\tau)}
 	})
 	\end{equation}
+	
+	\subsection{Overlap of two $\pi_0$-reduced coherent states}
+	In this section, we derive the analogues of results from Sec. \ref{sec:pi_1 reduction overlaps} for creation and annihilation operators acting solely on modes in $\pi_0$. For a single transition operator, the overlap integral becomes
+	\begin{equation} \label{eq: overlap of two pi_0 reduced coherent states problem}
+	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_j}{Z_b}
+	\end{equation}
+	
+	\subsubsection{Disjoint $\pi_0$-reduction overlap} \label{sec: disjoint pi_0 reduction overlap}
+	In this subsubsection, we treat the case $i\neq j$. The process is analogous to that in Sec. \ref{sec:disjoint pi_1 reduction overlap}:
+	\begin{align*}
+	&\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_j}{Z_b}\\
+	&=\sum_{r=0}^{\min(S,M-S)}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0-\{i\}}}\sum_{\seq{a'}\in\Gamma_r\seq{\pi_0-\{j\}}}\\
+	&\qquad\qquad\qquad\qquad(-1)^{\eta_i(\seq{a})+\eta_j(\seq{a'})}\det((Z_a)_{\seq{b}, \seq{a\cup\{i\}}})\det((Z_b)_{\seq{a'\cup\{j\}},\seq{b}})\braket{\pi_1-b+a}{\pi_1-b+a'}\\
+	&=\sum_{r=0}^{\min(S,M-S)}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\sum_{\seq{a}\in\Gamma_{r-1}\seq{\pi_0-\{i, j\}}}(-1)^{\eta_i(\seq{a})+\eta_j(\seq{a})}\det((Z_a\hc)_{\seq{b}, \seq{a\cup \{i\}}})\det((Z_b)_{\seq{a\cup\{j\}},\seq{b}})
+	\end{align*}
+	Moving the $i$-th column ($j$-th row) of $Z_a\hc$ ($Z_b$) to the first index introduces a sign flip to the first $(i-1)$ columns ($j-1$) rows. This can be accounted for by multiplication by $(-1)^{\eta_i(\seq{a})+\eta_j(\seq{a})}$. Therefore, we may proceed as before with removing the redundant column (row) and applying the modified Cauchy-Binet formula:
+	\begin{align*}
+	&= \sum_{r=0}^{\min(S,M-S)}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\sum_{\seq{a}\in\Gamma_{r-1}\seq{\pi'_0-\{1\}}}\det((P_{i\to 1} Z_a\hc)^{(j)}_{\seq{b}, \seq{a}\cup \{1\}})\det((P_{j\to 1} Z_b)^{(i)}_{\seq{a}\cup\{1\},\seq{b}})\\
+	&=-\sum_{r=0}^{\min(S,M-S)}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\det(\mqty{
+		0 & (Z_b)_{j,\seq{b}}\\
+		(Z_a\hc)_{\seq{b}, i} & (Z_a\hc)^{(i,j)}_{\seq{b}, \seq{\pi''_0}} (Z_b)^{(i, j)}_{\seq{\pi''_0}, \seq{b}}
+	})\\
+	&= -\left[\det(I+\mqty(0 & (Z_b)_{j,\seq{\pi_1}}\\
+		(Z_a\hc)_{\seq{\pi_1}, i} & (Z_a\hc)^{(i,j)} ( Z_b)^{(i, j)}))-\det(I+(Z_a\hc)^{(i, j)}(Z_b)^{(i,j) })\right]\nonumber\\
+	&= -\det(\mqty{
+		0 & (Z_b)_{j, \seq{\pi_1}}\\
+		(Z_a\hc)_{\seq{\pi_1},i} & I+(Z_a\hc)^{(i, j)}(Z_b)^{(i,j)}
+	})
+	\end{align*}
+	As before, the expression trivially generalises for longer operator sequences:
+	\begin{equation} \label{eq:disjoint pi_1 reduction overlap}
+	\unnormmel{Z_a}{\hat{f}\hc_{\seq{\rho}^-}\hat{f}_{\seq{\sigma}}}{Z_b} = (-1)^{\abs{\seq{\rho}}}\det(\mqty{
+		0 & (Z_b)_{\seq{\sigma}, \seq{\pi_1}}\\
+		(Z_a\hc)_{\seq{\pi_1},\seq{\rho}} & I+(Z_a\hc)^{(\rho\cup\sigma)}(Z_b)^{(\rho\cup\sigma)}
+	})
+	\end{equation}
+	
+	\subsubsection{Repeated $\pi_0$-reduction overlap}
+	In this subsubsection, we treat the case $i=j$. To draw an analogy to that in Sec. \ref{sec:repeated pi_1 reduction overlap} we would have to take $\hat{f}\hc_i\hat{f}_i = 1 - \hat{f}_i\hat{f}\hc_i$, since it is the creation, not the annihilation operator that \textit{de facto} removes a row from $Z$ when acting on a mode in $\pi_0$. Instead, we directly use the approach in Sec. \ref{sec: disjoint pi_0 reduction overlap} which yields a near-identical result, with the sole exception that in the lower-right block of the final matrix, $Z_a\hc$ and $Z_b$ are only once-reduced:
+	\begin{equation}
+	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_i}{Z_b}=-\det(\mqty{
+		0 & (Z_b)_{i, \seq{\pi_1}}\\
+		(Z_a\hc)_{\seq{\pi_1},i} & I+(Z_a\hc)^{(i)}(Z_b)^{(i)}
+	})
+	\end{equation}
+	Naturally, this expression trivially generalises:
+	\begin{equation} \label{eq:repeated pi_1 reduction overlap}
+	\unnormmel{Z_a}{\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma}}}{Z_b} = (-1)^{\abs{\seq{\sigma}}}\det(\mqty{
+		0 & (Z_b)_{\seq{\sigma}, \seq{\pi_1}}\\
+		(Z_a\hc)_{\seq{\pi_1},\seq{\sigma}} & I+(Z_a\hc)^{(\sigma)}(Z_b)^{(\sigma)}
+	})
+	\end{equation}
+	
+	\subsubsection{Compound $\pi_0$-reduction overlap}
+	Analogously to Sec. \ref{sec: compound pi_1 reduction overlap}, the results from the previous two subsections generalise like so:
+	\begin{equation} \label{eq:compound pi_0 reduction overlap}
+	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\rho}^-}\hat{f}_{\seq{\sigma}}\hat{f}_{\seq{\tau}}}{Z_b} = (-1)^{\abs{\seq{\tau}}+\abs{\seq{\sigma}}}\det(\mqty{
+		0 & 0 & (Z_b)_{\seq{\tau}, \seq{\pi_1}}\\
+		0 & 0 & (Z_b)_{\seq{\sigma}, \seq{\pi_1}}\\
+		(Z_a\hc)_{\seq{\pi_1}, \seq{\tau}} & (Z_a\hc)_{\seq{\pi_1}, \seq{\rho}} & I+(Z_a\hc)^{(\rho\cup \sigma\cup\tau)}(Z_b)^{(\rho\cup\sigma\cup\tau)}
+	})
+	\end{equation}
+	
+	\subsection{Overlap of two mixed-reduced coherent states}
+	We now wish to know the effect of an arbitrary sequence of creation and annihilation operators acting on modes in both $\pi_1$ and $\pi_0$. For a single transition operator, the overlap integral becomes
+	\begin{equation} \label{eq: overlap of two mixed reduced coherent states problem}
+	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_j}{Z_b}
+	\end{equation}
+	where without loss of generality we take $i\in\pi_0, j\in\pi_1$ (as for the opposite case we can simply take the complex conjugate and swap $Z_a$ and $Z_b$).
+	
+	Applying Eq. \ref{eq: pi_1 reduction action} and Eq. \ref{eq: pi_0 reduction action} we obtain
+	\begin{multline}
+	= \sum_{r=0}^{\min(S,M-S)}(-1)^{\frac{1}{2}r(r+1)}\sum_{r'=0}^{\min(S-1,M-S)}(-1)^{\frac{1}{2}r'(r'+1)}\sum_{\seq{a}\in\Gamma_{r-1}\seq{\pi_0-\{i\}}}\sum_{\seq{b}\in\Gamma_{r}\seq{\pi_1}}\sum_{\seq{a'}\in\Gamma_{r'}\seq{\pi_0}}\sum_{\seq{b'}\in\Gamma_{r'}\seq{\pi_1-\{j\}}}\\
+	(-1)^{S-r-\eta_i(\seq{a})}(-1)^{j-1-\eta_j(\seq{b'})}\det((Z_a\hc)_{\seq{b},\seq{a\cup\{i\}}})\det((Z_b)_{\seq{a'},\seq{b'}})\braket{\pi_1-b+a}{\pi_1-b'+a'-\{j\}}
+	\end{multline}
+	The braket reduces to $\delta_{r,r'+1}\delta_{\seq{a},\seq{a'}}\delta_{\seq{b},\seq{b\cup\{j\}}}$, which, together with cancellation of signs, yields
+	\begin{multline}
+	=(-1)^{S+j-1}\sum_{r=0}^{\min(S, M-S)-1}\sum_{\seq{a}\in\Gamma_{r}\seq{\pi_0-\{i\}}}\sum_{\seq{b}\in\Gamma_{r}\seq{\pi_1-\{j\}}}(-1)^{-\eta_i(\seq{a})-\eta_j(\seq{b})}\\
+	\det((Z_a\hc)_{\seq{b\cup\{j\}},\seq{a\cup\{i\}}})\det((Z_b)_{\seq{a},\seq{b}})
+	\end{multline}
+	Let us define two new matrices:
+	\begin{align}
+	X_a&=\mqty(
+		(Z_a)_{ij} & (Z_a)^{(j)}_{\text{r.} i}\\
+		(Z_a)^{(i)}_{\text{c.} j} & (Z_a)^{(i),(j)}
+	) \qq{i.e. }i\text{-th row, }j\text{-th column brought to index one}\\
+	X_b &= \mqty(\dmat{1, (Z_b)^{(i),(j)}})
+	\end{align}
+	where the superscripts in parentheses mean omitting the $i$-th row or the $j$-th column, and the subscripts r.$i$, c.$j$ mean selecting the $i$-th row or the $j$-th column. The overlap can then be written more succintly
+	\begin{equation}
+	=(-1)^{S+j-1}\sum_{r=0}^{\min(S, M-S)-1}\sum_{\seq{a}\in\Gamma_{r}\seq{\pi_0'}}\sum_{\seq{b}\in\Gamma_{r}\seq{\pi_1'}}\det((X_a\hc)_{\seq{b\cup\{1\}},\seq{a\cup\{1\}}})\det((X_b)_{\seq{a\cup\{1\}}, \seq{b\cup\{1\}}})
+	\end{equation}
+	where the apostrophed $\pi'_0, \pi'_1$ omits the first element of $\pi_0, \pi_1$. We can now apply the modified Cauchy-Binet formula, contracting either on $\seq{b\cup\{1\}}$ or on $\seq{a\cup\{1\}}$. If we proceed with the former:
+	\begin{equation*}
+	=(-1)^{S+j}\sum_{r=0}^{\min(S, M-S)-1}\sum_{\seq{a}\in\Gamma_{r}\seq{\pi_0'}}\det(M_{\seq{a\cup\{1,2\}}, \seq{a\cup\{1,2\}}})\qq{where}M=\mqty(
+		0 & (X_a\hc)_{\text{r.} 1}\\
+		(X_b)_{\text{c.} 1} & (X_b)^{(\text{c.} 1)}(X_a\hc)^{(\text{r.} 1)}
+	)
+	\end{equation*}
+	Expanding the matrix product in the lower-right block of $M$, we see that
+	\begin{equation*}
+	(X_b)^{(\text{c.} 1)}(X_a\hc)^{(\text{r.} 1)}=\mqty(
+		0 & 0\\
+		(Z_b)^{(i),(j)}(Z_a\hc)^{(j)}_{\text{c.} i} & (Z_b)^{(i),(j)}(Z_a\hc)^{(j),(i)}
+	)
+	\end{equation*}
+	Taking the Laplace expansion of $\det(M)$, we can omit the second row and the first column, introducing a factor of $-1$. The sum of all principal minors which include the first row, first column of the resulting matrix can be calculated analogously to Sec. \ref{sec:disjoint pi_1 reduction overlap}, yielding
+	\begin{equation}
+	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_j}{Z_b}=(-1)^{S+j+1}\det(\mqty{
+		(Z_a\hc)_{ji} & (Z_a\hc)^{(i)}_{\text{r.} j}\\
+		(Z_b)^{(i),(j)}(Z_a\hc)^{(j)}_{\text{c.} i} & I+(Z_b)^{(i),(j)}(Z_a\hc)^{(j),(i)}
+	})
+	\end{equation}
+	Alternatively, if we chose to contract on $\seq{a\cup\{1\}}$ instead, we would have arrived at the alternative formulation
+	\begin{equation}
+	\unnormmel{Z_a}{\hat{f}\hc_i\hat{f}_j}{Z_b}=(-1)^{S+j+1}\det(\mqty{
+		(Z_a\hc)_{ji} & (Z_a\hc)^{(i)}_{\text{r.} j}(Z_b)^{(i),(j)}\\
+		(Z_a\hc)^{(j)}_{\text{c.} i} & I+(Z_a\hc)^{(j),(i)(Z_b)^{(i),(j)}}
+	})
+	\end{equation}
+	 
 	
 	\subsection{Matrix element of the quadratic $S$-preserving Hamiltonian}
 	For an $S$-preserving Hamiltonian, the one-body interaction can be expressed as $V^{(1)}_{\alpha,\beta}\hat{f}\hc_\alpha\hat{f}_\beta$, and two-body interaction as $\frac{1}{2}V^{(2)}_{\alpha,\beta,\gamma,\delta}\hat{f}\hc_\alpha\hat{f}\hc_\beta\hat{f}_\gamma\hat{f}_\delta$, where

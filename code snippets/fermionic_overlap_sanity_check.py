@@ -288,25 +288,27 @@ class CS():
 
     def mixed_reduction_overlap(self, other, i, j):
         # i is in pi_0, j is in pi_1
-        i -= self.S
+        i = np.array(i, dtype=int) - self.S
 
+        X = len(i)
         fast_M = np.zeros((self.M - self.S, self.M - self.S), dtype=complex)
-        fast_M[0][0] = np.conjugate(self.Z[i][j])
-        fast_M[:1,1:] = np.conjugate(np.take(reduced_matrix(self.Z, [i], []), j, axis = 1).T)
-        fast_M[1:,:1] = np.matmul(reduced_matrix(other.Z, [i], [j]), np.conjugate(np.take(reduced_matrix(self.Z, [], [j]), [i], axis = 0).T ))
-        fast_M[1:,1:] = np.identity(self.M - self.S - 1) + np.matmul(reduced_matrix(other.Z, [i], [j]), np.conjugate(reduced_matrix(self.Z, [i], [j]).T ))
-        return(sign(self.S + j) * np.linalg.det(fast_M))
+        fast_M[:X,:X] = np.conjugate(np.take(np.take(self.Z, i, axis = 0), j, axis = 1).T)
+        fast_M[:X,X:] = np.conjugate(np.take(reduced_matrix(self.Z, i, []), j, axis = 1).T)
+        fast_M[X:,:X] = np.matmul(reduced_matrix(other.Z, i, j), np.conjugate(np.take(reduced_matrix(self.Z, [], j), i, axis = 0).T ))
+        fast_M[X:,X:] = np.identity(self.M - self.S - X) + np.matmul(reduced_matrix(other.Z, i, j), np.conjugate(reduced_matrix(self.Z, i, j).T ))
+        return(sign(X * self.S + sum(j)) * np.linalg.det(fast_M))
         # Note that when indexing modes from 0, the sign flip (j+1) becomes (j), since a mode at index x has x lower-index modes, rather than x-1
     def mixed_reduction_overlap_alt(self, other, i, j):
         # i is in pi_0, j is in pi_1
-        i -= self.S
+        i = np.array(i, dtype=int) - self.S
 
+        X = len(i)
         fast_M = np.zeros((self.S, self.S), dtype=complex)
-        fast_M[0][0] = np.conjugate(self.Z[i][j])
-        fast_M[1:,:1] = np.conjugate(np.take(reduced_matrix(self.Z, [], [j]), [i], axis = 0).T)
-        fast_M[:1,1:] = np.matmul(np.conjugate(np.take(reduced_matrix(self.Z, [i], []), [j], axis = 1).T ), reduced_matrix(other.Z, [i], [j]))
-        fast_M[1:,1:] = np.identity(self.S - 1) + np.matmul(np.conjugate(reduced_matrix(self.Z, [i], [j]).T ), reduced_matrix(other.Z, [i], [j]))
-        return(sign(self.S + j) * np.linalg.det(fast_M))
+        fast_M[:X,:X] = np.conjugate(np.take(np.take(self.Z, i, axis = 0), j, axis = 1).T)
+        fast_M[X:,:X] = np.conjugate(np.take(reduced_matrix(self.Z, [], j), i, axis = 0).T)
+        fast_M[:X,X:] = np.matmul(np.conjugate(np.take(reduced_matrix(self.Z, i, []), j, axis = 1).T ), reduced_matrix(other.Z, i, j))
+        fast_M[X:,X:] = np.identity(self.S - X) + np.matmul(np.conjugate(reduced_matrix(self.Z, i, j).T ), reduced_matrix(other.Z, i, j))
+        return(sign(X * self.S + sum(j)) * np.linalg.det(fast_M))
         # Note that when indexing modes from 0, the sign flip (j+1) becomes (j), since a mode at index x has x lower-index modes, rather than x-1
 
 
@@ -319,7 +321,7 @@ lol.apply_operators([2], [0])
 print(lol)"""
 
 
-M = 7
+M = 9
 S = 5
 N = 5
 
@@ -328,8 +330,8 @@ global_c_sequence = [2, 3, 1]
 global_a_sequence = [1, 2, 0]
 #global_c_sequence = [7, 9, 10]
 #global_a_sequence = [9, 11, 8]
-mixed_i = 6
-mixed_j = 2
+mixed_i = [6, 7]
+mixed_j = [2, 4]
 
 print(f"Calculating < Z_a | creation({list(reversed(global_c_sequence))}) annihilation({global_a_sequence}) | Z_b >")
 is_all_equal = True
@@ -359,8 +361,8 @@ for i in range(N):
     #quick = A.overlap_with_transition(B, global_c_sequence, global_a_sequence)
     #quick = A.pi_zero_overlap(B, global_c_sequence, global_a_sequence) """
 
-    A.occupancy_basis_decomposition.apply_operators([], [mixed_i])
-    B.occupancy_basis_decomposition.apply_operators([], [mixed_j])
+    A.occupancy_basis_decomposition.apply_operators([], mixed_i)
+    B.occupancy_basis_decomposition.apply_operators([], mixed_j)
 
     slow = A.occupancy_basis_decomposition.overlap(B.occupancy_basis_decomposition)
     quick = A.mixed_reduction_overlap(B, mixed_i, mixed_j)

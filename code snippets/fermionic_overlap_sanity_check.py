@@ -311,6 +311,44 @@ class CS():
         return(sign(X * self.S + sum(j)) * np.linalg.det(fast_M))
         # Note that when indexing modes from 0, the sign flip (j+1) becomes (j), since a mode at index x has x lower-index modes, rather than x-1
 
+    def general_overlap(self, other, c, a):
+        # assumes c and a are both ascending. That's the only assumption. I'll add the perm sign soon, then no assumptions will be made (except for non-repeated indices i guess? easy to test for tbh)
+        varsigma_a = []
+        tau_a = []
+        varsigma_b = []
+        tau_b = []
+        sigma_intersection = []
+        len_sigma_a = 0
+        len_sigma_b = 0
+        len_tau_a = 0
+        len_tau_b = 0
+        for i in range(len(c)):
+            # using len(c) = len(a)
+            if c[i] < S:
+                # pi_1
+                len_sigma_a += 1
+                if c[i] not in a:
+                    varsigma_a.append(c[i])
+                else:
+                    sigma_intersection.append(c[i])
+            else:
+                # pi_0
+                len_tau_a += 1
+                tau_a.append(c[i])
+            if a[i] < S:
+                # pi_1
+                len_sigma_b += 1
+                if a[i] not in c:
+                    varsigma_b.append(a[i])
+            else:
+                # pi_0
+                len_tau_b += 1
+                tau_b.append(a[i])
+        if len_tau_a <= len_tau_b:
+            fast_M = np.zeros((len(tau_b) + S - len(sigma_intersection), len(tau_b) + M - S - len(sigma_intersection)), dtype=complex)
+            fast_M[]???
+
+
 
 
 """

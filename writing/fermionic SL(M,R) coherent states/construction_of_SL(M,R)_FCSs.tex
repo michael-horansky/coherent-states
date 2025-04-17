@@ -304,17 +304,16 @@
 	
 	We now choose to permute the rows and columns of $(Z_a\hc)^{(\text{r.} \sigma\cap\sigma')},(Z_b)^{(\text{c.} \sigma\cap\sigma')}$ as to bring the rows and columns which are included in every submatrix in every term of the sum to the lowest-index position, which cancels the second sign term exactly. The resulting expression is exactly in the form which is treated by Theorem \ref{theorem: asymmetrically constrained sum of complementary minor products}. Hence we have
 	\begin{align} \label{eq: general reduced overlap determinant}
-	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}&=(-1)^{(S+1)(\abs{\tau}+\abs{\tau'})+\abs{\sigma}\abs{\sigma'}+\sum\seq{\sigma}+\sum\seq{\sigma'}}\det(I^{(\abs{\varsigma}+\abs{\tau})}+M)\\
-	\qq{where}& M = \begin{cases}
-		\mqty(
+	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}&=(-1)^{(S+1)(\abs{\tau}+\abs{\tau'})+\abs{\sigma}\abs{\sigma'}+\sum\seq{\sigma}+\sum\seq{\sigma'}}(-1)^{\abs{\tau'}(1+\abs{\tau'}-\abs{\tau})}\nonumber\\
+	&\det(I^{(\abs{\varsigma}+\abs{\tau})}+\mqty(
 			0 & (Z_b)^{(\text{c.} \sigma\cap\sigma')}_{\text{r.} \tau'}\\
 			(Z_a\hc)^{(\text{r.} \sigma\cap\sigma')}_{\text{c.} \tau} & (Z_a\hc)^{(\text{r.} \sigma\cap\sigma', \text{c.} \tau)}(Z_b)^{(\text{r.} \tau', \text{c.} \sigma\cap\sigma')}
-		) & \text{if }\abs{\tau}\leq\abs{\tau'}\\\hfill\\
-		\mqty(
+		))\qq{if}\abs{\tau}\leq\abs{\tau'}\\
+	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}&=(-1)^{(S+1)(\abs{\tau}+\abs{\tau'})+\abs{\sigma}\abs{\sigma'}+\sum\seq{\sigma}+\sum\seq{\sigma'}}(-1)^{\abs{\tau}(1+\abs{\tau}-\abs{\tau'})}\nonumber\\
+	&\det(I^{(\abs{\varsigma}+\abs{\tau})}+\mqty(
 			0 & (Z_a^*)^{(\text{c.} \sigma\cap\sigma')}_{\text{r.} \tau}\\
 			(Z_b^T)^{(\text{r.} \sigma\cap\sigma')}_{\text{c.} \tau'} & (Z_b^T)^{(\text{c.} \tau', \text{r.} \sigma\cap\sigma')}(Z_a^*)^{(\text{c.} \sigma\cap\sigma', \text{r.} \tau)}
-		) & \text{if }\abs{\tau}\geq\abs{\tau'}
-	\end{cases}\nonumber
+		))\qq{if}\abs{\tau}\geq\abs{\tau'}
 	\end{align}
 	where $I^{(x)}$ is the identity matrix with the first $x$ elements along the diagonal replaced by zeros.
 	
@@ -322,7 +321,7 @@
 	\begin{equation}
 	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}=\mel{Z_b}{\hat{f}\hc_{\seq{\tau'}^-}\hat{f}\hc_{\seq{\sigma'}^-}\hat{f}_{\seq{\sigma}}\hat{f}_{\seq{\tau}}}{Z_a}^*
 	\end{equation}
-	so that we can always use the first case in Eq. \ref{eq: general reduced overlap determinant} as the standard expression.
+	so that we can always use Eq. \ref{eq: general reduced overlap determinant} as the standard expression.
 	 
 	
 	\subsection{Matrix element of the quadratic $S$-preserving Hamiltonian}

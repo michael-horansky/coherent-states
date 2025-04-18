@@ -45,3 +45,69 @@
 		(Z_a\hc)_{\seq{\pi_1},i} & I+(Z_a\hc)^{(i, j)}(Z_b)^{(i,j)}
 	})
 	\end{align*}
+
+
+
+
+
+
+general overlap
+Applying Eq. \ref{eq: general reduction action} to $\hat{f}_{\sigma}\hat{f}_{\tau}\unnormket{Z_a}$ and $\hat{f}_{\sigma'}\hat{f}_{\tau'}\unnormket{Z_b}$ and taking the overlap yields
+	\begin{multline}
+	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b} = \sum_{r=\abs{\tau}}^{\min(S-\abs{\sigma}, M-S)}(-1)^{\frac{1}{2}r(r+1)}\sum_{r'=\abs{\tau'}}^{\min(S-\abs{\sigma'}, M-S)}(-1)^{\frac{1}{2}r'(r'+1)}\\
+	\sum_{\seq{a}\in\Gamma_{r-\abs{\tau}}\seq{\pi_0-\tau}}\sum_{\seq{b}\in\Gamma_{r}\seq{\pi_1-\sigma}}\sum_{\seq{a'}\in\Gamma_{r'-\abs{\tau'}}\seq{\pi_0-\tau'}}\sum_{\seq{b'}\in\Gamma_{r'}\seq{\pi_1-\sigma'}}(-1)^{\abs{\tau}(S-r)+\frac{1}{2}\abs{\tau}(\abs{\tau}-1)+\sum_i\eta_{\tau_i}(\seq{a})}\\
+	\cdot (-1)^{-\abs{\sigma}+\sum_i(\sigma_i+\eta_{\sigma_i}(\seq{b}))}(-1)^{\abs{\tau'}(S-r')+\frac{1}{2}\abs{\tau'}(\abs{\tau'}-1)+\sum_i\eta_{\tau'_i}(\seq{a'})}(-1)^{-\abs{\sigma'}+\sum_i(\sigma'_i+\eta_{\sigma'_i}(\seq{b'}))}\\
+	\det((Z_a\hc)_{\seq{b},\seq{a\cup\tau}})\det((Z_b)_{\seq{a'\cup\tau'},\seq{b'}})\braket{\pi_1\cup a-b\cup\sigma}{\pi_1\cup a'-b'\cup\sigma'}
+	\end{multline}
+	The occupancy basis overlap is equivalent to
+	\begin{equation}
+	\braket{\pi_1\cup a-b\cup\sigma}{\pi_1\cup a'-b'\cup\sigma'}=\delta_{\seq{a},\seq{a'}}\delta_{\seq{b\cup\sigma},\seq{b'\cup\sigma'}}\delta_{r-\abs{\tau},r'-\abs{\tau}}\delta_{r+\abs{\sigma},r'+\abs{\sigma}}
+	\end{equation}
+	Note that, since $\abs{\sigma}+\abs{\tau}=\abs{\sigma'}+\abs{\tau'}$ unless the overlap vanishes due to mismatched total number of particles, the final two Kronecker deltas for $r,r'$ are equivalent.
+	
+	We now take
+	\begin{align}
+	\gamma &= r - \abs{\tau} = r' - \abs{\tau'}\qq{so that}r=\gamma+\abs{\tau},r'=\gamma+\abs{\tau'}\\
+	\seq{\alpha}&\in\Gamma_{\gamma}\seq{\pi_0-\tau\cup\tau'}\qq{so that}\seq{a}=\seq{a'}=\seq{\alpha}\\
+	\seq{\beta}&\in\Gamma_{\gamma+\abs{\tau}-\abs{\sigma'}}\seq{\pi_1-\sigma\cup\sigma'}\qq{so that}\seq{b}=\seq{\beta\cup\sigma' - \sigma\cap\sigma'},\seq{b'}=\seq{\beta\cup\sigma - \sigma\cap\sigma'}
+	\end{align}
+	where $\abs{\tau}-\abs{\sigma'}=\abs{\tau'}-\abs{\sigma}$ and the construction of $\seq{b},\seq{b'}$ omits $\sigma\cap\sigma'$, since the terms with $\seq{b}$ containing any element in $\sigma$ vanish (same for $\seq{b'}$ and $\sigma'$).
+	
+	Substituing $r, r', \seq{a},\seq{a'}, \seq{b},\seq{b'}$ and using simple algebraic manipulation we can show that, for terms with non-vanishing Kronecker deltas, the total sign simplifies significantly. Denoting $\varsigma=\sigma-\sigma\cap\sigma',\varsigma'=\sigma'-\sigma\cap\sigma'$, the overlap can be written as
+	\begin{multline}
+	=(-1)^{(S+1)(\abs{\tau}+\abs{\tau'})+\abs{\sigma}\abs{\sigma'}+\sum\seq{\sigma}+\sum\seq{\sigma'}}\sum_{\gamma=0}\sum_{\seq{\alpha}\in\Gamma_{\gamma}\seq{\pi_0-\tau\cup\tau'}}\sum_{\seq{\beta}\in\Gamma_{\gamma+\abs{\tau}-\abs{\sigma'}}\seq{\pi_1-\sigma\cup\sigma'}}\\
+	(-1)^{\sum_i\eta_{\sigma_i}(\seq{\beta})+\sum_i\eta_{\sigma'_i}(\seq{\beta})+\sum_i\eta_{\tau_i}(\seq{\alpha})+\sum_i\eta_{\tau'_i}(\seq{\alpha})}\det((Z_a\hc)^{(\text{r.} \sigma)}_{\seq{\beta\cup\varsigma'},\seq{a\cup\tau}})\det((Z_b)^{(\text{c.} \sigma')}_{\seq{a\cup\tau'},\seq{\beta\cup\varsigma}})
+	\end{multline}
+	where the superscript $(\text{r.} X), (\text{c.} X)$ means omitting the rows or columns specified by the set of indices $X$, and where the summation over $\gamma,\seq{\alpha},\seq{\beta}$ is such that all square submatrices of $(Z_a\hc)^{(\text{r.} \sigma)},(Z_b)^{(\text{c.} \sigma')}$ are present in the sum.
+	
+	We now choose to permute the rows and columns of $(Z_a\hc)^{(\text{r.} \sigma)},(Z_b)^{(\text{c.} \sigma')}$ as to bring the rows and columns which are included in every submatrix in every term of the sum to the lowest-index position. This introduces an extra sign factor to the determinant, which is
+	\begin{equation}
+	(-1)^{\sum_i\eta_{\varsigma_i}(\seq{\beta\cup\varsigma'})+\sum_i\eta_{\varsigma'_i}(\seq{\beta\cup\varsigma})+\sum_i\eta_{\tau_i}(\seq{\alpha\cup\tau})+\sum_i\eta_{\tau'_i}(\seq{\alpha\cup\tau'})}
+	\end{equation}
+	and which can be simplified using the identities
+	\begin{align} \label{eq: sign identity 1}
+	\sum_i\eta_{\varsigma_i}(\seq{\beta\cup\varsigma'})+\sum_i\eta_{\varsigma'_i}(\seq{\beta\cup\varsigma})&=\sum_i\eta_{\varsigma_i}(\seq{\beta})+\sum_i\eta_{\varsigma'_i}(\seq{\beta})+\abs{\varsigma}\abs{\varsigma'}\\
+	\sum_i\eta_{\tau_i}(\seq{\alpha\cup\tau})+\sum_i\eta_{\tau'_i}(\seq{\alpha\cup\tau'})&=\sum_i\eta_{\tau_i}(\seq{\alpha})+\sum_i\eta_{\tau'_i}(\seq{\alpha})+\frac{1}{2}(\abs{\tau}(\abs{\tau} - 1)+\abs{\tau'}(\abs{\tau'} - 1))\label{eq: sign identity 2}
+	\end{align}
+	Cancelling the $\eta$-sums, we also notice $\abs{\sigma}\abs{\sigma'}=(\abs{\varsigma}+\abs{\sigma\cap\sigma'})(\abs{\varsigma'}+\abs{\sigma\cap\sigma'})=\abs{\varsigma}\abs{\varsigma'}+(\abs{\varsigma}+\abs{\varsigma'}+\abs{\sigma\cap\sigma'})\abs{\sigma\cap\sigma'}$. The first term is cancelled by the contribution from Eq. \ref{eq: sign identity 1}. Similarly, $\abs{\tau}+\abs{\tau'}$ can be absorbed into the contribution in Eq. \ref{eq: sign identity 2}.
+	
+	The resulting expression is exactly in the form which is treated by Theorem \ref{theorem: asymmetrically constrained sum of complementary minor products}. Hence we have
+	\begin{align} \label{eq: general reduced overlap determinant}
+	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}&=(-1)^{S(\abs{\tau}+\abs{\tau'})+\frac{1}{2}(\abs{\tau}(\abs{\tau} + 1)+\abs{\tau'}(\abs{\tau'} + 1)+(\abs{\varsigma}+\abs{\varsigma'}+\abs{\sigma\cap\sigma'})\abs{\sigma\cap\sigma'}+\sum\seq{\sigma}+\sum\seq{\sigma'}}\nonumber\\
+	(-1)^{\abs{\tau'}(1+\abs{\tau'}-\abs{\tau})}&\det(I^{(\abs{\varsigma}+\abs{\tau})}+\mqty(
+			0 & (Z_b)^{(\text{c.} \sigma')}_{\text{r.} \tau'}\\
+			(Z_a\hc)^{(\text{r.} \sigma)}_{\text{c.} \tau} & (Z_a\hc)^{(\text{r.} \sigma, \text{c.} \tau)}(Z_b)^{(\text{r.} \tau', \text{c.} \sigma')}
+		))\qq{if}\abs{\tau}\leq\abs{\tau'}\\
+	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}&=(-1)^{(S+1)(\abs{\tau}+\abs{\tau'})+\abs{\sigma}\abs{\sigma'}+\sum\seq{\sigma}+\sum\seq{\sigma'}}(-1)^{\abs{\tau}(1+\abs{\tau}-\abs{\tau'})}\nonumber\\
+	&\det(I^{(\abs{\varsigma}+\abs{\tau})}+\mqty(
+			0 & (Z_a^*)^{(\text{c.} \sigma)}_{\text{r.} \tau}\\
+			(Z_b^T)^{(\text{r.} \sigma')}_{\text{c.} \tau'} & (Z_b^T)^{(\text{r.} \sigma', \text{c.} \tau')}(Z_a^*)^{(\text{r.} \tau, \text{c.} \sigma)}
+		))\qq{if}\abs{\tau}\geq\abs{\tau'}
+	\end{align}
+	where $I^{(x)}$ is the identity matrix with the first $x$ elements along the diagonal replaced by zeros.
+	
+	Note that for the case $\abs{\tau}>\abs{\tau'}$, we can simply take
+	\begin{equation}
+	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}=\mel{Z_b}{\hat{f}\hc_{\seq{\tau'}^-}\hat{f}\hc_{\seq{\sigma'}^-}\hat{f}_{\seq{\sigma}}\hat{f}_{\seq{\tau}}}{Z_a}^*
+	\end{equation}
+	so that we can always use Eq. \ref{eq: general reduced overlap determinant} as the standard expression.

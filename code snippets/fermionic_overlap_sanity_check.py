@@ -463,7 +463,7 @@ class CS():
         sigma_intersection = []
         for i in range(len(c)):
             # using len(c) = len(a)
-            if c[i] < S:
+            if c[i] < self.S:
                 # pi_1
                 if c[i] not in a:
                     varsigma_a.append(c[i])
@@ -471,24 +471,24 @@ class CS():
                     sigma_intersection.append(c[i])
             else:
                 # pi_0
-                tau_a.append(c[i] - S)
-                if c[i] - S not in tau_cup:
-                    tau_cup.append(c[i] - S)
-            if a[i] < S:
+                tau_a.append(c[i] - self.S)
+                if c[i] - self.S not in tau_cup:
+                    tau_cup.append(c[i] - self.S)
+            if a[i] < self.S:
                 # pi_1
                 if a[i] not in c:
                     varsigma_b.append(a[i])
             else:
                 # pi_0
-                tau_b.append(a[i] - S)
-                if a[i] - S not in tau_cup:
-                    tau_cup.append(a[i] - S)
+                tau_b.append(a[i] - self.S)
+                if a[i] - self.S not in tau_cup:
+                    tau_cup.append(a[i] - self.S)
         sigma_a = varsigma_a + sigma_intersection
         sigma_b = varsigma_b + sigma_intersection
         sigma_cup = varsigma_a + varsigma_b + sigma_intersection
-        const_sign = sign(self.S * (len(tau_a) + len(tau_b)) + (len(varsigma_a) - 1) * (len(varsigma_b) - 1) + 1 + sum(varsigma_a) + len(varsigma_a) + sum(varsigma_b) + len(varsigma_b) * eta(sigma_cup, varsigma_a + varsigma_b))
+        const_sign = sign(self.S * (len(tau_a) + len(tau_b)) + (len(varsigma_a) - 1) * (len(varsigma_b) - 1) + 1 + sum(varsigma_a) + len(varsigma_a) + sum(varsigma_b) + len(varsigma_b) + eta(sigma_intersection, varsigma_a + varsigma_b))
         if len(tau_a) <= len(tau_b):
-            fast_M = np.zeros((len(tau_b) + S - len(sigma_a), len(tau_b) + S - len(sigma_a)), dtype=complex)
+            fast_M = np.zeros((len(tau_b) + self.S - len(sigma_a), len(tau_b) + self.S - len(sigma_a)), dtype=complex)
             #fast_M[:len(tau_b), :len(tau_a)] = 0
             fast_M[:len(tau_b), len(tau_a):len(tau_a)+len(varsigma_a)] = np.take(np.take(other.Z, tau_b, axis = 0), varsigma_a, axis = 1)
             fast_M[:len(tau_b), len(tau_a)+len(varsigma_a):] = np.take(reduced_matrix(other.Z, [], sigma_cup), tau_b, axis = 0)
@@ -501,8 +501,35 @@ class CS():
             fast_M[len(tau_b) + len(varsigma_b):, len(tau_a):len(tau_a)+len(varsigma_a)] = np.matmul(np.conjugate(reduced_matrix(self.Z, tau_cup, sigma_cup).T), np.take(reduced_matrix(other.Z, tau_cup, []), varsigma_a, axis = 1))
             fast_M[len(tau_b) + len(varsigma_b):, len(tau_a)+len(varsigma_a):] = np.identity(self.S - len(sigma_cup)) + np.matmul(np.conjugate(reduced_matrix(self.Z, tau_cup, sigma_cup).T), reduced_matrix(other.Z, tau_cup, sigma_cup))
             cb_sign = sign(len(tau_b) * (1 + len(tau_b) - len(tau_a)))
+            return(const_sign * cb_sign * np.linalg.det(fast_M))
+        else:
+            """fast_M = np.zeros((len(tau_a) + self.S - len(sigma_b), len(tau_a) + self.S - len(sigma_b)), dtype=complex)
+            #fast_M[:len(tau_a), :len(tau_b)] = 0
+            fast_M[:len(tau_a), len(tau_b):len(tau_b)+len(varsigma_b)] = np.take(np.take(self.Z, tau_a, axis = 0), varsigma_b, axis = 1)
+            fast_M[:len(tau_a), len(tau_b)+len(varsigma_b):] = np.take(reduced_matrix(self.Z, [], sigma_cup), tau_a, axis = 0)
 
-        return(const_sign * cb_sign * np.linalg.det(fast_M))
+            fast_M[len(tau_a):len(tau_a) + len(varsigma_a),:len(tau_b)] = np.conjugate(np.take(np.take(other.Z, tau_b, axis = 0), varsigma_a, axis = 1).T)
+            fast_M[len(tau_a) + len(varsigma_a):, :len(tau_b)] = np.conjugate(np.take(reduced_matrix(other.Z, [], sigma_cup), tau_b, axis = 0).T)
+
+            fast_M[len(tau_a):len(tau_a) + len(varsigma_a), len(tau_b):len(tau_b)+len(varsigma_b)] = np.matmul(np.conjugate(np.take(reduced_matrix(other.Z, tau_cup, []), varsigma_a, axis = 1).T), np.take(reduced_matrix(self.Z, tau_cup, []), varsigma_b, axis = 1))
+            fast_M[len(tau_a):len(tau_a) + len(varsigma_a), len(tau_b)+len(varsigma_b):] = np.matmul(np.conjugate(np.take(reduced_matrix(other.Z, tau_cup, []), varsigma_a, axis = 1).T), reduced_matrix(self.Z, tau_cup, sigma_cup))
+            fast_M[len(tau_a) + len(varsigma_a):, len(tau_b):len(tau_b)+len(varsigma_b)] = np.matmul(np.conjugate(reduced_matrix(other.Z, tau_cup, sigma_cup).T), np.take(reduced_matrix(self.Z, tau_cup, []), varsigma_b, axis = 1))
+            fast_M[len(tau_a) + len(varsigma_a):, len(tau_b)+len(varsigma_b):] = np.identity(self.S - len(sigma_cup)) + np.matmul(np.conjugate(reduced_matrix(other.Z, tau_cup, sigma_cup).T), reduced_matrix(self.Z, tau_cup, sigma_cup))
+            cb_sign = sign(len(tau_a) * (1 + len(tau_a) - len(tau_b)))
+            return(const_sign * cb_sign * np.conjugate(np.linalg.det(fast_M)))"""
+            fast_M = np.zeros((self.M - self.S + len(tau_a) + len(varsigma_a) - len(tau_cup), self.M - self.S + len(tau_a) + len(varsigma_a) - len(tau_cup)), dtype=complex)
+            #fast_M[:len(varsigma_b), :len(varsigma_a)] = 0
+            fast_M[:len(varsigma_b), len(varsigma_a):len(varsigma_a)+len(tau_a)] = np.take(np.take(np.conjugate(self.Z).T, varsigma_b, axis=0), tau_a, axis = 1)
+            fast_M[:len(varsigma_b), len(varsigma_a)+len(tau_a):] = np.take(reduced_matrix(np.conjugate(self.Z).T, [], tau_cup), varsigma_b, axis=0)
+            fast_M[len(varsigma_b):len(varsigma_b)+len(tau_b), :len(varsigma_a)] = np.take(np.take(other.Z, tau_b, axis=0), varsigma_a, axis = 1)
+            fast_M[len(varsigma_b)+len(tau_b):, :len(varsigma_a)] = np.take(reduced_matrix(other.Z, tau_cup, []), varsigma_a, axis=1)
+
+            fast_M[len(varsigma_b):len(varsigma_b)+len(tau_b), len(varsigma_a):len(varsigma_a)+len(tau_a)] = np.matmul(np.take(reduced_matrix(other.Z, [], sigma_cup), tau_b, axis = 0), np.take(reduced_matrix(np.conjugate(self.Z).T, sigma_cup, []), tau_a, axis=1))
+            fast_M[len(varsigma_b):len(varsigma_b)+len(tau_b), len(varsigma_a)+len(tau_a):] = np.matmul(np.take(reduced_matrix(other.Z, [], sigma_cup), tau_b, axis = 0), reduced_matrix(np.conjugate(self.Z).T, sigma_cup, tau_cup))
+            fast_M[len(varsigma_b)+len(tau_b):, len(varsigma_a):len(varsigma_a)+len(tau_a)] = np.matmul(reduced_matrix(other.Z, tau_cup, sigma_cup), np.take(reduced_matrix(np.conjugate(self.Z).T, sigma_cup, []), tau_a, axis=1))
+            fast_M[len(varsigma_b)+len(tau_b):, len(varsigma_a)+len(tau_a):] = np.identity(self.M - self.S - len(tau_cup)) + np.matmul(reduced_matrix(other.Z, tau_cup, sigma_cup), reduced_matrix(np.conjugate(self.Z).T, sigma_cup, tau_cup))
+            cb_sign = sign(len(varsigma_b) * (1 + len(varsigma_b) - len(varsigma_a)))
+            return(const_sign * cb_sign * np.linalg.det(fast_M))
 
 
 
@@ -526,10 +553,10 @@ print(lol)"""
 
 def test_overlap():
     # The order of application is c_last ... c_first a_first ... a_last
-    global_c_sequence = [2, 3, 6, 8]
-    global_a_sequence = [2, 7, 8, 9]
-    #global_c_sequence = [7, 9, 10]
-    #global_a_sequence = [9, 11, 8]
+    #global_c_sequence = [2, 3, 8, 9]
+    #global_a_sequence = [2, 6, 7, 9]
+    global_c_sequence = [0]
+    global_a_sequence = [1]
     mixed_i = [6, 7]
     mixed_j = [2, 4]
 
@@ -580,12 +607,55 @@ def test_overlap():
     if is_all_equal:
         print("Both methods are equivalent")
 
+def comprehensive_overlap_test(print_wrongs = False):
+    max_n = 3
+    mode_one_total = [0]*max_n
+    mode_one_correct = [0]*max_n
+    mode_two_total = [0] * max_n
+    mode_two_correct = [0] * max_n
+    print(f"Commencing comprehensive testing of the general overlap method for M = {M}, S = {S}.")
+    for n in range(1, max_n + 1):
+        print(f"  Annihilation sequence length {n}...")
+        inds_c = subset_indices(np.arange(0, M, 1, dtype=int), n)
+        inds_a = subset_indices(np.arange(0, M, 1, dtype=int), n)
+        for ind_c in inds_c:
+            for ind_a in inds_a:
+                A = CS(M, S, random_complex_matrix(M-S, S, (-1.0, 1.0)))
+                B = CS(M, S, random_complex_matrix(M-S, S, (-1.0, 1.0)))
+                A.occupancy_basis_decomposition.apply_operators([], ind_c)
+                B.occupancy_basis_decomposition.apply_operators([], ind_a)
+                slow = A.occupancy_basis_decomposition.overlap(B.occupancy_basis_decomposition)
+                quick = A.alt_general_overlap(B, ind_c, ind_a)
 
-M = 10
-S = 6
+                len_sigma_c = eta(S, ind_c)
+                len_sigma_a = eta(S, ind_a)
+                if len_sigma_c >= len_sigma_a:
+                    # this means tau_a <= tau_b
+                    mode_one_total[n-1] += 1
+                    if(np.round(slow, 4) == np.round(quick, 4)):
+                        mode_one_correct[n-1] += 1
+                    else:
+                        print("  Wrong at:", ind_c, ind_a)
+                else:
+                    # this means tau_a > tau_b
+                    mode_two_total[n-1] += 1
+                    if(np.round(slow, 4) == np.round(quick, 4)):
+                        mode_two_correct[n-1] += 1
+                    else:
+                        print("  Wrong at:", ind_c, ind_a)
+    print(f"Mode |tau_a| <= |tau_b|:")
+    for i in range(max_n):
+        print(f"  n = {i+1}: {mode_one_correct[i]}/{mode_one_total[i]} correct")
+    print(f"Mode |tau_a| > |tau_b|:")
+    for i in range(max_n):
+        print(f"  n = {i+1}: {mode_two_correct[i]}/{mode_two_total[i]} correct")
+
+M = 8
+S = 4
 N = 5
 
-test_overlap()
+comprehensive_overlap_test(True)
+#test_overlap()
 
 """print("Commencing comprehensive test...")
 does_all_n_agree = True

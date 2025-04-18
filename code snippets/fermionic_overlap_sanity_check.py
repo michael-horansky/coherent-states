@@ -1,6 +1,20 @@
 
 import numpy as np
 
+def eta(i, l, offset = 0):
+    # number of elements in l smaller than i
+    if isinstance(i, int) or isinstance(i, np.int64):
+        res = 0
+        for obj in l:
+            if obj < i + offset:
+                res += 1
+        return(res)
+    else:
+        res = 0
+        for obj in i:
+            res += eta(obj, l, offset)
+        return(res)
+
 def subset_indices(N, k):
     # returns a list of all subsequences of <N> of length k
     if k == 0:
@@ -106,6 +120,11 @@ class occupancy_basis_state():
         return(f"|{",".join(["1" if x in self.occupied_modes else "0" for x in range(1 + max(self.occupied_modes))])},0...>")
         #return(str(self.occupied_modes))
 
+    def is_equal_to(self, other):
+        if self.occupied_modes == other.occupied_modes:
+            return(True)
+        return(False)
+
     def overlap(self, other):
         if self.occupied_modes == other.occupied_modes:
             return(1.0)
@@ -151,6 +170,26 @@ class occupancy_basis_superposition():
                 res += np.conjugate(self.superposition[i][0]) * other.superposition[j][0] * self.superposition[i][1].overlap(other.superposition[j][1])
         return(res)
 
+    def is_equal_to(self, other):
+        # The way we do this: for each state in A, we find a matching state in B. If doesn't exist or has different coef, we return false. Otherwise, we do the same thing in the opposite direction. If both tests go well, we return true
+        for self_component in self.superposition:
+            found_counterpart = False
+            for other_component in other.superposition:
+                if self_component[1].is_equal_to(other_component[1]) and np.round(self_component[0], 4) == np.round(other_component[0], 4):
+                    found_counterpart = True
+                    break
+            if not found_counterpart:
+                return(False)
+        for other_component in other.superposition:
+            found_counterpart = False
+            for self_component in self.superposition:
+                if other_component[1].is_equal_to(self_component[1]) and np.round(other_component[0], 4) == np.round(self_component[0], 4):
+                    found_counterpart = True
+                    break
+            if not found_counterpart:
+                return(False)
+        return(True)
+
     def scale(self, k):
         for i in range(len(self.superposition)):
             self.superposition[i][0] *= k
@@ -170,6 +209,9 @@ class CS():
 
         self.decompose_into_occupancy_basis()
 
+    def is_equal_to(self, other):
+        return(self.occupancy_basis_decomposition.is_equal_to(other.occupancy_basis_decomposition))
+
     def decompose_into_occupancy_basis(self):
         new_occupancy_basis_decomposition = [] # each element is [coef, occupancy_basis_state]
         for r in range(min(self.S, self.M - self.S) + 1):
@@ -186,6 +228,45 @@ class CS():
                     cur_det = np.linalg.det(self.Z[np.ix_(scaled_a_subset, b_subset)])
                     if cur_det != 0:
                         new_occupancy_basis_decomposition.append([cur_sign * cur_det, occupancy_basis_state(cur_occupancy_set)])
+        self.occupancy_basis_decomposition = occupancy_basis_superposition(new_occupancy_basis_decomposition)
+
+    def reduce_and_decompose_into_occupancy_basis(self, annihilation_operators = []):
+        # We assume the operator sequence is ascending
+        # Firstly we partition it
+        sigma = []
+        tau = []
+        for i in range(len(annihilation_operators)):
+            if annihilation_operators[i] in self.pi[1]:
+                sigma.append(annihilation_operators[i])
+            else:
+                tau.append(annihilation_operators[i] - self.S)
+
+
+        new_occupancy_basis_decomposition = [] # each element is [coef, occupancy_basis_state]
+        for r in range(len(tau), min(self.S - len(sigma), self.M - self.S) + 1):
+            cur_sign = cumsign(r)
+            cur_a_subsets = subset_indices(np.delete(self.pi[0], tau, axis = 0), r - len(tau))
+            cur_b_subsets = subset_indices(np.delete(self.pi[1], sigma, axis = 0), r)
+            for a_subset in cur_a_subsets:
+                for b_subset in cur_b_subsets:
+
+                    cur_occupancy_set = set(self.pi[1])-set(b_subset)-set(sigma)
+                    cur_occupancy_set.update(set(a_subset))
+                    scaled_a_subset = tau.copy()
+                    for i in range(len(a_subset)):
+                        scaled_a_subset.append(a_subset[i]-self.S)
+
+                    #print("occupancy set =", cur_occupancy_set)
+                    #print("  0.5 |tau| (|tau| - 1) ->", cumsign(len(tau) - 1))
+                    #print("  |tau| (S - r) ->", sign(len(tau) * (self.S - r)))
+                    #print(f"  tau: {tau}, a: {a_subset}")
+                    #print("  sum eta_tau(a) ->", sign(eta(tau, a_subset, self.S)))
+
+                    alt_cur_sign = sign(len(tau) * (self.S - r) + eta(tau, scaled_a_subset)) * sign(-len(sigma) + sum(sigma) + len(sigma) + eta(sigma, b_subset))
+                    #alt_cur_sign = cumsign(len(tau) - 1) * sign(len(tau) * (self.S - r) + eta(tau, a_subset, self.S)) * sign(-len(sigma) + sum(sigma) + len(sigma) + eta(sigma, b_subset))
+                    cur_det = np.linalg.det(self.Z[np.ix_(sorted(scaled_a_subset), b_subset)])
+                    if cur_det != 0:
+                        new_occupancy_basis_decomposition.append([cur_sign * alt_cur_sign * cur_det, occupancy_basis_state(cur_occupancy_set)])
         self.occupancy_basis_decomposition = occupancy_basis_superposition(new_occupancy_basis_decomposition)
 
     def slow_overlap(self, other):
@@ -334,7 +415,7 @@ class CS():
             else:
                 # pi_0
                 len_tau_a += 1
-                tau_a.append(c[i])
+                tau_a.append(c[i] - S)
             if a[i] < S:
                 # pi_1
                 len_sigma_b += 1
@@ -343,10 +424,95 @@ class CS():
             else:
                 # pi_0
                 len_tau_b += 1
-                tau_b.append(a[i])
+                tau_b.append(a[i] - S)
+        sigma_a = varsigma_a + sigma_intersection
+        sigma_b = varsigma_b + sigma_intersection
+
+        print(f"sigma_a = {sigma_a}, varsigma_a = {varsigma_a}, sigma_b = {sigma_b}, varsigma_b = {varsigma_b}, sigma_intersection = {sigma_intersection}")
+        print(f"tau_a = {tau_a}, tau_b = {tau_b}")
+
+        tau_a_seq = np.arange(0, len_tau_a, 1, dtype=int)
+        tau_b_seq = np.arange(0, len_tau_b, 1, dtype=int)
+
+        Z_a_perm = np.concatenate((np.take(np.conjugate(self.Z), varsigma_b, axis = 1).T, np.conjugate(reduced_matrix(self.Z, [], varsigma_b + sigma_a).T)), axis = 0)
+        Z_b_perm = np.concatenate((np.take(other.Z, varsigma_a, axis = 1), reduced_matrix(other.Z, [], varsigma_a + sigma_b)), axis = 1)
+
         if len_tau_a <= len_tau_b:
-            fast_M = np.zeros((len(tau_b) + S - len(sigma_intersection), len(tau_b) + M - S - len(sigma_intersection)), dtype=complex)
-            fast_M[]???
+            fast_M = np.zeros((len(tau_b) + S - len(sigma_a), len(tau_b) + S - len(sigma_a)), dtype=complex)
+            fast_M[:len_tau_b, len_tau_a:] = np.take(Z_b_perm, tau_b, axis = 0)
+            fast_M[len_tau_b:, :len_tau_a] = np.take(Z_a_perm, tau_a, axis = 1)
+            fast_M[len_tau_b:, len_tau_a:] = np.matmul(reduced_matrix(Z_a_perm, [], tau_a + tau_b), reduced_matrix(Z_b_perm, tau_a + tau_b, []))
+            fast_M[len_tau_a + len(varsigma_a):,len_tau_a + len(varsigma_a):] += np.identity(S - len(sigma_b) - len(varsigma_a))
+            var_sign = sign(len_tau_b * (1 + len_tau_b - len_tau_a))
+        else:
+            fast_M = np.zeros((len(tau_b) + S - len(sigma_a), len(tau_b) + M - S - len(sigma_a)), dtype=complex)
+            fast_M[:len_tau_a, len_tau_b:] = np.conjugate(np.take(reduced_matrix(self.Z, [], sigma_a), tau_a_seq, axis = 0))
+            fast_M[len_tau_a:, :len_tau_b] = np.take(reduced_matrix(other.Z, [], sigma_b), tau_b_seq, axis = 0).T
+            fast_M[len_tau_a:, len_tau_b:] = np.matmul(reduced_matrix(other.Z, tau_b_seq, sigma_b).T, np.conjugate(reduced_matrix(self.Z, tau_a_seq, sigma_a)))
+            fast_M[len_tau_a + len(varsigma_a):,len_tau_a + len(varsigma_a):] += np.identity(S - len(sigma_b) - len(varsigma_a))
+            var_sign = sign(len_tau_a * (1 + len_tau_a - len_tau_b))
+        return(sign((S+1)*(len_tau_a+len_tau_b) + len_sigma_a * len_sigma_b + sum(varsigma_a) + sum(varsigma_b) + len(varsigma_a) * len(varsigma_b) + 0.5 * (len(tau_a) * (len(tau_a) - 1) + len(tau_b * (len(tau_b) - 1)))) * var_sign * np.linalg.det(fast_M))
+
+    def alt_general_overlap(self, other, c, a):
+        # assumes c and a are both ascending. That's the only assumption. I'll add the perm sign soon, then no assumptions will be made (except for non-repeated indices i guess? easy to test for tbh)
+        varsigma_a = []
+        tau_a = []
+        varsigma_b = []
+        tau_b = []
+        tau_cup = []
+        sigma_intersection = []
+        for i in range(len(c)):
+            # using len(c) = len(a)
+            if c[i] < S:
+                # pi_1
+                if c[i] not in a:
+                    varsigma_a.append(c[i])
+                else:
+                    sigma_intersection.append(c[i])
+            else:
+                # pi_0
+                tau_a.append(c[i] - S)
+                if c[i] - S not in tau_cup:
+                    tau_cup.append(c[i] - S)
+            if a[i] < S:
+                # pi_1
+                if a[i] not in c:
+                    varsigma_b.append(a[i])
+            else:
+                # pi_0
+                tau_b.append(a[i] - S)
+                if a[i] - S not in tau_cup:
+                    tau_cup.append(a[i] - S)
+        sigma_a = varsigma_a + sigma_intersection
+        sigma_b = varsigma_b + sigma_intersection
+        sigma_cup = varsigma_a + varsigma_b + sigma_intersection
+        const_sign = sign(self.S * (len(tau_a) + len(tau_b)) + (len(varsigma_a) - 1) * (len(varsigma_b) - 1) + 1 + sum(varsigma_a) + len(varsigma_a) + sum(varsigma_b) + len(varsigma_b) * eta(sigma_cup, varsigma_a + varsigma_b))
+        if len(tau_a) <= len(tau_b):
+            fast_M = np.zeros((len(tau_b) + S - len(sigma_a), len(tau_b) + S - len(sigma_a)), dtype=complex)
+            #fast_M[:len(tau_b), :len(tau_a)] = 0
+            fast_M[:len(tau_b), len(tau_a):len(tau_a)+len(varsigma_a)] = np.take(np.take(other.Z, tau_b, axis = 0), varsigma_a, axis = 1)
+            fast_M[:len(tau_b), len(tau_a)+len(varsigma_a):] = np.take(reduced_matrix(other.Z, [], sigma_cup), tau_b, axis = 0)
+
+            fast_M[len(tau_b):len(tau_b) + len(varsigma_b),:len(tau_a)] = np.conjugate(np.take(np.take(self.Z, tau_a, axis = 0), varsigma_b, axis = 1).T)
+            fast_M[len(tau_b) + len(varsigma_b):, :len(tau_a)] = np.conjugate(np.take(reduced_matrix(self.Z, [], sigma_cup), tau_a, axis = 0).T)
+
+            fast_M[len(tau_b):len(tau_b) + len(varsigma_b), len(tau_a):len(tau_a)+len(varsigma_a)] = np.matmul(np.conjugate(np.take(reduced_matrix(self.Z, tau_cup, []), varsigma_b, axis = 1).T), np.take(reduced_matrix(other.Z, tau_cup, []), varsigma_a, axis = 1))
+            fast_M[len(tau_b):len(tau_b) + len(varsigma_b), len(tau_a)+len(varsigma_a):] = np.matmul(np.conjugate(np.take(reduced_matrix(self.Z, tau_cup, []), varsigma_b, axis = 1).T), reduced_matrix(other.Z, tau_cup, sigma_cup))
+            fast_M[len(tau_b) + len(varsigma_b):, len(tau_a):len(tau_a)+len(varsigma_a)] = np.matmul(np.conjugate(reduced_matrix(self.Z, tau_cup, sigma_cup).T), np.take(reduced_matrix(other.Z, tau_cup, []), varsigma_a, axis = 1))
+            fast_M[len(tau_b) + len(varsigma_b):, len(tau_a)+len(varsigma_a):] = np.identity(self.S - len(sigma_cup)) + np.matmul(np.conjugate(reduced_matrix(self.Z, tau_cup, sigma_cup).T), reduced_matrix(other.Z, tau_cup, sigma_cup))
+            cb_sign = sign(len(tau_b) * (1 + len(tau_b) - len(tau_a)))
+
+        return(const_sign * cb_sign * np.linalg.det(fast_M))
+
+
+
+    def alt_pi_1_transition(self, other, i, j):
+
+        Z_a_perm = np.concatenate((np.take(np.conjugate(self.Z), [j], axis = 1).T, np.conjugate(reduced_matrix(self.Z, [], [i, j]).T)), axis = 0)
+        Z_b_perm = np.concatenate((np.take(other.Z, [i], axis = 1), reduced_matrix(other.Z, [], [i, j])), axis = 1)
+        M = np.matmul(Z_a_perm, Z_b_perm)
+        M[1:,1:] += np.identity(len(M) - 1)
+        return(sign(i+j+1) * np.linalg.det(M))
 
 
 
@@ -358,64 +524,113 @@ print("Square norm =", lol.overlap(lol))
 lol.apply_operators([2], [0])
 print(lol)"""
 
+def test_overlap():
+    # The order of application is c_last ... c_first a_first ... a_last
+    global_c_sequence = [2, 3, 6, 8]
+    global_a_sequence = [2, 7, 8, 9]
+    #global_c_sequence = [7, 9, 10]
+    #global_a_sequence = [9, 11, 8]
+    mixed_i = [6, 7]
+    mixed_j = [2, 4]
 
-M = 9
-S = 5
+    print(f"Calculating < Z_a | creation({list(reversed(global_c_sequence))}) annihilation({global_a_sequence}) | Z_b >")
+    is_all_equal = True
+    for i in range(N):
+        print("---------- test no.", i)
+        A = CS(M, S, random_complex_matrix(M-S, S, (-1.0, 1.0)))
+        B = CS(M, S, random_complex_matrix(M-S, S, (-1.0, 1.0)))
+
+        #print("  Origin. A:", A.occupancy_basis_decomposition)
+        #print("  Origin. B:", B.occupancy_basis_decomposition)
+
+        A.occupancy_basis_decomposition.apply_operators([], global_c_sequence)
+        B.occupancy_basis_decomposition.apply_operators([], global_a_sequence)
+        #print("  Dir. r. A:", A.occupancy_basis_decomposition)
+        #print("  Dir. r. B:", B.occupancy_basis_decomposition)
+
+        #A_var = CS(M, S, np.matmul(A.Z, np.matmul(Q(global_c_sequence[0], 1), R(global_c_sequence[0], 1))))
+        #B_var = CS(M, S, np.matmul(B.Z, np.matmul(Q(global_a_sequence[0], 1), R(global_a_sequence[0], 1))))
+        #A_var.occupancy_basis_decomposition.scale(sign(global_c_sequence[0]))
+        #B_var.occupancy_basis_decomposition.scale(sign(global_a_sequence[0]))
+        #print("  Equiv. A:", A_var.occupancy_basis_decomposition)
+        #print("  Equiv. B:", B_var.occupancy_basis_decomposition)
+
+
+        slow = A.occupancy_basis_decomposition.overlap(B.occupancy_basis_decomposition)
+        #quick = A.overlap(B, global_c_sequence, global_a_sequence)
+        quick = A.alt_general_overlap(B, global_c_sequence, global_a_sequence)
+        #quick = A.overlap_with_transition(B, global_c_sequence, global_a_sequence)
+        #quick = A.pi_zero_overlap(B, global_c_sequence, global_a_sequence)
+
+        """A.occupancy_basis_decomposition.apply_operators([], mixed_i)
+        B.occupancy_basis_decomposition.apply_operators([], mixed_j)
+
+        slow = A.occupancy_basis_decomposition.overlap(B.occupancy_basis_decomposition)
+        quick = A.mixed_reduction_overlap(B, mixed_i, mixed_j)
+        quick_alt = A.mixed_reduction_overlap_alt(B, mixed_i, mixed_j)"""
+
+        print(f"  Slow, trustworthy overlap: {slow:.4f}")
+        print(f"  Fast overlap:              {quick:.4f}")
+        #print(f"  Alt:                       {A.alt_pi_1_transition(B, global_c_sequence[0], global_a_sequence[0]):.4f}")
+        #print(f"  Alt:                       {A.overlap_with_transition(B, global_c_sequence, global_a_sequence):.4f}")
+        #print(f"  Fast alt. overlap:         {quick_alt:.4f}")
+
+        if(np.round(slow, 4) != np.round(quick, 4)):
+            is_all_equal = False
+    if is_all_equal:
+        print("Both methods are equivalent")
+
+
+M = 10
+S = 6
 N = 5
 
-# The order of application is c_last ... c_first a_first ... a_last
-global_c_sequence = [2, 3, 1]
-global_a_sequence = [1, 2, 0]
-#global_c_sequence = [7, 9, 10]
-#global_a_sequence = [9, 11, 8]
-mixed_i = [6, 7]
-mixed_j = [2, 4]
+test_overlap()
 
-print(f"Calculating < Z_a | creation({list(reversed(global_c_sequence))}) annihilation({global_a_sequence}) | Z_b >")
-is_all_equal = True
-for i in range(N):
-    print("---------- test no.", i)
-    A = CS(M, S, random_complex_matrix(M-S, S, (-1.0, 1.0)))
-    B = CS(M, S, random_complex_matrix(M-S, S, (-1.0, 1.0)))
+"""print("Commencing comprehensive test...")
+does_all_n_agree = True
+for n in range(1, M+1):
+    inds = subset_indices(np.arange(0, M, 1, dtype=int), n)
+    does_all_agree = True
+    for ind in inds:
+        A = CS(M, S, random_complex_matrix(M-S, S, (-1.0, 1.0)))
+        B = CS(M, S, A.Z.copy())
+        A.occupancy_basis_decomposition.apply_operators([], ind)
+        B.reduce_and_decompose_into_occupancy_basis(ind)
+        if not A.is_equal_to(B):
+            print("    Disagreement for", ind)
+            does_all_agree = False
+    if does_all_agree:
+        print(f"  All rank-{n} reductions agree!")
+    else:
+        does_all_n_agree = False
+if does_all_n_agree:
+    print("Total agreement for given M, S")"""
 
-    #print("  Origin. A:", A.occupancy_basis_decomposition)
-    #print("  Origin. B:", B.occupancy_basis_decomposition)
+"""A = CS(M, S, random_complex_matrix(M-S, S, (-1.0, 1.0)))
+B = CS(M, S, A.Z.copy())
 
-    """A.occupancy_basis_decomposition.apply_operators([], global_c_sequence)
-    B.occupancy_basis_decomposition.apply_operators([], global_a_sequence)
-    #print("  Dir. r. A:", A.occupancy_basis_decomposition)
-    #print("  Dir. r. B:", B.occupancy_basis_decomposition)
+#print(A.is_equal_to(B))
+#print(A.is_equal_to(A))
 
-    #A_var = CS(M, S, np.matmul(A.Z, np.matmul(Q(global_c_sequence[0], 1), R(global_c_sequence[0], 1))))
-    #B_var = CS(M, S, np.matmul(B.Z, np.matmul(Q(global_a_sequence[0], 1), R(global_a_sequence[0], 1))))
-    #A_var.occupancy_basis_decomposition.scale(sign(global_c_sequence[0]))
-    #B_var.occupancy_basis_decomposition.scale(sign(global_a_sequence[0]))
-    #print("  Equiv. A:", A_var.occupancy_basis_decomposition)
-    #print("  Equiv. B:", B_var.occupancy_basis_decomposition)
+ops = [5, 6, 8]
+#ops = [1, 5, 6]
+#ops = [3]
+
+print(A.occupancy_basis_decomposition)
+
+A.occupancy_basis_decomposition.apply_operators([], ops)
+B.reduce_and_decompose_into_occupancy_basis(ops)
 
 
-    slow = A.occupancy_basis_decomposition.overlap(B.occupancy_basis_decomposition)
-    quick = A.overlap(B, global_c_sequence, global_a_sequence)
-    #quick = A.overlap_with_transition(B, global_c_sequence, global_a_sequence)
-    #quick = A.pi_zero_overlap(B, global_c_sequence, global_a_sequence) """
+print(A.is_equal_to(B))
+print(A.is_equal_to(A))
 
-    A.occupancy_basis_decomposition.apply_operators([], mixed_i)
-    B.occupancy_basis_decomposition.apply_operators([], mixed_j)
+print(A.occupancy_basis_decomposition)
+print(B.occupancy_basis_decomposition)
 
-    slow = A.occupancy_basis_decomposition.overlap(B.occupancy_basis_decomposition)
-    quick = A.mixed_reduction_overlap(B, mixed_i, mixed_j)
-    quick_alt = A.mixed_reduction_overlap_alt(B, mixed_i, mixed_j)
-
-    print(f"  Slow, trustworthy overlap: {slow:.4f}")
-    print(f"  Fast overlap:              {quick:.4f}")
-    print(f"  Fast alt. overlap:         {quick_alt:.4f}")
-
-    if(np.round(slow, 4) != np.round(quick, 4)):
-        is_all_equal = False
-if is_all_equal:
-    print("Both methods are equivalent")
-
-# TODO: the issue is that just constructing ZQR states doesn't correctly reduce occupancies, and the way we take overlap of two differently reduced kets was treated badly on paper. We need to fix this.
+print("-----------------------")
+print(eta([0, 1, 3], [7], S))"""
 
 """
 CS_list = []

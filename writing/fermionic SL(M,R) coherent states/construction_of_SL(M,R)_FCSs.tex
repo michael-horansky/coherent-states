@@ -337,7 +337,39 @@
 	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}=\mel{Z_b}{\hat{f}\hc_{\seq{\tau'}^-}\hat{f}\hc_{\seq{\sigma'}^-}\hat{f}_{\seq{\sigma}}\hat{f}_{\seq{\tau}}}{Z_a}^*
 	\end{equation}
 	so that we can always use Eq. \ref{eq: general reduced overlap determinant} as the standard expression.
+	
+	\section{Full-variational equations of motion}
+	In this section we express the time-dependent Schrodinger equation discretised on a finite unnormalised coherent state basis of size $Z$, where the full wavestate $\ket{\Psi}$ is parametrised by the time-dependent quantities $Z^m_{ij}$, which describes the $m$-th basis state $\unnormket{Z^m}$, and $A_m$, which is the decomposition coefficient of $\unnormket{Z^m}$. Formally
+	\begin{equation}
+	\ket{\Psi}=\sum_{m=1}^N A_m\unnormket{Z^m}
+	\end{equation}
+	Note that we use the unnormalised states because, unlike their normalised counterparts, they have no explicit dependence on $(Z^m_{ij})^*$, allowing for the use of Wirtinger derivatives. This does not affect the interpretation of the result, since the square norm of the superposition $\ket{\Psi}$ remains $1$ when propagated by the Schrodinger equations of motion.
+	
+	To find the equations of motion we shall use the Lagrangian formulation of the Schrodinger equation
+	\begin{equation} \label{eq: schrodinger lagrangian}
+	L=\frac{i}{2}\left(\braket{\Psi}{\dot{\Psi}}-\braket{\dot{\Psi}}{\Psi}\right)-\mel{\Psi}{\hat{H}}{\Psi}
+	\end{equation}
+	
+	\subsection{Derivatives of coherent states}
+	Consider the partial derivative of $\unnormket{Z}$ with respect to the parameter $Z_{ij}$. Using Eq. \ref{eq:exponential ket} the result can be expressed as
+	\begin{equation}
+	\pdv{Z_{ij}}\unnormket{Z}=\hat{T}_{ij}\unnormket{Z}
+	\end{equation}
+	Since the fermionic operator have no explicit dependence on $Z$, it commutes with the partial derivative. Hence we can take the partial derivative of an unnormalised coherent state transformed by a sequence of fermionic operators:
+	\begin{equation}
+	\pdv{Z_{ij}}\hat{f}\hc_{\seq{\rho}}\hat{f}_{\seq{\sigma}}\unnormket{Z}=\hat{f}\hc_{\seq{\rho}}\hat{f}_{\seq{\sigma}}\hat{T}_{ij}\unnormket{Z}
+	\end{equation}
+	Consider a mixed partial derivative:
+	\begin{equation}
+	\pdv{Z_{ij}}\pdv{Z_{kl}}\unnormket{Z}=\hat{T}_{kl}\hat{T}_{ij}\unnormket{Z}=\hat{T}_{ij}\hat{T}_{kl}\unnormket{Z}
+	\end{equation}
+	 The exchange of transition operators can be seen from the fact that $i,k\in\pi_0$ and $j,l\in\pi_1$ for the expression to be non-vanishing, which yields $\comm{\hat{T}_{ij}}{\hat{T}_{kl}}=\hat{T}_{il}\delta_{kj}-\hat{T}_{kj}\delta_{il}=0$.
 	 
+	 We shall also express the total time derivative of the unnormalised coherent state:
+	 \begin{equation}
+	 \unnormket{\dot{Z}}=\dv{t}\unnormket{Z}=\sum_{i\in\pi_0}\sum_{j\in\pi_1}\pdv{Z_{ij}}{t}\pdv{Z_{ij}}\unnormket{Z}=\sum_{i\in\pi_0}\sum_{j\in\pi_1}\dot{Z}_{ij}\hat{T}_{ij}\unnormket{Z}
+	 \end{equation}
+	 Notice that the resulting Euler-Lagrange equations couple the evolution of $Z^m_{ij}$ and $A_m$, which means that in the fully variational method, the basis state evolution is guided by their decomposition coefficients in the trial wavestate. In Sec. \ref{sec: decoupled basis} we shall describe an approach which decouples these quantities, rendering the time-evolution of $\unnormket{Z^m}$ only dependent on the initial values of $Z^m_{ij}$.
 	
 	\subsection{Matrix element of the quadratic $S$-preserving Hamiltonian}
 	For an $S$-preserving Hamiltonian, the one-body interaction can be expressed as $V^{(1)}_{\alpha,\beta}\hat{f}\hc_\alpha\hat{f}_\beta$, and two-body interaction as $\frac{1}{2}V^{(2)}_{\alpha,\beta,\gamma,\delta}\hat{f}\hc_\alpha\hat{f}\hc_\beta\hat{f}_\gamma\hat{f}_\delta$, where
@@ -349,6 +381,48 @@
 	\begin{equation}
 	\hat{H}=V^{(1)}_{\alpha,\beta}\hat{f}\hc_\alpha\hat{f}_\beta+\frac{1}{2}V^{(2)}_{\alpha,\beta,\gamma,\delta}\hat{f}\hc_\alpha\hat{f}\hc_\beta\hat{f}_\gamma\hat{f}_\delta
 	\end{equation}
+	
+	\subsection{Schrodinger Euler-Lagrange equations}
+	Using Wirtinger derivatives, the Euler-Lagrange equations are
+	\begin{align}
+	\pdv{L}{A_m^*}-\dv{t}\pdv{\dot{A}_m^*}&=0\\
+	\pdv{L}{(Z^m_{ij})^*}-\dv{t}\pdv{(\dot{Z}^m_{ij})^*}&=0
+	\end{align}
+	with the equations obtained by differentiating w.r.t. $A_m, Z^m_{ij}$ being complex conjugates of the equations stated above, providing no additional information.
+	
+	We can also expand the Lagrangian in Eq. \ref{eq: schrodinger lagrangian} as
+	\begin{equation} \label{eq: expanded schrodinger lagrangian}
+	L=\sum_{m,n}\left[ \frac{i}{2} \left( \unnormbraket{Z^m}{Z^n}(A^*_m\dot{A}_n-\dot{A}^*_mA_n) + A_m^* A_n\left( \unnormbraket{Z^m}{\dot{Z}^n} - \unnormbraket{\dot{Z}^m}{Z^n} \right) \right) - A_m^* A_n \unnormmel{Z^m}{\hat{H}}{Z^n} \right]
+	\end{equation}
+	And its partial derivatives then become
+	\begin{align}
+	\pdv{L}{A_m^*}&=\sum_n\left[ \frac{i}{2}\left( \dot{A}_n\unnormbraket{Z^m}{Z^n} + A_n\left( \unnormbraket{Z^m}{\dot{Z}^n} - \unnormbraket{\dot{Z}^m}{Z^n} \right) \right) - A_n \unnormmel{Z^m}{\hat{H}}{Z^n} \right]\\
+	\pdv{L}{\dot{A}_m^*}&=-\frac{i}{2}\sum_n A_n\unnormbraket{Z^m}{Z^n}\\
+	\dv{t}\pdv{L}{\dot{A}_m^*}&=-\frac{i}{2}\sum_{n} \left[ \dot{A}_n\unnormbraket{Z^m}{Z^n} + A_n\left( \unnormbraket{Z^m}{\dot{Z}^n} + \unnormbraket{\dot{Z}^m}{Z^n} \right) \right]\\
+	\pdv{L}{(Z^m_{ij})^*}&=\sum_n\left[ \frac{i}{2} \left( \unnormmel{Z^m}{\hat{f}\hc_j \hat{f}_i}{Z^n} (A^*_m\dot{A}_n-\dot{A}^*_mA_n) + A_m^* A_n \left( \unnormmel{Z^m}{\hat{f}\hc_j \hat{f}_i}{\dot{Z}^n} - \unnormmel{\dot{Z}^m}{\hat{f}\hc_j \hat{f}_i}{Z^n} \right) \right)\nonumber\right.\\
+	&\left. - A_m^* A_n \unnormmel{Z^m}{\hat{f}\hc_j \hat{f}_i \hat{H}}{Z^n} \right]\\
+	\pdv{L}{(\dot{Z}^m_{ij})^*} &= -\frac{i}{2}\sum_n A_m^* A_n \unnormmel{Z^m}{\hat{f}\hc_j \hat{f}_i}{Z^n}\\
+	\dv{t}\pdv{L}{(\dot{Z}^m_{ij})^*} &= -\frac{i}{2}\sum_n\left[ \unnormmel{Z^m}{\hat{f}\hc_j \hat{f}_i}{Z^n} (A^*_m\dot{A}_n+\dot{A}^*_mA_n) + A_m^* A_n \left( \unnormmel{Z^m}{\hat{f}\hc_j \hat{f}_i}{\dot{Z}^n} + \unnormmel{\dot{Z}^m}{\hat{f}\hc_j \hat{f}_i}{Z^n} \right) \right]
+	\end{align}
+	The Euler-Lagrange equations are then
+	\begin{align}
+	i\sum_n\left[ \dot{A}_n \unnormbraket{Z^m}{Z^n} + A_n \sum_{i\in\pi_0}\sum_{j\in\pi_1} \dot{Z}^n_{ij} \unnormmel{Z^m}{\hat{f}\hc_i\hat{f}_j}{Z^n} \right] &= \sum_n A_n \unnormmel{Z^m}{\hat{H}}{Z^n}\\
+	i\sum_n\left[ A_m^* \dot{A}_n \unnormmel{Z^m}{\hat{f}\hc_j\hat{f}_i}{Z^n} + A_m^* A_n \sum_{i'\in\pi_0}\sum_{j'\in\pi_1} \dot{Z}^n_{i'j'} \unnormmel{Z^m}{\hat{f}\hc_j \hat{f}_i \hat{f}\hc_{i'} \hat{f}_{j'}}{Z^n} \right] &= \sum_n A_m^* A_n \unnormmel{Z^m}{\hat{f}\hc_j \hat{f}_i \hat{H}}{Z^n}
+	\end{align}
+	for $m=1\dots N$ in the first system of equations and $m=1\dots N, i\in\pi_0, j\in\pi_1$ in the second system of equations.
+	
+	\subsubsection{Matrix formulation of the Euler-Lagrange equations}
+	Let us construct the generalised coordinate vector
+	\begin{equation}
+	\vec{Q} = \mqty(\vec{Q}^A \\ \vec{Q}^Z),\qquad Q^A_m = A_m, \qquad \vec{Q}^Z=\mqty(\vec{Q}^{Z,1} \\ \vdots \\ \vec{Q}^{Z,M-S}), \qquad \vec{Q}^{Z,i} = \mqty(\vec{Q}^{Z,i,1} \\ \vdots \\ \vec{Q}^{Z,i,S}), \qquad Q^{Z,ij}_m = Z^m_{ij}
+	\end{equation}
+	The Euler-Lagrange equations can then be expressed in matrix form
+	\begin{equation}
+	i\Omega\dv{t}\vec{Q}=\vec{R}
+	\end{equation}
+	where $\Omega$ is an $(NS(M-S),NS(M-S))$ matrix and $\vec{R}$ is an $(NS(M-S))$-dimensional vector, both being functions of $\vec{Q}$.
+	
+	\subsection{Decoupled basis propagation} \label{sec: decoupled basis}
 	
 	\appendix
 	

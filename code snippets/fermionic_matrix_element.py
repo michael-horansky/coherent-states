@@ -44,6 +44,9 @@ def random_complex_matrix(m, n, interval = None):
 def reduced_matrix(m, row_indices, column_indices):
     return(np.delete(np.delete(m, row_indices, axis = 0), column_indices, axis = 1))
 
+def take(m, row_indices, column_indices):
+    return(np.take(np.take(m, row_indices, axis = 0), column_indices, axis = 1))
+
 def flip_lower_signs(m, row_sign_sequence = [], column_sign_sequence = []):
     res = m.copy()
     if len(row_sign_sequence) > 0:
@@ -542,6 +545,24 @@ class CS():
         return(sign(i+j+1) * np.linalg.det(M))
 
 
+
+def anti_compound_matrix(V):
+    n = len(V)
+    W = np.zeros((n, n), dtype=complex)
+    # diagonal terms
+    for i in range(n):
+        silly_sum = 0.0
+        for j in range(n):
+            silly_sum += np.sqrt(V[i][j])
+        W[i][i] = silly_sum
+    # off-diagonal terms
+    for i in range(n):
+        for j in range(i + 1, n):
+            W[i][j] = np.sqrt(W[i][i] * W[j][j] - V[i][j])
+            W[j][i] = W[i][j]
+    return(W)
+
+
 M = 8
 S = 4
 N = 5
@@ -577,7 +598,77 @@ def test_pi_1_diag():
     if(np.round(slow_mel, 5) == np.round(quick_mel, 5)):
         print("Methods are equivalent!")
 
-test_pi_1_diag()
+def test_pi_1_double_diag():
+    transformation = np.zeros((S, S), dtype=complex)
+    for i in range(S):
+        for j in range(i + 1, S):
+            transformation[i][j] = np.random.random() * 1
+            transformation[j][i] = transformation[i][j]
+
+    A = CS(M, S, random_complex_matrix(M-S, S, (-1.0, 1.0)))
+    B = CS(M, S, random_complex_matrix(M-S, S, (-1.0, 1.0)))
+
+    slow_mel = 0.0
+
+    for i in range(S):
+        for j in range(i + 1, S):
+            slow_mel += (transformation[i][j] + transformation[j][i]) * A.alt_general_overlap(B, [i, j], [i, j])
+    print("Slow calculation:", np.round(slow_mel, 5))
+
+    # M-matrix
+    overlap_base = np.identity(M - S) + np.matmul(B.Z, np.conjugate(A.Z.T))
+    overlap_base_inv = np.linalg.inv(overlap_base)
+    update_matrix = np.matmul(np.conjugate(A.Z.T), np.matmul(overlap_base_inv, B.Z))
+
+    # Intermediate calculation
+    inter_mel_first = np.sum(transformation)
+    inter_mel_second = 0.0
+    inter_mel_third = 0.0
+    for i in range(S):
+        for j in range(S):
+            inter_mel_second += transformation[i][j] * (update_matrix[i][i] + update_matrix[j][j])
+            inter_mel_third += transformation[i][j] * np.linalg.det(take(update_matrix, [i, j], [i, j]))
+
+    print(f"  First: {np.linalg.det(overlap_base) * inter_mel_first:.2f}")
+    print(f"  Second: {np.linalg.det(overlap_base) * inter_mel_second:.2f}")
+    print(f"  Third: {np.linalg.det(overlap_base) * inter_mel_third:.2f}")
+    print("Intermediate calculation:", np.round(np.linalg.det(overlap_base) * (inter_mel_first - inter_mel_second + inter_mel_third), 5))
+
+
+    total_trace = np.sum(transformation)
+
+    X = np.zeros((S, S), dtype=complex)
+    for i in range(S):
+        X[i][i] = np.sum(transformation, axis = 0)[i] + np.sum(transformation, axis = 1)[i]
+
+    W = anti_compound_matrix(transformation)
+    second_moment_matrix = np.matmul(W, update_matrix)
+
+    first_term = total_trace
+    second_term = np.trace(np.matmul(X, update_matrix))
+    third_term = -0.5 * (np.trace(np.matmul(second_moment_matrix, second_moment_matrix)) - np.power(np.trace(second_moment_matrix), 2))
+
+    alternative_third_term = 0.0
+    for i in range(S):
+        for j in range(i + 1, S):
+            alternative_third_term += (transformation[i][j] + transformation[j][i]) * np.linalg.det(take(update_matrix, [i, j], [i, j]))
+    print(f"  alternative 3rd term: {np.linalg.det(overlap_base) * alternative_third_term:.2f}")
+
+    quick_mel = np.linalg.det(overlap_base) * (first_term - second_term + third_term)
+
+    print(f"  First: {np.linalg.det(overlap_base) * first_term:.2f}")
+    print(f"  Second: {np.linalg.det(overlap_base) * second_term:.2f}")
+    print(f"  Third: {np.linalg.det(overlap_base) * third_term:.2f}")
+
+    print("Quick calculation:", np.round(quick_mel, 5))
+    if(np.round(slow_mel, 5) == np.round(quick_mel, 5)):
+        print("Methods are equivalent!")
+
+
+
+
+
+test_pi_1_double_diag()
 
 
 

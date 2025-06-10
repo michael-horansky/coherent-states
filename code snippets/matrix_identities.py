@@ -93,41 +93,137 @@ if (np.round(A_reduced_inv, 2) == np.round(sussily_reduced_A, 2)).all():
 # We have a tensor V_i,i', where i = 1 ... n and i' = 1 ... n, i neq i', and V_i,i' = V_i',i
 # and we wish to find an n x n square matrix W such that det W_<i,i'>,<i,i'> = V_i,i'
 
-n = 5
-V = np.zeros((n, n), dtype=complex)
-for i in range(n):
-    for j in range(i + 1, n):
-        V[i][j] = np.random.random() * 1
-        V[j][i] = V[i][j]
+def test_anti_compound_matrix():
 
-W = np.zeros((n, n), dtype=complex)
+    n = 5
+    V = np.zeros((n, n), dtype=complex)
+    for i in range(n):
+        for j in range(i + 1, n):
+            V[i][j] = np.random.random() * 1
+            V[j][i] = V[i][j]
 
-# diagonal terms
-for i in range(n):
-    silly_sum = 0.0
-    for j in range(n):
-        silly_sum += np.sqrt(V[i][j])
-    W[i][i] = silly_sum
-# off-diagonal terms
-for i in range(n):
-    for j in range(i + 1, n):
-        W[i][j] = np.sqrt(W[i][i] * W[j][j] - V[i][j])
-        W[j][i] = W[i][j]
+    W = np.zeros((n, n), dtype=complex)
 
-#print("----------- W -------------")
-#print(W)
-#print("----------- V -------------")
-#print(V)
+    # diagonal terms
+    for i in range(n):
+        silly_sum = 0.0
+        for j in range(n):
+            silly_sum += np.sqrt(V[i][j])
+        W[i][i] = silly_sum
+    # off-diagonal terms
+    for i in range(n):
+        for j in range(i + 1, n):
+            W[i][j] = np.sqrt(W[i][i] * W[j][j] - V[i][j])
+            W[j][i] = W[i][j]
 
-# Now for the test:
-passes = True
-for i in range(n):
-    for j in range(i + 1, n):
-        subdet = np.linalg.det(take(W, [i,j],[i,j]))
-        if np.round(subdet, 2) != np.round(V[i][j], 2):
-            passes = False
-            print(np.round(subdet, 2), "should be equal to", np.round(V[i][j], 2))
-if passes:
-    print("It works!")
+    #print("----------- W -------------")
+    #print(W)
+    #print("----------- V -------------")
+    #print(V)
 
+    # Now for the test:
+    passes = True
+    for i in range(n):
+        for j in range(i + 1, n):
+            subdet = np.linalg.det(take(W, [i,j],[i,j]))
+            if np.round(subdet, 2) != np.round(V[i][j], 2):
+                passes = False
+                print(np.round(subdet, 2), "should be equal to", np.round(V[i][j], 2))
+    if passes:
+        print("It works!")
+
+def test_weighted_minor_sum():
+
+    n = 5
+
+    M = random_complex_matrix(n, n, (-1, 1))
+
+    r = 2
+    V = np.zeros(tuple([n] * (2 * r)), dtype = complex)
+
+    """for i in range(n):
+        for j in range(i + 1, n):
+            for i_prime in range(n):
+                for j_prime in range(i_prime + 1, n):
+                    V[i][j][i_prime][j_prime] = np.random.rand() * 2 - 1"""
+                    #V[j][i][i_prime][j_prime] = - V[i][j][i_prime][j_prime]
+                    #V[i][j][j_prime][i_prime] = - V[i][j][i_prime][j_prime]
+                    #V[j][i][j_prime][i_prime] = V[i][j][i_prime][j_prime]
+                    #V[i_prime][j_prime][i][j] = np.conjugate(V[i][j][i_prime][j_prime])
+                    #V[j_prime][i_prime][i][j] = - V[i_prime][j_prime][i][j]
+                    #V[i_prime][j_prime][j][i] = - V[i_prime][j_prime][i][j]
+                    #V[j_prime][i_prime][j][i] = V[i_prime][j_prime][i][j]
+    """
+    # diagonal V
+    for i in range(n):
+        for j in range(i + 1, n):
+                V[i][j][i][j] = np.random.rand() * 2 - 1
+                V[j][i][j][i] = V[i][j][i][j]
+    """
+    a = 2
+    b = 3
+    V[a][b][a][b] = 1.0
+    #V[b][a][b][a] = V[a][b][a][b]
+
+    slow_sum = 0.0
+    diag_slow_sum = 0.0
+    for i in range(n):
+        for j in range(i + 1, n):
+            for i_prime in range(n):
+                for j_prime in range(i_prime + 1, n):
+                    if i == i_prime and j == j_prime:
+                        diag_slow_sum += np.linalg.det(take(M, [i, j], [i_prime, j_prime]))
+                    slow_sum += V[i][j][i_prime][j_prime] * np.linalg.det(take(M, [i, j], [i_prime, j_prime]))
+    print(f"  Diagonal slow sum = {diag_slow_sum:.4f}")
+    print(f"  Slow sum = {slow_sum:.4f}")
+
+    diag_quick_sum = 0.5 * (np.trace(M) * np.trace(M) - np.trace(np.matmul(M, M)))
+    print(f"  Diagonal quick sum = {diag_quick_sum:.4f}")
+
+    """reduced_V_a = np.zeros((n, n), dtype=complex)
+    reduced_V_b = np.zeros((n, n), dtype=complex)
+    #reduced_V_c = np.zeros((n, n), dtype=complex)
+    #reduced_V_d = np.zeros((n, n), dtype=complex)
+    for i in range(n):
+        for j in range(n):
+            for k in range(n):
+                for l in range(n):
+                    reduced_V_a[i][j] += V[i][k][j][l]
+                    reduced_V_b[i][j] += V[k][i][l][j]
+                #reduced_V_c[i][j] += V[i][k][k][j]
+                #reduced_V_d[i][j] += V[k][i][j][k]"""
+    reduced_V_a =  np.sum(V, axis = (1, 3)) + np.sum(V, axis = (0, 2))
+    reduced_V_b =  np.sum(V, axis = (0, 2)) + np.sum(V, axis = (1, 3))
+    print(reduced_V_a)
+    print(reduced_V_b)
+
+
+    N = np.matmul(np.matmul(M, reduced_V_b.T), np.matmul(M, reduced_V_a.T))
+    quick_sum = 0.5 * (np.trace(np.matmul(M, reduced_V_a.T)) * np.trace(np.matmul(M, reduced_V_b.T)) - np.trace(N)) / (np.sum(V))
+    print(f"  Quick sum = {quick_sum:.4f}")
+
+    """V_var = np.zeros(tuple([n] * (2 * r)), dtype = complex)
+    for i in range(n):
+        for j in range(n):
+                V_var[i][j][i][j] = 1.0
+                #V[j][i][j][i] = 1.0
+
+    slow_sum_var = 0.0
+    for i in range(n):
+        for j in range(i + 1, n):
+            for i_prime in range(n):
+                for j_prime in range(i_prime + 1, n):
+                    slow_sum_var += V_var[i][j][i_prime][j_prime] * np.linalg.det(take(M, [i, j], [i_prime, j_prime]))
+    print(f"  Slow sum (var) = {slow_sum_var:.4f}")
+    reduced_V_a_var = np.sum(V_var, axis = (1, 3))
+    reduced_V_b_var = np.sum(V_var, axis = (0, 2))
+    print(reduced_V_a_var)
+    print(reduced_V_b_var)
+
+
+    N_var = np.matmul(np.matmul(M, reduced_V_b.T), np.matmul(M, reduced_V_a.T))
+    quick_sum_var = 0.5 * (np.trace(np.matmul(M, reduced_V_a_var.T)) * np.trace(np.matmul(M, reduced_V_b_var.T)) - np.trace(N_var)) / np.sum(V_var)
+    print(f"  Quick sum = {quick_sum_var:.4f}")"""
+
+test_weighted_minor_sum()
 

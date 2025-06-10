@@ -338,6 +338,18 @@
 	\end{equation}
 	so that we can always use Eq. \ref{eq: general reduced overlap determinant} as the standard expression.
 	
+	\subsubsection{Expressing the matrix element of a fermionic operator product sequence as an alternation of the overlap integral}
+	
+	Using standard matrix identities, in this section we obtain an expression in the form
+	\begin{equation}
+	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b} = \braket{Z_a}{Z_b} R(Z_a\hc, Z_b, \seq{\tau}, \seq{\sigma}, \seq{\tau'}, \seq{\sigma'})
+	\end{equation}
+	
+	Firstly, the expression for the inverse of a reduced matrix given in \cite{reverse_bordering} can be trivially generalised as follows:
+	\begin{equation}
+	(M^{(r.\mu, c.\mu)})^{-1}=(M^{-1})^{(r.\mu, c.\mu)}-(M^{-1})^{(r.\mu)}_{c.\seq{\mu}} (M_{r.\seq{\mu},c.\seq{\mu}})^{-1} (M^{-1})^{(c.\mu)}_{r.\seq{\mu}}
+	\end{equation}
+	
 	\section{Full-variational equations of motion}
 	In this section we express the time-dependent Schrodinger equation discretised on a finite unnormalised coherent state basis of size $Z$, where the full wavestate $\ket{\Psi}$ is parametrised by the time-dependent quantities $Z^m_{ij}$, which describes the $m$-th basis state $\unnormket{Z^m}$, and $A_m$, which is the decomposition coefficient of $\unnormket{Z^m}$. Formally
 	\begin{equation}
@@ -420,7 +432,49 @@
 	\begin{equation}
 	i\Omega\dv{t}\vec{Q}=\vec{R}
 	\end{equation}
-	where $\Omega$ is an $(NS(M-S),NS(M-S))$ matrix and $\vec{R}$ is an $(NS(M-S))$-dimensional vector, both being functions of $\vec{Q}$.
+	where $\Omega$ is an $(NS(M-S),NS(M-S))$ matrix and $\vec{R}$ is an $(NS(M-S))$-dimensional vector, both being functions of $\vec{Q}$. The transformation matrix $\Omega$ can be written in block form
+	\begin{equation}
+	\Omega = \mqty(
+		\Omega^{AA} & \Omega^{A,1} & \dots & \Omega^{A,M-S}\\
+		\Omega^{1,A} & \Omega^{1,1} & \dots & \Omega^{1,M-S}\\
+		\vdots & \vdots & \ddots & \\
+		\Omega^{M-S,A} & \Omega^{M-S,1} & & \Omega^{M-S,M-S}
+	)
+	\end{equation}
+	where for the first row and first column
+	\begin{equation}
+	\Omega^{A,i}=\mqty(\Omega^{A,i,1} & \dots & \Omega^{A,ij} & \dots & \Omega^{A,i,S})\qq{and}\Omega^{i,A}=(\Omega^{A,i})\hc
+	\end{equation}
+	and for the other blocks
+	\begin{equation}
+	\Omega^{i,i'}=\mqty(
+		\Omega^{i,1,i',1} & \Omega^{i,1,i',2} & \dots & \Omega^{i,1,i',S} \\
+		\Omega^{i,2,i',1} & \Omega^{i,2,i',2} & \dots & \Omega^{i,2,i',S} \\
+		\vdots & \vdots & \ddots & \\
+		\Omega^{i,S,i',1} & \Omega^{i,S,i',2} & & \Omega^{i,S,i',S}
+	),\qq{the general sub-block being}\Omega^{ij,i'j'}
+	\end{equation}
+	Then, we can express $\Omega$ to encode the Euler-Lagrange equations of motion like so:
+	\begin{align}
+	\Omega^{AA}_{mn} &= \unnormbraket{Z^m}{Z^n}\\
+	\Omega^{A,ij}_{mn} &= A_n\unnormmel{Z^m}{\hat{f}_i\hc\hat{f}_j}{Z^n}\\
+	\Omega^{ij,i'j'}_{mn} &= A_m^* A_n \unnormmel{Z^m}{\hat{f}_j\hc\hat{f}_i\hat{f}_{i'}\hc\hat{f}_{j'}}{Z^n} = A_m^* A_n \left(\delta_{ii'} \unnormmel{Z^m}{\hat{f}_j\hc\hat{f}_{j'}}{Z^n} - \unnormmel{Z^m}{\hat{f}_{i'}\hc\hat{f}_j\hc\hat{f}_{j'}\hat{f}_{i}}{Z^n} \right)
+	\end{align}
+	where
+	\begin{align}
+	\Omega^{ij,A}&=(\Omega^{A,ij})\hc\\
+	\Omega^{ij,i'j'}&=(\Omega^{i'j',ij})\hc\\
+	\Omega\hc&=\Omega
+	\end{align}
+	The vector $\vec{R}$ can be expressed like so
+	\begin{equation}
+	\vec{R}=\mqty(\vec{R}^A \\ \vec{R}^Z)\qq{where} \vec{R}^Z = \mqty(\vec{R}^{Z,1} \\ \vdots \\ \vec{R}^{Z,M-S})\qq{and} \vec{R}^{Z,i} = \mqty(\vec{R}^{Z,i,1} \\ \vdots \\ \vec{R}^{Z,i,S})
+	\end{equation}
+	where
+	\begin{align}
+	R^A_m &= \sum_n A_n \unnormmel{Z^m}{\hat{H}}{Z^n}\\
+	R^{Z,ij}_m &= A_m^* \sum_n A_n \unnormmel{Z^m}{\hat{f}\hc_j \hat{f}_i\hat{H}}{Z^n}
+	\end{align}
 	
 	\subsection{Decoupled basis propagation} \label{sec: decoupled basis}
 	
@@ -656,6 +710,9 @@
 	
 	\bibitem{charpol}
 	Horn, R. A., Johnson, C. R. (2012), \textit{Matrix Analysis}. 2nd edn. Cambridge University Press, Cambridge. \href{https://doi.org/10.1017/CBO9781139020411}{doi.org/10.1017/CBO9781139020411 }
+	
+	\bibitem{reverse_bordering}
+	 Brezinski, C., Morandi Cecchi, M., Redivo-Zaglia, M. (1994), The reverse bordering method. \textit{SIAM J. Matrix Anal. Appl.}, \textbf{15}, 3, pp. 922--937. \href{https://doi.org/10.1137/S0895479892227761}{doi.org/10.1137/S0895479892227761}
 
 	\end{thebibliography}	
 	

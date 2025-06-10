@@ -1,4 +1,5 @@
 __pycache__/
+.venv/
 # we also ignore all latex byproduct files
 *.aux
 *.log

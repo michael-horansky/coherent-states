@@ -1,0 +1,126 @@
+\documentclass[english]{beamer}
+\mode<presentation>
+
+%\usepackage[slovak]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{physics}
+\usepackage{tikz, pgfplots}
+%\DeclareMathSizes{12pt}{10pt}{10pt}{10pt}
+
+\usepackage{multimedia}
+\RequirePackage{environ}
+
+\usepackage{changepage}
+\makeatletter
+\newenvironment{forcecenter}%
+    {\@parboxrestore%
+     \begin{adjustwidth}{}{\leftmargin}%
+    }{\end{adjustwidth}
+     }
+\makeatother
+
+%\graphicspath{images}
+
+%Use Okular!
+
+\newcommand\Wider[2][3em]{
+\makebox{\linewidth][c]{
+	\begin{minipage}{\dimexpr\textwidth+#1\relax}
+	\raggedright#2
+	\end{minipage}	
+	}
+}
+}
+
+\NewEnviron{sea}{
+	\fontsize{9}{12}
+    \begin{eqnarray*}
+   % \fontsize{12pt}{10pt}\selectfont
+    \BODY
+    \end{eqnarray*}
+    \normalsize
+}
+
+\begin{document}
+
+  \title{Bosonic and fermionic coherent states\\\hfill\\A progress report}
+  \author[Michal Horanský]{Michal Horanský\\\hfill\\University of Leeds}
+  %\date{14. apríl 2019}
+  %\maketitle
+  \date{June 20, 2025}
+  \begin{frame}
+    \titlepage
+  \end{frame}
+  
+  
+  \begin{frame}
+  	\frametitle{Bosonic $SU(M)$ CSs}
+  	\framesubtitle{Progress on simulation of dynamics}
+  	\begin{itemize}
+  		\item Numerical issues solved; the data for $M=2,3$ is now sensible\\
+  		\item Comparison with fully variational approach shows that the decoupled basis method reproduces the dynamics of a low-mode system sufficiently well--and saves a lot of time
+  		\item So far, the initial wavefunction was a "pure" coherent state, which will be pefectly reproduced by a basis of size $1$ in the coherent timespan
+  		\item What to do next:
+  		\begin{itemize}
+  			\item For arbitrary intitial wavefunctions, a sane sampling method must be implemented
+  			\item Stability must be shown for large ($20-30$) number of modes
+  			\item Minimal required basis size for these cases is to be found
+  		\end{itemize}
+  	\end{itemize}
+  \end{frame}
+  
+  
+  \begin{frame}
+  	\frametitle{Fermionic $SU(M)$ CSs}
+  	\framesubtitle{Construction}
+  	\begin{itemize}
+  		\item I found a construction of fermionic coherent states which
+  		\begin{enumerate}
+  			\item is wholly contained in the particle-preserving Hilbert space
+  			\item doesn't use Grassmann algebra
+  		\end{enumerate}
+  		\item In this construction:
+  		\begin{itemize}
+  			\item Each CS is parametrised by $S(M-S)$ complex parameters
+  			\item The overlap $\braket{Z_a}{Z_b}$ is calculable as a determinant in $O(M^3)$
+  			\item The Hamiltonian matrix element $\mel{Z_a}{\hat{H}}{Z_b}$ is calculable as an $M^4$-term sum of determinant-like reduced overlaps, yielding a time complexity of $O(M^7)$.
+  		\end{itemize}
+  	\end{itemize}
+  \end{frame}
+  
+  
+  \begin{frame}
+  	\frametitle{Fermionic $SU(M)$ CSs}
+  	\framesubtitle{Utility}
+  	\begin{itemize}
+  		\item Can be used to calculate the dynamics of a molecular electronic Hamiltonian with complexity polynomial in $M$
+  		\item This can be used to find the molecular ground state
+  		\item Example methods:
+  		\begin{itemize}
+  			\item Krylov-Lanczos method
+  			\item Imaginary time propagation
+  		\end{itemize}
+  	\end{itemize}
+  \end{frame}
+  
+  \begin{frame}
+  	\frametitle{Outlook}
+  	\begin{itemize}
+  		\item I am currently implementing a python framework to perform krylov-lanczos calculations on arbitrary molecules using the fermionic CS construction
+  		\item Other things which would be useful:
+  		\begin{itemize}
+  			\item Can the Hamiltonain matrix element be calculated with smaller time complexity if optimised well?
+  			\item Can a simple expression for the inverse of the Kähler potential of the fermionic $SU(M)$ CSs be found? (This would be equivalent to lowering the time complexity on single-CS dynamics calculations)
+  			\item Formalism comparison with Dima
+  		\end{itemize}
+  	\end{itemize}
+  \end{frame}
+  
+  \begin{frame}[plain,c]
+  	\begin{center}
+  	  \Huge Thank you for your attention
+  	\end{center}
+  \end{frame}
+
+
+\end{document}

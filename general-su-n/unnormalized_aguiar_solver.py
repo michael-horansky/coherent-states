@@ -1721,10 +1721,10 @@ class bosonic_su_n():
             if y_left != -1:
                 plt.ylim(y_left, y_right)
 
-            if include_legend:
-                plt.legend()
+            #if include_legend:
+            #    plt.legend()
 
-        plt.tight_layout()
+        #plt.tight_layout()
         if save_graph:
             Path(f"outputs/{self.output_subfolder_name}").mkdir(parents=True, exist_ok=True)
             plt.savefig(f"outputs/{self.output_subfolder_name}/" + str(self.ID) + "_graph_output.png")

@@ -126,7 +126,9 @@ bose_hubbard.plot_data( graph_list = ["expected_mode_occupancy"])"""
 
 
 #bose_hubbard = bosonic_su_n("bose_hubbard_M=3_S=20")
-bose_hubbard = bosonic_su_n("bose_hubbard_M=2_S=10_mixed_init")
+
+
+bose_hubbard = bosonic_su_n("bose_hubbard_M=2_S=10_mixed_init_poster")
 bose_hubbard.load_data()
 
 bose_hubbard.plot_data(graph_list = ["expected_mode_occupancy"])

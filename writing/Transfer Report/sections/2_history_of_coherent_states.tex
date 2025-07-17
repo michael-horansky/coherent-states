@@ -1,11 +1,55 @@
 \section{Coherent states: a hundred year-long history}
-Here we write that sweet history of coherent states
+The study of classical trajectories present in quantum dynamics dates back to Schrodinger's work in 1926, and remained an active area of study ever since. Multiple generalisations were constructed for the initial concept of coherent states, and the specific properties of coherent states of many particular systems were found and subsequently utilised in semi-classical methods. In this section, I outline a brief history of the theoretical treatment of coherent states leading up to the framework used for the $SU(M)$ bosonic/fermionic coherent states.
 	
 \subsection{Schrodinger: the harmonic oscillator}
-Truly coherent, mm
+In 1926, Schrodinger formulated so-called "classical states" of the simple harmonic oscillator \cite{harmonic_classical_states}. Consider the Hamiltonian of the simple harmonic oscillator
+\begin{equation}
+\hat{H}=\omega \left(\hat{a}\hc\hat{a}+\frac{1}{2}\right)
+\end{equation}
+where $\omega$ is the characteristic scale of the potential. Then consider the following superposition of energy eigenstates $\ket{n}$, characterised by a single complex parameter $\alpha$:
+\begin{equation} \label{eq:schrodinger_CS}
+\ket{\alpha}=N(\alpha)\sum_{i=0}^\infty \frac{\alpha^n}{\sqrt{n!}}\ket{n}
+\end{equation}
+where $N(\alpha)$ is a normalisation factor. This state has the following properties:
+\begin{enumerate}
+	\item The expected values of $\hat{x}$ and $\hat{p}$ are proportional to the real and imaginary components of $\alpha$, respectively.
+	\item These expected values evolve according to the "classical" Hamiltonian equation, which can therefore be succintly written as
+	\begin{equation}
+	\dot{\alpha}=-i\pdv{H(\alpha, \alpha^*)}{\alpha^*}
+	\end{equation}
+	where $H(\alpha, \alpha^*)$ is the classical simple harmonic oscillator Hamiltonian as given by the expected values of $\hat{x}, \hat{p}$.
+	\item The position and momentum uncertainties of $\ket{\alpha}$ are minimal: $\Delta x\Delta p=\frac{1}{2}$.
+	\item The state remains "coherent", i.e. as it evolves, the parameter $\alpha(t)$ changes, but the wave-state remains describable by the construction in Eq. \ref{eq:schrodinger_CS}.
+\end{enumerate}
+The significance of these states is immediately obvious: although fundamentally non-classical, the Schrodinger equation with the simple harmonic oscillator Hamiltonian permits "wave-groups" (as dubbed by Schrodinger) whose expectation values not only follow non-trivial classical trajectories, but which remain compact (both in space and in momentum representation!) and coherent.
 	
 \subsection{Glauber: field coherent states}
-we exponentiating in this mofo
+In 1963, Glauber generalised Schrodinger's construction to the Hamiltonian which describes the interaction between an atomic system and an electromagnetic field, forming field coherent states\footnote{Also called Glauber coherent states.} \cite{field_coherent_states}. According to Glauber, the following three properties all lead to the construction of field coherent states \cite[p. 869]{ZFG}:
+\begin{enumerate}
+	\item The coherent state is an eigenstate of the annihilation operator
+	\begin{equation}
+	\hat{a}\ket{\alpha}=\alpha\ket{\alpha}
+	\end{equation}
+	\item The coherent state is obtained by applying a displacement operator on the vacuum state
+	\begin{equation}
+	\ket{\alpha}=\hat{D}(\alpha)\ket{0}\qq{where} \hat{D}(\alpha)=\exp(\alpha\hat{a}\hc-\alpha^*\hat{a})
+	\end{equation}
+	\item The coherent state is a state with minimal position-momentum uncertainty.
+\end{enumerate}
+However, as remarked by Zhang, Feng, and Gilmore in \cite{ZFG}, the third property is not sufficient for a unique construction.
+
+Field coherent states showed that "classical states" are present in systems beyond the simple harmonic oscillator, but Glauber's construction still was not applicable to general Hamiltonians--specifically, it fails when the Hilbert space is finite, as no eigenstate of the annihilation operator exists! This is particularly relevant when studying systems which preserve total particle number, and thus further generalisation was required.
 	
-\subsection{Zhang, Feng, Gilmore: coupled coherent states}
-me when i group
+\subsection{Perelomov and Gilmore: generalised field coherent states}
+Such a generalisation of Glauber's coherent states for arbitrary Hamiltonians was indeed found independently by Perelomov \cite{perelomov_og} and Gilmore \cite{gilmore_og} in 1972. This construction discards the approach via annihilation operator eigenstates, and instead fully generalises the approach through the displacement operator (which, in retrospect, fully recovers Schrodinger's classical states and Glauber's field coherent states). Perelomov and Gilmore's construction follows these steps:
+\begin{enumerate}
+	\item Firstly, the transition operators $\hat{T}_i$ of the Hilbert space $\mathcal{H}$ are identified. These are operators which, given any state in $\mathcal{H}$, can reach any other state in $\mathcal{H}$ by finitely-many sequential applications to the initial state. These operators must form a Lie algebra. Also, the Hamiltonian has to be expressable as a function of the transition operators (not necessarily a linear function).
+	\item Secondly, a reference state $\ket{\phi_0}$ is chosen. This choice is arbitrary.
+	\item Thirdly, two Lie groups are identified: the dynamical group $G$, which is the Lie group associated with the Lie algebra formed by the transition operators $\hat{T}_i$, and its stability subgroup $\hat{H}$, which is the group of all elements in $G$ which leave $\ket{\phi_0}$ invariant up to a phase. The quotient group $G/H$ then contains elements $\hat{D(z_j)}=\exp(\sum_j z_j\hat{T_j})$, where the sum over $j$ contains those transition operators which are not in the stability group Lie algebra. Thus we obtain a map which assigns one coherent state to every element of the quotient group:
+	\begin{equation}
+	\ket{z}=N(z, z^*)\exp(\sum_jz_j\hat{T}_j)\ket{\phi_0}
+	\end{equation}
+	where $N$ is a normalisation function, which is necessary since $\hat{D}(z)$ is not in general unitary: the parameters $z_j$ are complex and the transition operators are not required to be Hermitian.
+\end{enumerate}
+These states posses many of the aforementioned properties, most importantly, classical-like trajectories, as will be discussed in Sec. \ref{sec:mathematical_approach}.
+

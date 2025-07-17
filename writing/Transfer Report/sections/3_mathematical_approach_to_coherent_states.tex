@@ -1,8 +1,42 @@
-\section{Mathematical approach to CS-based methods}
-surprisingly easy to generalise this shiss
+\section{Mathematical approach to CS-based methods}\label{sec:mathematical_approach}
+In this section, we firstly discuss the mathematical properties of generalised field coherent states and their ensembles, and then the particular construction of $SU(M)$ coherent states.
 	
 \subsection{Topology of the CS parameter space}
-de aguiar is my man
+This subsection is a summary of relevant information as included by Viscondi, Grigolo, and de Aguiar in their review of generalised field coherent states \cite{aguiar}.
+
+When applying the quotient-space displacement operator on the reference state, the resulting states are no longer normalised. We will adopt the notation of Viscondi, Grigolo, and de Aguiar, and denote unnormalised elements of the Hilbert space as bras and kets with curly brackets. Then, the unnormalised coherent state is directly obtained as
+\begin{equation}
+\unnormket{z}=\hat{D}(z)\ket{\phi_0}
+\end{equation}
+and a normalised coherent state is constructed by scaling by a normalisation factor:
+\begin{equation}
+\ket{z}=N(z^*, z)\unnormket{z}\qq{where}N(z_a^*, z_b)=\unnormbraket{z_a}{z_b}^{-\frac{1}{2}}
+\end{equation}
+The quotient space can be characterised by the following metric:
+\begin{equation}
+g(z_a^*, z_b)=\pdv{\ln\unnormbraket{z_a^*}{z_b}}{z_b}{z_a^*}
+\end{equation} 
+Then, the coherent states remain coherent under time evolution, with the parameter $z$ evolving according to a Hamiltonian equation on a curved manifold:
+\begin{equation}
+\dot{z}_i=-i\xi^T_{ij}(z^*, z)\pdv{H(z^*, z)}{z_j^*}
+\end{equation}
+where $H(z^*, z)=\mel{z}{\hat{H}}{z}$ is the effective Hamiltonian and $\xi(z^*, z)$ is the inverse of the quotient-space metric $g(z^*, z)$.
+
 	
 \subsection{Fully variational equations of motion}
-He do be overlappin doe
+Here we employ the paradigm discussed in previous sections which encompasses the heart of this kind of semi-classical approaximation: a limited sample of classical trajectories. We will approximate our Hilbert space by a discrete sample of $N$ coherent states, each characterised by its parameters $z_a$, which evolve in time. Onto this basis sample, we decompose an arbitrary wavestate $\ket{\Psi(t=0)}$ whose dynamics we are interested in:
+\begin{equation}
+\ket{\Psi(t=0)}=\sum_{a=1}^N A_a(t=0)\unnormket{z_a(t=0)}
+\end{equation}
+Note that I opt to use the unnormalised coherent states as the basis, rather than their normalised counterparts. This does not affect the physicality of the solution, which shall remain normalised, and it serves to simplify the equations of motion by omitting the normalisation factors $N(z_a)$.
+
+Now, we can apply the Schrodinger Lagrangian $\hat{L}=i\dv{t}-\hat{H}$ onto our system of free coordinates $(A_a, z_a)$ to obtain a system of first-order equations of motion, which can be computationally solved to obtain the trajectories of the basis, the decomposition coefficient evolution, and hence the evolution of the initial wavestate. This approach is a slight modification of the approach used by Qiao and Grossmann in \cite{grossmann}.
+
+Let us begin by obtaining the derivatives of unnormalised coherent states:
+\begin{align}
+\pdv{z_j}\unnormket{z}&=\pdv{z_j}\exp(z_i\hat{T}_i)\ket{\phi_0}=\hat{T}_j\unnormket{z}\\
+\dv{t}\unnormket{z}&=\dv{t}\exp(z_i\hat{T}_i)\ket{\phi_0}=\dot{z}_i\hat{T}_i\unnormket{z}
+\end{align}
+
+
+\subsection{$SU(M)$ coherent states}

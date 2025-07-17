@@ -6,17 +6,32 @@
 \usepackage{physics}
 \usepackage{graphicx}
 
+\newcommand{\sgn}{\text{sgn}}
+\newcommand{\seq}[1]{\langle #1\rangle}
+\newcommand{\asc}[1]{\upharpoonleft #1 \upharpoonright}
+\newcommand{\hc}{^\dagger}
+\newcommand{\inv}{^{-1}}
+\newcommand{\Sym}{\text{Sym}}
+\newcommand{\normord}[1]{:\mathrel{\mspace{2mu}#1\mspace{2mu}}:}
+
 \begin{document}
 
 	\title{Bosonic and fermionic particle-preserving coherent states, their dynamics and applications\\\hfill\\Transfer Report}
 	\author{Michal Horanský}
 	\maketitle
 	
+	\chapter*{Abstract}
+	Coherent states-based methods have been previously developed and utilised for particle-preserving bosonic systems, such as the Bose-Hubbard model. This work is divided into two parts: Firstly, a new method is proposed for the bosonic systems, where the basis coherent states are propagated separately to create a frozen dynamical basis, which lowers the time-complexity significantly. Second, an analogous method is proposed for particle-preserving fermionic systems, and particularly the electronic structure of a molecule, for which the goal of this method is to find the ground state. For this, multiple methods are outlined, and relevant properties of the fermionic coherent states are obtained.
+	
+	
 	\tableofcontents
+	
 	
 	\chapter{Background}
 	
-	I love coherent states
+	To find the dynamics of a given system, one typically needs to solve the Schrodinger equation given by the system's Hamiltonian. For complex systems which can be found in nature, an analytic solution rarely exists. To solve this partial differential equation computationally, one needs to chose a basis for the Hilbert space and, since it typically is infinite or even continuous, sample it to obtain a basis sample onto which the initial state is decomposed and on which it is propagated. This sampling choice is always limiting and must be carefully justified, as omitting elements of the Hilbert space may render the analysis inaccurate.
+	
+	Coherent states are particular states in the Hilbert space which follow classical trajectories, remain coherent, and minimise position-momentum uncertainty. Choosing them as the basis, a very small sample is typically suitable to capture the physics of a wide variety of systems and starting conditions \cite{grossmann}. This is an example of a semi-classical approximation.
 	
 	\include{sections/1_semi_classical_methods}
 	
@@ -75,7 +90,7 @@
 	\bibitem{ZFG}
 	Zhang, W. M., Feng, D. H., Gilmore, R. (1990), Coherent states: Theory and some applications. \textit{Rev. Mod. Phys.}, \textbf{62}, pp. 867--927
 	
-	\bibitem{Aguiar}
+	\bibitem{aguiar}
 	Viscondi, T. F., Grigolo, A., de Aguiar, M. A. M. (2015), Semiclassical Propagator in the Generalized Coherent-State Representation. \href{https://doi.org/10.48550/arXiv.1510.05952}{arXiv:1510.05952 \textbf{[quant-ph]}}
 	
 	\bibitem{optical_lattices}

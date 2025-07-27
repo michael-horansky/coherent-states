@@ -1,11 +1,31 @@
 \section{Utility and scope of semi-classical methods}
-get that adiabatic shit outta here lil bro
+Semi-classical methods have long been used in computational quantum dynamics, mainly in systems which can be partitioned into multiple sub-systems, some to be treated classically, some to be treated with the machinery of quantum mechanics \cite{semiclassical_generic_1}. A common example is the molecule, for which, based on the Born-Oppenheimer approximation, the nuclei may be treated as if following classical trajectories, and the electronic structure following quantum dynamics.
+
+More recently, systems which are "fully quantum" started being approached with classical approach in mind, as quantum dynamics may be formulated on top of classical behaviour embedded in a quantum-mechanical system \cite{semiclassical_generic_2}.
+
+An example of this approach is the method of coherent-state basis trajectories, which lies at the heart of my research. As elaborated on below in Sec. \ref{sec:history}, states which follow classical-like trajectories and which remain localised in phase-space are embedded in every quantum system, and are inextricably linked to second-quantisation of position and momentum operators. This second-quantisation expresses the state of a system by the level of discrete excitations in an array of modes. As such, we have chosen three particular physical systems as subjects to the methods developed in this work: two analysing bosonic dynamics, and one analysing fermionic dynamics.
 	
-\subsection{Bosonic system 1: Bose-Hubbard model}
-he bossin
+\subsection{Bosonic system 1: Bose-Hubbard model} \label{sec:bosonic1}
+The Bose-Hubbard model describes the physics of bosonic particles trapped on a lattice, which is for our particular analysis chosen to be one-dimensional. The modes occupied by a fixed total number of bosons correspond to sites on this lattice, and the relevant components of the Hamiltonian are on-site energy $U$ and hopping energy $J$, respectively. The model, in its general formulation, also incorporates an external potential being applied on the lattice, which we, however, ignore. As such, the full Hamiltonian becomes:
+\begin{equation}
+\hat{H}=-J\sum_{i=1}^{M-1}\left(\hat{b}_i\hc\hat{b}_{i+1}+\hat{b}_{i+1}\hc\hat{b}_{i}\right)+\frac{U}{2}\sum_{i=1}^{M}\left.\hat{b}_i\hc\right.^2\left.\hat{b}\right.^2_i
+\end{equation}
+This system has previously been analysed using coherent-states-based methods by Qiao and Grossmann \cite{grossmann}. As such, the machinery we propose for bosonic systems shall be compared to this work as a benchmark.
+
+The method used by Qiao and Grossmann is as follows: a basis of generalised field coherent states is constructed mathematically and then sampled around the initial wavestate. The elements of this basis are parametrised by complex vectors $\vec{\xi}_a$. The wavestate is decomposed into this basis like so:
+\begin{equation}
+\ket{\Psi}=\sum_a^N A_a\ket{\vec{\xi}_a}
+\end{equation}
+where $A_a, \vec{\xi}_a$ are taken as dynamical coordinates. The equations of motion for these coordinates are expressed in a fully variational manner from the Schrodinger Lagrangian, and solved numerically as an initial-value problem for several particular choices of system parameters; importantly, for two-mode and three-mode lattices.
+
+The method we propose as a faster alternative is as follows: after sampling the coherent state basis, each element of this basis is propagated along its classical-like trajectory. Then, the wavestate is decomposed onto the basis, and its decomposition coefficients are propagated on this basis, which is not constant in time, but follows pre-determined trajectories. As such, this is not a fully variational method, and the consideration for quantum effects is fully engrossed in the propagation of decomposition coefficients alone. We propose that for the type of initial wavestates as analysed by Qiao and Grossmann, which are either pure coherent states or superpositions of a handful of coherent states, this new method will converge easily with small basis samples and, by construction, entails drastically smaller time-complexity.
 	
-\subsection{Bosonic system 2: Displaced harmonic trap}
-me when i quantise the modes
+\subsection{Bosonic system 2: Displaced harmonic trap} \label{sec:bosonic2}
+Another bosonic system is taken from the work of Green and Shalashilin \cite{green}, who studied a closed system of particles in a trap comprised of a displaced harmonic potential. This second application is of interest to us as a benchmark because it can be formulated with position and momentum operators, and the second-quantised formulation is in fact an alternative which requires a large number of modes (25--27) to converge. As such, the ability to solve this system with our new coherent-states-based method would prove its scalability for bosonic systems with a large number of modes.
+
+The method utilised by Green and Shalashilin is similar to the one employed by us, but it is based on a less general formulation of coherent states, which are frozen gaussians in the phase space. As such, it serves as a usedul benchmark in its own right to measure the trade-off between the accuracy of classical-like trajectories and added complexity of the more general formulation used in this work.
 	
-\subsection{Fermionic system: molecular electronic structure}
-ground state would be nice aha
+\subsection{Fermionic system: molecular electronic structure} \label{sec:fermionic1}
+An example of a fermionic system which preserves the total number of particles is the electronic structure of an inert molecule. This is a very important problem, as the ground state of the electronic structure is closely related to many chemical properties of molecules. The molecular orbitals of electrons can be well-approximated as linear combinations of the electron orbitals of the constituent atoms \cite{mulliken}.
+
+In this work, we propose a new method for obtaining the ground state, which works by restricting the Hilbert space to a small coherent-state subspace surrounding the lowest-configuration state, sampling this subspace, and manually diagonalising the Hamiltonian expressed as a matrix on the basis sample. One method for this is to take the lowest-configuration state as a reference state in our coherent state construction, which means it in itself is a coherent state, and then propagating it along its classical-like trajectory and sampling it at fixed time-intervals. Using the overcompleteness of coherent states, we hope that even a sample of a size much smaller than the dimensionality of the full Hilbert space will be able to converge to the true ground state.

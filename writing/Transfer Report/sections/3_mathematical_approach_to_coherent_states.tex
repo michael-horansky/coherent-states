@@ -17,7 +17,7 @@ The quotient space can be characterised by the following metric:
 g(z_a^*, z_b)=\pdv{\ln\unnormbraket{z_a^*}{z_b}}{z_b}{z_a^*}
 \end{equation} 
 Then, the coherent states remain coherent under time evolution, with the parameter $z$ evolving according to a Hamiltonian equation on a curved manifold:
-\begin{equation}
+\begin{equation} \label{eq:single_z_prop}
 \dot{z}_i=-i\xi^T_{ij}(z^*, z)\pdv{H(z^*, z)}{z_j^*}
 \end{equation}
 where $H(z^*, z)=\mel{z}{\hat{H}}{z}$ is the effective Hamiltonian and $\xi(z^*, z)$ is the inverse of the quotient-space metric $g(z^*, z)$.
@@ -37,6 +37,94 @@ Let us begin by obtaining the derivatives of unnormalised coherent states:
 \pdv{z_j}\unnormket{z}&=\pdv{z_j}\exp(z_i\hat{T}_i)\ket{\phi_0}=\hat{T}_j\unnormket{z}\\
 \dv{t}\unnormket{z}&=\dv{t}\exp(z_i\hat{T}_i)\ket{\phi_0}=\dot{z}_i\hat{T}_i\unnormket{z}
 \end{align}
+Then the Lagrangian of the trial wavestate is
+\begin{align*}
+L=\sum_{m,n}^N\left(iA_m^*\dot{A}_n\unnormbraket{z_m}{z_n}+iA_m^*A_n\sum_i \dot{z}_{n,i} \unnormmel{z_m}{\hat{T}_i}{z_n}-\unnormmel{z_m}{\hat{H}}{z_n}\right)
+\end{align*}
+and the equations of motion obtained by differentiating with respect to $A_m^*, z_{m,i}^*$, respectively, are
+\begin{align}
+i\sum_{n}^N \left(\dot{A}_n\unnormbraket{z_m}{z_n}+A_n\sum_i \dot{z}_{n,i}\unnormmel{z_m}{\hat{T}_i}{z_n} \right)&=\sum_{n}^N A_n\unnormmel{z_m}{\hat{H}}{z_n}\\
+i A_m^*\sum_{n}^N \left(\dot{A}_n \unnormmel{z_m}{\hat{T}_i\hc}{z_n} + A_n \sum_j \dot{z}_{n,j} \unnormmel{z_m}{\hat{T}_i\hc \hat{T}_j}{z_n} \right) &= A_m^*\sum_{n}^N A_n\unnormmel{z_m}{\hat{T}_i\hc\hat{H}}{z_n}
+\end{align}
+Note that for $N=1$ (i.e. the wavestate is a pure coherent state), these equations are equivalent to Eq. \ref{eq:single_z_prop}.
 
+It is helpful to express this in matrix form, with the coordinate vector defined as
+\begin{equation}
+\vec{Q}=\mqty(\vec{Q}^A\\\vec{Q}^z) \qquad \vec{Q}^A_m=A_m \qquad \vec{Q}^z=\mqty(\vdots\\\vec{Q}^{z,i}\\\vdots) \qquad \vec{Q}^{z,i}_m=z_{m,i}
+\end{equation}
+where the first-order matrix equation of motion becomes
+\begin{equation}
+i\Omega\dv{t}\vec{Q}=\vec{R} \qq{where} \vec{R}=\mqty(\vec{R}^A\\\vec{R}^z) \qquad \vec{R}^z=\mqty(\vdots\\\vec{R}^{z,i}\\\vdots)
+\end{equation}
+and where
+\begin{equation}
+\Omega = \mqty(
+	\Omega^{AA} & \Omega^{A,1} & \cdots & \Omega^{A,j} & \cdots\\
+	\Omega^{1,A} & \Omega^{1,1} & \cdots & \Omega^{1,j} & \cdots\\
+	\vdots & \vdots & \ddots & \vdots &\\
+	\Omega^{i,A} & \Omega^{i,1} & \cdots & \Omega^{ij} & \cdots\\
+	\vdots & \vdots & & \vdots & \ddots
+)
+\end{equation}
+The particular elements of the dynamical matrix $\Omega$ and the weight vector $\vec{R}$ are then identified as
+\begin{align}
+\Omega^{AA}_{mn} &= \unnormbraket{z_m}{z_n}\\
+\Omega^{A,i}_{mn} &= A_n\unnormmel{z_m}{\hat{T}_i}{z_n}\qq{and} \Omega^{i,A}=(\Omega^{A,i})\hc\\
+\Omega^{ij}_{mn} &= A_m^*A_n\unnormmel{z_m}{\hat{T}_i\hc \hat{T}_j}{z_n}\\
+R^A_m &= \sum_n^N A_n\unnormmel{z_m}{\hat{H}}{z_n}\\
+R^{z,i}_m &= A_m^*\sum_n^N A_n \unnormmel{z_m}{\hat{T}_i\hc \hat{H}}{z_n}
+\end{align}
+Note that $A_m^*$ could have been factored out of the second group of equations, but was deliberately left in to demonstrate that $\Omega$ is Hermitian.
+
+This form of the equation of motion is especially useful, since it yields itself readily to primitive methods of numerical integration (the method of choice in this work is the Dormand-Prince method, see below). To propagate the wavestate by a finite time-difference $\Delta t$, one simply inverts the dynamical matrix $\Omega$ at the current time. Therefore the time complexity of this approach is limited by the evaluation of $R$ and $\Omega$ and the inversion of $\Omega$, both of which are polynomial in the basis size and the number of transition operators.
 
 \subsection{$SU(M)$ coherent states}
+Consider a system characterised by $M$ modes and $S$ particles, with both of these numbers remaining constant. The most general transition operator is then
+\begin{equation}
+\hat{T}_{ij}=\hat{a}_i\hc\hat{a}_j
+\end{equation}
+where we remain agnostic about whether $\hat{a}$ denotes the bosonic or the fermionic annihilation operator. In either case, applying this operator on an arbitrary occupancy basis state within the configuration space yields either zero or another basis state within the configuration space. It can also be shown by applying the bosonic and fermionic commutation relations that for both of these cases, the transition operators satisfy the following commutation relations:
+\begin{equation}
+\comm{\hat{T}_{ij}}{\hat{T}_{i'j'}}=\hat{T}_{ij'}\delta_{i'j}-\hat{T}_{i'j}\delta_{ij'}
+\end{equation}
+Since the commutator is contained in the vector space spanned by $\hat{T}$, the transition operators form a Lie algebra.
+
+\subsubsection{On transformations of the dynamical Lie algebra}
+Note that a coherent state with parameter $z$ is specified by the linear combination $z_i\hat{T}_i$. Hence, we can specify a new dynamical Lie algebra $\hat{T}'_i$ formed as an arbitrary complex linear combination of $\hat{T}_i$. These two Lie algebras correspond to the same coherent state space, with the parametric maps related by the same linear transformation.
+
+Firstly, we choose to transform the mode-number operators $\hat{a}_i\hc\hat{a}_i$ like so:
+\begin{align}
+\hat{S}&=\sum_i^M \hat{a}_i\hc\hat{a}_i\\
+\hat{H}_i&=\hat{a}_{i+1}\hc\hat{a}_{i+1}-\hat{a}_i\hc\hat{a}_i,\qquad i=1,2\dots M-1
+\end{align}
+The operator $\hat{S}$ is uninteresting, because every state in the configuration space is its eigenstate with eigenvalue $S$, and therefore $\hat{S}$ is always in the stability subgroup. We can therefore ignore it.
+
+The transformed Lie algebra constitutes the generators of real traceless $(M\cross M)$ matrices, and therefore the full dynamical group is $U(1)\cross SL(M,\mathbb{R})$. Ignoring the $U(1)$ direct product, as it is always fully contained in the stability subgroup, we may denote the dynamical group simply as $SL(M,\mathbb{R})$.
+
+\subsubsection{On the difference between $SU(M)$ and $SL(M,\mathbb{R})$}
+	When transforming the basis $\hat{T}_{ij}$, one may choose to complexify it and form a set of Hermitian and anti-Hermitian operators ($\hat{T}_{ij}+\hat{T}_{ji}$ and $i(\hat{T}_{ij}-\hat{T}_{ji})$), respectively. This complexification is allowed in the sense that the resulting coherent state space is equivalent. Identifying the resulting operators with the generalised Gell-Mann matrices yields the dynamical group $SU(M)$ \cite{gellmann}. Although resulting in a different quotient group $G/H$, the coherent states are identical to our $SL(M,\mathbb{R})$ construction. For the details of this construction, see Sec. 2.2.3 in the paper by Viscondi, Grigolo, and de Aguiar \cite{aguiar}.
+	
+	For the sake of simplicity and adherence to existing literature, we will refer to this construction as $SU(M)$ coherent states, but we will still use the exponential map with the $SL(M,\mathbb{R})$ generators, as it leads to much simpler mathematical treatment.
+
+\subsection{General approach to particle-preserving CS decomposition} \label{sec:general_decomposition}
+	This method is based on the approach in \cite[App. E]{buonsante}. Suppose we have a reference state $\ket{\phi_0}$, and the quotient space of the dynamical group of some system is transversed by the exponential map of the operator $\hat{D}(z)$, so that
+	\begin{equation}
+	\unnormket{z}=e^{\hat{D}(z)}\ket{\phi_0}
+	\end{equation}
+	and $\hat{D}(z)$ is a linear combination of transition operators which all destroy the vacuum state\footnote{This is characteristic of dynamical groups which preserve total particle number.}. Define $\hat{\phi}_0$ as such an operator so that
+	\begin{equation}
+	\hat{\phi}_0\ket{\rm vac.} = \ket{\phi_0}
+	\end{equation}
+	Then we can write
+	\begin{equation}
+	\unnormket{z}=e^{\hat{D}(z)}\hat{\phi}_0e^{-\hat{D}(z)}\ket{\rm vac.}
+	\end{equation}
+	using the fact that $\hat{D}(z)\ket{\rm vac.}=0$. We now express the operator product using Hadamard's lemma:
+	\begin{equation}\label{eq:hadamard sum}
+	e^{\hat{D}(z)}\hat{\phi}_0e^{-\hat{D}(z)}=\sum_{r=0}^\infty \frac{1}{r!}\comm{\hat{D}(z)}{\hat{\phi}_0}_r
+	\end{equation}
+	where
+	\begin{equation}
+	\comm{\hat{A}}{\hat{B}}_r=\comm{\hat{A}}{\comm{\hat{A}}{\hat{B}}_{r-1}}\qq{and}\comm{\hat{A}}{\hat{B}}_0=\hat{B}
+	\end{equation}
+	are the repeated commutators. The unnormalised coherent state is obtained by acting with this sum on the vacuum state.

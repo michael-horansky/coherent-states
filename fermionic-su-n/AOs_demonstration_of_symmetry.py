@@ -53,7 +53,7 @@ sym_H_ERI = mol.intor('int2e', aosym = "s8")
 print(sym_H_ERI.shape)
 
 
-"""
+
 def get_nonascending_pairs(l):
     # for indices in l
     if isinstance(l, int):
@@ -90,7 +90,7 @@ for index_set_i in range(len(all_indices)):
         all_agree = False
 
 if all_agree:
-    print("All agree!")"""
+    print("All agree!")
 
 """ this is for the s4 property
 x = 0

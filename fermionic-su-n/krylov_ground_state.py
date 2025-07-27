@@ -165,7 +165,7 @@ class ground_state_solver():
                     Z[n][i][j] = res[N + self.std_i(i, j, n, N)]
         return(A, Z)
 
-    def Q_dot(self, t, Q, reg_timescale = -1):
+    """def Q_dot(self, t, Q, reg_timescale = -1):
 
         # Full-variational method
 
@@ -176,7 +176,7 @@ class ground_state_solver():
         # Now we find all zeroth, first, and second-order transition mels
         X_zero = np.zeros((N, N), dtype=complex) # [n_a][n_b]
         X_one = np.zeros((self.M - self.S, self.S, N, N), dtype=complex) # [i][j][n_a][n_b]
-        X_two = np.zeros((self.M - self.S, self.S, self.M - self.S, self.S,, N, N), dtype=complex) # [i][j][i'][j'][n_a][n_b]
+        X_two = np.zeros((self.M - self.S, self.S, self.M - self.S, self.S, N, N), dtype=complex) # [i][j][i'][j'][n_a][n_b]
 
         for n_a in range(N):
             for n_b in range(N):
@@ -184,7 +184,7 @@ class ground_state_solver():
                 X_zero[n_a][n_b] = self.general_overlap(cur_Z[n_a], cur_Z[n_b], [], [])
 
                 for j_a in range(self.S):
-                    for j_b
+                    for j_b"""
                 # first-order overlap
 
 
@@ -287,6 +287,18 @@ class ground_state_solver():
             self.modes.append(pi_0_provisional[i][0])
 
         print(self.modes)
+
+    def mode_exchange_energy(self, m_i, m_f):
+        # m_i/f are lists of either one mode index (single electron exchange) or two mode indices (two electron exchange)
+        # this function translates mode index exchanges into ao orbital exchanges, which are known
+        if len(m_i) == 1:
+            return(self.H_one[self.modes[m_i[0]]][self.modes[m_f[0]]])
+        elif len(m_i) == 2:
+            p = self.modes[m_i[0]]
+            q = self.modes[m_i[1]]
+            r = self.modes[m_f[0]]
+            s = self.modes[m_f[1]]
+            return(self.H_two[int(p * (p * p * p + 2 * p * p + 3 * p + 2) / 8 + p * q * (p + 1) / 2 + q * (q + 1) / 2   + r * (r + 1) / 2 + s )])
 
 
 

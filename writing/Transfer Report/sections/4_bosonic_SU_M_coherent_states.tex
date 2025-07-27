@@ -1,6 +1,52 @@
 \section{Bosonic $SU(M)$ coherent states}
 	
 \subsection{Construction}
-transitioning into a better person rn
-	
+In this subsection, I describe the properties of $SU(M)$ coherent states constructed on bosonic annihilation and creation operators.
+
+\subsubsection{Reference state and displacement operator}
+A suitable reference state for a bosonic system of $M$ modes and $S$ particles is
+\begin{equation}
+\ket{\phi_0}=\ket{0,0\dots 0, S}
+\end{equation}
+Finding the stability subgroup of the dynamical group for this reference state, we ultimately obtain the displacement operator
+\begin{equation}
+\hat{D}(z)=\exp(\sum_{i=1}^{M-1}z_i\hat{b}\hc_i\hat{b}_M)
+\end{equation}
+The bosonic $SU(M)$ coherent state is then
+\begin{equation}
+\ket{z}=N(z)\exp(\sum_{i=1}^{M-1}z_i\hat{b}\hc_i\hat{b}_M)\ket{\phi_0}
+\end{equation}
+where $z$ is a vector of $M-1$ complex parameters
+
+\subsubsection{Decomposition into the occupancy basis}
+As shown by Buonsante and Penna in \cite{buonsante}, this coherent state can be decomposed into the occupancy basis as follows:
+\begin{equation} \label{eq:bosonic_decomposition}
+\ket{\vec{z}}=\frac{N(z)}{\sqrt{S!}}\left(\hat{a}^\dagger_M+\sum_i^{M-1}z_i\hat{a}^\dagger_i\right)^S\ket{0,0\dots 0}
+\end{equation}
+This result can be obtained by following the method outlined in Sec. \ref{sec:general_decomposition}. Applying the multinomial theorem gives the explicit superposition of occupancy basis states equivalent to the coherent state:
+\begin{equation}
+\ket{z}=N(z)\sum_{k_1+k_1+\dots +k_M=S}\sqrt{\frac{S!}{k_1!k_2!\dots k_M!}}z_1^{k_1}z_2^{k_2}\dots z_{M-1}^{k_{M-1}}\ket{k_1,k_2\dots k_M}
+\end{equation}
+
+\subsubsection{Overlap and normalisation}
+Using Eq. \ref{eq:bosonic_decomposition} and Wick's theorem, the overlap of two bosonic CSs can be shown \cite{grossmann} to be
+\begin{equation}
+\braket{z_a}{z_b}=N(z_a)N(z_b)\left(1+\sum_i^{M-1}z_{a,i}^*z_{b,i}\right)^S
+\end{equation}
+This also determines the normalisation function as
+$N(z)=\left(1+\sum z_i^*z_i\right)^{-\frac{S}{2}}$
+
+
+\subsubsection{Matrix element of bosonic operator sequences}
+Consider a normal-ordered product sequence of $x$ bosonic creation and $x$ bosonic annihilation operators. Its matrix element for two arbitrary CSs can be shown \cite{grossmann} to be
+\begin{equation}
+\mel{z_a}{\hat{b}\hc_{\rho_1}\dots\hat{b}\hc_{\rho_x}\hat{b}_{\sigma_1}\dots\hat{b}_{\sigma_x}}{z_b}=z_{a,\rho_1}^*\dots z_{a,\rho_x}^*z_{b,\sigma_1}\dots z_{b,\sigma_x} \braket{z_a^{(x)}}{z_b^{(x)}}
+\end{equation}
+where the \textit{reduced overlap} is defined as
+\begin{equation}
+\braket{z_a^{(x)}}{z_b^{(x)}}=N(z_a)N(z_b)\left(1+\sum_i^{M-1}z_{a,i}^*z_{b,i}\right)^{S-x}
+\end{equation}
+i.e. the reduced unnormalised CSs behave as if their associated total particle number was reduced by $x$.
+
+
 \subsection{Results}

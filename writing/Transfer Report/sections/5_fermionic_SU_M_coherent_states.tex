@@ -1,12 +1,163 @@
 \section{Fermionic $SU(M)$ coherent states}
 
 \subsection{Construction of the unnormalised state}
+In this subsection, I describe the properties of $SU(M)$ coherent states constructed on fermionic annihilation and creation operators. This construction is well-known in literature; while not equivalent, it is analogous to the construction described by Grigolo, Viscondi, and de Aguiar in \cite[Sec. 4]{sampling_algorithm}.
+
+\subsubsection{Reference state and displacement operator}
+
+Anticipating the application of this ansatz to finding the ground state of a complex system, the reference state is chosen as the Slater determinant of the $S$ lowest-energy modes; in second quantisation, this is succintly written as
+\begin{equation}
+\ket{\phi_0}=\ket{1,\dots 1, 0, \dots 0}\qq{where the first $S$ modes are occupied}
+\end{equation}
+The only transition operators $\hat{T}_{ij}=\hat{f}\hc_i\hat{f}_j$ which do not leave the reference state invariant up to a scalar factors are the ones with $i\in\{S+1\dots M\}, j\in\{1\dots S\}$. For convenience we define two sets of indices
+\begin{equation}
+\pi_1=\{1, 2\dots S\}\qquad \pi_0=\{S+1, S+2 \dots M\}
+\end{equation}
+Then the displacement operator becomes
+\begin{equation}
+\hat{D}(Z)=\exp(\sum_{i\in\pi_0}\sum_{j\in\pi_1}Z_{ij}\hat{f}\hc_i\hat{f}_j)
+\end{equation}
+and the fermionic $SU(M)$ coherent state is
+\begin{equation}
+\ket{Z}=N(Z)\exp(\sum_{i\in\pi_0}\sum_{j\in\pi_1}Z_{ij}\hat{f}\hc_i\hat{f}_j)\ket{\phi_0}
+\end{equation}
+where $Z$ is a complex $(M-S \cross S)$ matrix.
+
+\subsubsection{Decomposition into the occupancy basis}
+We use Eq. \ref{eq:hadamard sum}. Firstly, the reference state operator is
+\begin{equation}
+\hat{\phi}_0=\hat{f}\hc_{\seq{\pi_1}}
+\end{equation}
+where $\seq{\pi_1}$ denotes the ascending sequence formed from elements of the set $\pi_1$. We also have the operator
+\begin{equation}
+\hat{F}=\sum_{i\in\pi_0}\sum_{j\in\pi_1}Z_{ij}\hat{f}\hc_i\hat{f}_j
+\end{equation}
+Then the repeated commutator may be found to be
+\begin{equation}
+\comm{\hat{D}(Z)}{\hat{\phi}_0}_x=
+	(-1)^{\frac{1}{2}x(x+1)}x!\sum_{\seq{a}\in\Gamma_x\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_x\seq{\pi_1}}\det(Z_{\seq{a},\seq{b}})\hat{f}\hc_{\seq{\pi_1-\{b\}+\{a\}}}
+\end{equation}
+where $\Gamma_x\seq{S}$ denotes all increasing subsequences of length $x$ of index sequence $\seq{S}$. In other words, the unnormalised coherent state
+\begin{equation}
+\unnormket{Z}=\sum_{r=0}^{\min(S,M-S)}(-1)^{\frac{1}{2}r(r+1)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\det(Z_{\seq{a},\seq{b}})\ket{\pi_1-\{b\}+\{a\}}
+\end{equation}
+is a superposition of occupancy basis states such that the component with particles excited from initially occupied indices $\seq{b}$ to initially unoccupied indices $\seq{a}$ is weighted by the minor of the parameter matrix obtained by selecting the rows labelled by $\seq{a}$ and columns labelled by $\seq{b}$, up to a sign factor.
 
 \subsection{Overlap and normalisation}
+The overlap of two unnormalised fermionic coherent states may be expressed as
+\begin{equation}
+\unnormbraket{Z_a}{Z_b}=\sum_{r=0}^{\min(S,M-S)}\sum_{\seq{a}\in\Gamma_r\seq{\pi_0}}\sum_{\seq{b}\in\Gamma_r\seq{\pi_1}}\det((Z_a\hc)_{\seq{b},\seq{a}})\det((Z_b)_{\seq{a},\seq{b}})
+\end{equation}
+where we may use the identity
+\begin{equation}
+\det((Z_a\hc)_{\seq{b},\seq{a}})\det((Z_b)_{\seq{a},\seq{b}})=\det((Z_a\hc Z_b)_{\seq{b},\seq{b}})=\det((Z_bZ_a\hc)_{\seq{a},\seq{a}})
+\end{equation}
+to express this as a sum of all principal minors of a square matrix with sign alternating between their ranks. Using Lemma \ref{lemma:sum of constrained principal minors} yields the overlap
+\begin{equation}
+\unnormbraket{Z_a}{Z_b}=\det(I+Z_a\hc Z_b)=\det(I+Z_b Z_a\hc)
+\end{equation}
+which also determines the normalisation factor
+\begin{equation}
+N(Z)=\frac{1}{\sqrt{\det(I+Z\hc Z)}}
+\end{equation}
+which agrees with the result in \cite[Eq. 2.31]{sampling_algorithm}.
 
 \subsection{Fermionic operator sequence matrix element}
+We now wish to evaluate the matrix element
+\begin{equation}
+S=\unnormmel{Z_a}{\hat{f}\hc_{\rho_1}\dots\hat{f}\hc_{\rho_x}\hat{f}_{\rho'_1}\dots\hat{f}_{\rho'_x}}{Z_b}
+\end{equation}
+I was not able to find a general result of this form in existing literature, and thus I now present what is, according to the best of my knowledge, my original work and main theoretical contribution to the mathematical construction of $SU(M)$ fermionic coherent states.
+
+First, we express the sequences $\rho, \rho'$ as permutations of strictly descending and ascending sequences, respectively: $\rho=P_-\seq{\rho}^-,\rho'=P_+\seq{\rho'}^+$. Replacing the original sequences with the ordered versions introduces a factor of $\sgn(P_-)\sgn(P_+)$. We now partition the sequences into segments constructed of elements of $\pi_1$ and $\pi_0$:
+\begin{equation}
+S=\sgn(P_-)\sgn(P_+)\unnormmel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}
+\end{equation}
+where
+\begin{equation}
+\rho = \sigma \cup \tau\qq{where}\sigma\in\pi_1,\tau\in\pi_0\qq{and}\rho' = \sigma' \cup \tau'\qq{where}\sigma'\in\pi_1,\tau'\in\pi_0
+\end{equation}
+Let us use $\eta_x(\chi)$ to denote the number of elements in set $\chi$ smaller than $x$. This is particularly useful to keep track of the Jordan-Wigner string. Taking the matrix element as an overlap of $\hat{f}\hc_{\seq{\sigma}^+}\hat{f}\hc_{\seq{\tau}^+}\unnormket{Z_a}$ and $\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}\unnormket{Z_b}$ and using the decomposition into the occupancy basis, we obtain
+\begin{multline}
+	S = \sgn(P_-)\sgn(P_+)\sum_{r=\abs{\tau}}^{\min(S-\abs{\sigma}, M-S)}(-1)^{\frac{1}{2}r(r+1)}\sum_{r'=\abs{\tau'}}^{\min(S-\abs{\sigma'}, M-S)}(-1)^{\frac{1}{2}r'(r'+1)}\\
+	\sum_{\seq{a}\in\Gamma_{r-\abs{\tau}}\seq{\pi_0-\tau}}\sum_{\seq{b}\in\Gamma_{r}\seq{\pi_1-\sigma}}\sum_{\seq{a'}\in\Gamma_{r'-\abs{\tau'}}\seq{\pi_0-\tau'}}\sum_{\seq{b'}\in\Gamma_{r'}\seq{\pi_1-\sigma'}}(-1)^{\abs{\tau}(S-r)+\frac{1}{2}\abs{\tau}(\abs{\tau}-1)+\sum_i\eta_{\tau_i}(\seq{a})}\\
+	(-1)^{-\abs{\sigma}+\sum_i(\sigma_i+\eta_{\sigma_i}(\seq{b}))}(-1)^{\abs{\tau'}(S-r')+\frac{1}{2}\abs{\tau'}(\abs{\tau'}-1)+\sum_i\eta_{\tau'_i}(\seq{a'})}(-1)^{-\abs{\sigma'}+\sum_i(\sigma'_i+\eta_{\sigma'_i}(\seq{b'}))}\\
+	\det((Z_a\hc)_{\seq{b},\seq{a\cup\tau}})\det((Z_b)_{\seq{a'\cup\tau'},\seq{b'}})\braket{\pi_1\cup a-b\cup\sigma}{\pi_1\cup a'-b'\cup\sigma'}
+	\end{multline}
+	The occupancy basis overlap is equivalent to
+	\begin{equation}
+	\braket{\pi_1\cup a-b\cup\sigma}{\pi_1\cup a'-b'\cup\sigma'}=\delta_{\seq{a},\seq{a'}}\delta_{\seq{b\cup\sigma},\seq{b'\cup\sigma'}}\delta_{r-\abs{\tau},r'-\abs{\tau}}\delta_{r+\abs{\sigma},r'+\abs{\sigma}}
+	\end{equation}
+	Note that, since $\abs{\sigma}+\abs{\tau}=\abs{\sigma'}+\abs{\tau'}$ unless the overlap vanishes due to mismatched total number of particles, the final two Kronecker deltas for $r,r'$ are equivalent.
+	
+	We now take
+	\begin{align}
+	\gamma &= r - \abs{\tau} = r' - \abs{\tau'}\qq{so that}r=\gamma+\abs{\tau},r'=\gamma+\abs{\tau'}\\
+	\seq{\alpha}&\in\Gamma_{\gamma}\seq{\pi_0-\tau\cup\tau'}\qq{so that}\seq{a}=\seq{a'}=\seq{\alpha}\\
+	\seq{\beta}&\in\Gamma_{\gamma+\abs{\tau}-\abs{\sigma'-\sigma\cap\sigma'}}\seq{\pi_1-\sigma\cup\sigma'}\qq{so that}\seq{b}=\seq{\beta\cup\sigma' - \sigma\cap\sigma'},\seq{b'}=\seq{\beta\cup\sigma - \sigma\cap\sigma'}
+	\end{align}
+	where $\abs{\tau}-\abs{\sigma'}=\abs{\tau'}-\abs{\sigma}$ and the construction of $\seq{b},\seq{b'}$ omits $\sigma\cap\sigma'$, since the terms with $\seq{b}$ containing any element in $\sigma$ vanish (same for $\seq{b'}$ and $\sigma'$).
+	
+	Substituing $r, r', \seq{a},\seq{a'}, \seq{b},\seq{b'}$ and using simple algebraic manipulation we can show that, for terms with non-vanishing Kronecker deltas, the total sign simplifies significantly. Denoting $\varsigma=\sigma-\sigma\cap\sigma',\varsigma'=\sigma'-\sigma\cap\sigma'$, the overlap can be written as
+	\begin{multline}
+	=(-1)^{S(\abs{\tau}+\abs{\tau'})+(\abs{\varsigma}-1)(\abs{\varsigma'}-1)+1+\sum\seq{\varsigma}+\sum\seq{\varsigma'}+\sum_i\eta_{(\sigma\cap\sigma')_i}(\seq{\varsigma\cup\varsigma'})}\sum_{\gamma=0}\sum_{\seq{\alpha}\in\Gamma_{\gamma}\seq{\pi'_0-\tau\cup\tau'}}\sum_{\seq{\beta}\in\Gamma_{\gamma+\abs{\tau}-\abs{\varsigma'}}\seq{\pi'_1-\sigma\cup\sigma'}}\\
+	(-1)^{\sum_i\eta_{\varsigma_i}(\seq{\beta})+\sum_i\eta_{\varsigma'_i}(\seq{\beta})+\sum_i\eta_{\tau_i}(\seq{\alpha})+\sum_i\eta_{\tau'_i}(\seq{\alpha})}\det((Z_a\hc)^{(\text{r.} \sigma, \text{c.} \tau'-\tau\cap\tau')}_{\seq{\beta\cup\varsigma'}, \seq{\alpha\cup\tau}})\det((Z_b)^{(\text{r.} \tau-\tau\cap\tau', \text{c.} \sigma')}_{\seq{\alpha\cup\tau'},\seq{\beta\cup\varsigma}})
+	\end{multline}
+	where the superscript $(\text{r.} X), (\text{c.} X)$ means omitting the rows or columns specified by the set of indices $X$, and where the summation over $\gamma,\seq{\alpha},\seq{\beta}$ is such that all square submatrices of $(Z_a\hc)^{(\text{r.} \sigma)},(Z_b)^{(\text{c.} \sigma')}$ are present in the sum, as denoted by the apostrophed $\pi_1,\pi_0$, which represents the omission of indices corresponding to the removed rows and columns.
+	
+	We now choose to permute the rows and columns of $(Z_a\hc)^{(\text{r.} \sigma)},(Z_b)^{(\text{c.} \sigma')}$ as to bring the rows and columns which are included in every submatrix in every term of the sum to the lowest-index position. This introduces an extra sign factor to the determinant, which cancels the second sign term in the sum above. Formally
+	\begin{align}
+	X &= \mqty(
+		(Z_a\hc)_{\seq{\varsigma'},\seq{\tau}} & (Z_a\hc)^{(\text{c.} \tau\cup\tau')}_{\text{r.} \seq{\varsigma'}}\\
+		(Z_a\hc)^{(\text{r.} \sigma\cup\sigma')}_{\text{c.} \seq{\tau}} & (Z_a\hc)^{(\text{r.} \sigma\cup\sigma', \text{c.} \tau\cup\tau')}
+	)\\
+	Y &= \mqty(
+		(Z_b)_{\seq{\tau'},\seq{\varsigma}} & (Z_b)^{(\text{c.} \sigma\cup\sigma')}_{\text{r.} \seq{\tau'}}\\
+		(Z_b)^{(\text{r.} \tau\cup\tau')}_{\text{c.} \seq{\varsigma}} & (Z_b)^{(\text{r.} \tau\cup\tau', \text{c.} \sigma\cup\sigma')}
+	)
+	\end{align}
+	
+	The resulting expression is exactly in the form which is treated by Lemma \ref{lemma:asymmetrically constrained sum of complementary minors}. Hence, if $\abs{\tau}\leq\abs{\tau'}$, we have
+	\begin{align} \label{eq: general reduced overlap determinant}
+	&\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}=N(Z_a)N(Z_b)(-1)^{S(\abs{\tau}+\abs{\tau'})+(\abs{\varsigma}-1)(\abs{\varsigma'}-1)+1+\sum\seq{\varsigma}+\sum\seq{\varsigma'}+\sum_i\eta_{(\sigma\cap\sigma')_i}(\seq{\varsigma\cup\varsigma'})}\nonumber\\
+	&(-1)^{\abs{\tau'}(1+\abs{\tau'}-\abs{\tau})}\det(\mqty{
+		0_{\abs{\tau'},\abs{\tau}} & (Z_b)_{\seq{\tau'},\seq{\varsigma}} & (Z_b)^{(\text{c.} \sigma\cup\sigma')}_{\text{r.} \seq{\tau'}}\\
+		(Z_a\hc)_{\seq{\varsigma'},\seq{\tau}} & (Z_a\hc)^{(\text{c.} \tau\cup\tau')}_{\text{r.} \seq{\varsigma'}}(Z_b)^{(\text{r.} \tau\cup\tau')}_{\text{c.} \seq{\varsigma}} & (Z_a\hc)^{(\text{c.} \tau\cup\tau')}_{\text{r.} \seq{\varsigma'}}(Z_b)^{(\text{r.} \tau\cup\tau', \text{c.} \sigma\cup\sigma')}\\
+		(Z_a\hc)^{(\text{r.} \sigma\cup\sigma')}_{\text{c.} \seq{\tau}} & (Z_a\hc)^{(\text{r.} \sigma\cup\sigma', \text{c.} \tau\cup\tau')}(Z_b)^{(\text{r.} \tau\cup\tau')}_{\text{c.} \seq{\varsigma}} & I + (Z_a\hc)^{(\text{r.} \sigma\cup\sigma', \text{c.} \tau\cup\tau')}(Z_b)^{(\text{r.} \tau\cup\tau', \text{c.} \sigma\cup\sigma')}
+	})
+	\end{align}
+	If $\abs{\tau}\geq\abs{\tau'}$, we have $\abs{\varsigma}\leq\abs{\varsigma'}$, which allows us to apply Lemma \ref{lemma:asymmetrically constrained sum of complementary minors} to obtain the expression
+	\begin{align} \label{eq: general reduced overlap determinant alt}
+	&\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}=N(Z_a)N(Z_b)(-1)^{S(\abs{\tau}+\abs{\tau'})+(\abs{\varsigma}-1)(\abs{\varsigma'}-1)+1+\sum\seq{\varsigma}+\sum\seq{\varsigma'}+\sum_i\eta_{(\sigma\cap\sigma')_i}(\seq{\varsigma\cup\varsigma'})}\nonumber\\
+	&(-1)^{\abs{\varsigma'}(1+\abs{\varsigma'}-\abs{\varsigma})}\det(\mqty{
+		0_{\abs{\varsigma'},\abs{\varsigma}} & (Z_a\hc)_{\seq{\varsigma'},\seq{\tau}} & (Z_a\hc)^{(\text{c.} \tau\cup\tau')}_{\text{r.} \seq{\varsigma'}}\\		
+		(Z_b)_{\seq{\tau'},\seq{\varsigma}} & (Z_b)^{(\text{c.} \sigma\cup\sigma')}_{\text{r.} \seq{\tau'}}(Z_a\hc)^{(\text{r.} \sigma\cup\sigma')}_{\text{c.} \seq{\tau}} & (Z_b)^{(\text{c.} \sigma\cup\sigma')}_{\text{r.} \seq{\tau'}}(Z_a\hc)^{(\text{r.} \sigma\cup\sigma', \text{c.} \tau\cup\tau')}\\	
+		(Z_b)^{(\text{r.} \tau\cup\tau')}_{\text{c.} \seq{\varsigma}} & (Z_b)^{(\text{r.} \tau\cup\tau', \text{c.} \sigma\cup\sigma')}(Z_a\hc)^{(\text{r.} \sigma\cup\sigma')}_{\text{c.} \seq{\tau}} & I + (Z_b)^{(\text{r.} \tau\cup\tau', \text{c.} \sigma\cup\sigma')}(Z_a\hc)^{(\text{r.} \sigma\cup\sigma', \text{c.} \tau\cup\tau')}
+	})
+	\end{align}
+	Note that for the case $\abs{\tau}>\abs{\tau'}$, we can simply take
+	\begin{equation}
+	\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}=\mel{Z_b}{\hat{f}\hc_{\seq{\tau'}^-}\hat{f}\hc_{\seq{\sigma'}^-}\hat{f}_{\seq{\sigma}}\hat{f}_{\seq{\tau}}}{Z_a}^*
+	\end{equation}
+	so that we can always use Eq. \ref{eq: general reduced overlap determinant} as the standard expression.
 
 \subsection{Connection to molecular electronic structure}
-quote the two body and one body integrals matey
+An example of a fermionic particle-preserving system, as stated in Sec. \ref{sec:fermionic1}, is the molecular electronic structure when no chemical process is occuring. Formally, we may index all the atomic orbitals of the constituent atoms such that the occupied orbitals are included in $\pi_1$, unoccupied orbitals are included in $\pi_0$, and within both of these sets, the orbitals are ordered by their self-energy (it is important to take notice of spin degeneracy, as each orbitals actually corresponds to two modes). This is a gross-structure model, governed by a second-order Hamiltonian
+\begin{equation}
+\hat{H}=V^{(1)}_{\alpha\beta}\hat{f}\hc_\alpha\hat{f}_\beta+\frac{1}{2}V^{(2)}_{\alpha\beta\gamma\delta}\hat{f}\hc_\alpha\hat{f}\hc_\beta\hat{f}_\gamma\hat{f}_\delta
+\end{equation}
+where $V^{(1)}$ is the single-body energy tensor, here comprising of the kinetic term and electron-nucleus interaction, and $V^{(2)}$ is the two-body energy tensor, comprising of the electron-electron exchange integrals (care must be exercised, as in Mulliken notation, the quadratic term is not normal-ordered, and thus an extra diagonal term is introduced). These tensors are typically obtained by numerical calculation; I use the framework of Python, and specifically the PySCF package to calculate them for an arbitrary molecule with an arbitrary geometry and arbitrary basis for the atomic orbitals.
 
-\subsection{How to get that sweet sweet ground state}
+\subsection{How to calculate the ground state}
+Once the second-quantised framework of $SU(M)$ coherent states is applied to our desired molecule, we have multiple options on how to quickly approximate the ground state. Below are listed a few methods we are in the process of implementing for the purpose of benchmarking. All of these methods use the state $\ket{Z=0}$, i.e. the "atomic orbitals populated as if outside of a molecule" state, as a starting point. This state shall be, for convenience, referred to as the "null state".
+
+The first two methods specifically build on the idea of restricting the full Hilbert space into a much smaller subspace by quick energy considerations, on which full diagonalisation is then performed. The null state is taken as belonging to this small subspace, and the ground state is assumed to be "close" to the null state (formally, their overlap is assumed to be close to unity). In the first two of the three methods presented, the low-energy subspace is formed on a basis consisting of fermionic $SU(M)$ coherent states, and the ground state estimate is expressed as their superposition (which is not necessarily a pure coherent state in itself).
+
+\subsubsection{Random walk around the null state}
+The simplest algorithm for sampling the low-energy subspace is a random walk around the null state, onto which conditioning may be imposed. Formally, in each step a candidate state is considered by randomly sampling the coherent-state parameter space in the vicinity of the null state, and the candidate is either included in the full sample or rejected based on an arbitrary criterion (for example, whether its expected energy is under a certain treshold compared to the null state energy, or whether the eigenvalues of the Hamiltonian matrix on the full sample change in a favourable way). Then, this step is repeated either until the sample reaches a certain size, the estimated ground state energy no longer decreases dramatically, or a certain number of rejections occured. Taking the sample $\ket{Z_a}, a=1\dots N$ as an un-orthogonal basis of the low-energy subspace, constructing the Hamiltonian matrix $H_{ij}=\mel{Z_i}{\hat{H}}{Z_j}$, diagonalising it, choosing the eigenvector with the lowest associated eigenvalue and expressing it in the occupancy basis then yields the estimate of the ground state.
+
+\subsubsection{Sampling the trajectory of the null state}
+Another method for selecting a basis of the low-energy subspace exploits the assumption that the null state has low energy. Then its trajectory under proper time evolution traces states with the same low energy. Sampling this trajectory at regular time intervals then yields the basis of a low-energy subspace, diagonalising the Hamiltonian on which then yields the estimate of the ground state.
+
+\subsubsection{Imaginary time propagation}
+This is a well-known method \cite{imaginary_timeprop} based on the fact that a superposition of energy eigenstates propagated in time has the phase of each component change at a rate proportional to the associated energy, with the amplitude remaining constant. Propagating along the imaginary time $-it$ then instead has the amplitude of each component decay exponentially at a rate given by the component's energy. Eventually, after a sufficiently prolonged propagation, only the lowest-energy state is present in the decomposition. Assuming the null state contains the ground state as a component, propagating the null state along $-it$ should then converge to the ground state. This method is theoretically guaranteed to converge to the true ground state, but the rate of convergence may be slow if the low-excitation energy eigenstates have comparable energy levels to the ground state.

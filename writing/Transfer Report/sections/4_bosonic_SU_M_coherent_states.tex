@@ -3,6 +3,8 @@
 \subsection{Construction}
 In this subsection, I describe the properties of $SU(M)$ coherent states constructed on bosonic annihilation and creation operators.
 
+While I use a slightly different ansatz than the one in (\cite{grossmann,buonsante}) regarding the construction of bosonic $SU(M)$ coherent states, the difference is minor (I do not impose an extra condition on the components of the CS parameter $z$, and include an explicit normalisation factor instead). The ansatz I use is the same as the one used by Grigolo, Viscondi, and de Aguiar in \cite{sampling_algorithm}. Therefore the content of this subsection is not to be considered original work by me, and is instead a continuation of the literature review in the previous chapter. It is included in this chapter, however, to draw contrast with the fermionic $SU(M)$ coherent states, whose construction does contain original work by me (namely, the operator sequence matrix elements).
+
 \subsubsection{Reference state and displacement operator}
 A suitable reference state for a bosonic system of $M$ modes and $S$ particles is
 \begin{equation}
@@ -30,7 +32,7 @@ This result can be obtained by following the method outlined in Sec. \ref{sec:ge
 
 \subsubsection{Overlap and normalisation}
 Using Eq. \ref{eq:bosonic_decomposition} and Wick's theorem, the overlap of two bosonic CSs can be shown \cite{grossmann} to be
-\begin{equation}
+\begin{equation} \label{eq:bosonic_overlap}
 \braket{z_a}{z_b}=N(z_a)N(z_b)\left(1+\sum_i^{M-1}z_{a,i}^*z_{b,i}\right)^S
 \end{equation}
 This also determines the normalisation function as
@@ -39,7 +41,7 @@ $N(z)=\left(1+\sum z_i^*z_i\right)^{-\frac{S}{2}}$
 
 \subsubsection{Matrix element of bosonic operator sequences}
 Consider a normal-ordered product sequence of $x$ bosonic creation and $x$ bosonic annihilation operators. Its matrix element for two arbitrary CSs can be shown \cite{grossmann} to be
-\begin{equation}
+\begin{equation} \label{eq:bosonic_OSME}
 \mel{z_a}{\hat{b}\hc_{\rho_1}\dots\hat{b}\hc_{\rho_x}\hat{b}_{\sigma_1}\dots\hat{b}_{\sigma_x}}{z_b}=z_{a,\rho_1}^*\dots z_{a,\rho_x}^*z_{b,\sigma_1}\dots z_{b,\sigma_x} \braket{z_a^{(x)}}{z_b^{(x)}}
 \end{equation}
 where the \textit{reduced overlap} is defined as
@@ -48,5 +50,21 @@ where the \textit{reduced overlap} is defined as
 \end{equation}
 i.e. the reduced unnormalised CSs behave as if their associated total particle number was reduced by $x$.
 
+This is an important mathematical property to know in our methodology, as in the equations of motion operator sequences up to the third order are present (the partial derivatives of Hamiltonian matrix elements).
+
+\subsection{Time complexity of evaluation}
+Using standard techniques, the evaluation of the overlap in Eq. \ref{eq:bosonic_overlap} has time complexity $O(M)$, as does the evaluation of the bosonic operator sequence matrix element in Eq. \ref{eq:bosonic_OSME}. Given a second-order Hamiltonian, its matrix element for two states $\ket{z_a},\ket{z_b}$ may be evaluated with time complexity $O(M^5)$, and the full Hamiltonian matrix with time complexity $O(M^5N^2)$ for a sample basis of $N$ coherent states. The dynamical matrix $\Omega$ in Eq. \ref{eq:dynamical_matrix} has dimensions $(MN\cross MN)$, it may be evaluated in $O(M^3N^2)$, and inverted in $O(M^3N^3)$. Therefore the main bottlenecks are evaluating the Hamiltonian matrix (for large $M$) and inverting the dynamical matrix (for large $N$). However, in the case of the Bose-Hubbard model, the time complexity of evaluating the Hamiltonian matrix is lowered by a factor of $M^2$, as it is in tridiagonal form.
+
 
 \subsection{Results}
+The method proposed by us in Sec. \ref{sec:bosonic1} has been implemented and tested on the Bose-Hubbard model with the results by Qiao and Grossmann as a benchmark.
+
+Qiao and Grossmann tested their fully variational method on a two-mode and a three-mode system of $50$ particles, with the initial wavestate being a pure coherent state.
+
+In the following figures, the "true" solution is obtained by explicit propagation on the full occupancy basis unless stated otherwise.
+
+\subsubsection{Initial wavestate as a pure coherent state}
+When the initial wavestate is set to be a pure coherent state, our method becomes a massive improvement, since the trajectory of a single coherent state is semi-classical, and we can find it with a basis sample of size $N=1$. In Fig. \ref{fig:bosonic_pure_CS} I show the convergence of this minimal basis sample to the true solution for both two-mode and three-mode systems.
+
+\subsubsection{Initial wavestate as a superposition of coherent states}
+We wish to show that the propagation of each basis state separately yields a suitable time-dependent frozen basis for an arbitrary initial wavefunction. Therefore I extended the pool of initial wavestates to superpositions of a small number of coherent states, and chose the basis for each setup as a set of all present coherent states.

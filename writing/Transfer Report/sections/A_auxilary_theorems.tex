@@ -3,4 +3,110 @@ This appendix presents mathematical results which were used to derive the mathem
 
 The author does not claim originality of these theorems or their proofs, but chooses to include them, as he was unable to find them in existing literature. The work presented in this appendix is the author's, except for mathematical identities which are stated explicitly.
 
-\section{counting minors}
+\section{Lemmas for counting matrix minors under constraints}
+In the following section, $\seq{x}$ for integer $x$ denotes the sequence $\seq{1,2\dots x}$, and $\seq{u}\oplus\seq{v}$ denotes the increasing sequence constructed from all the elements present in the sequences $\seq{u}, \seq{v}$.
+
+\begin{lemma} \label{lemma:sum of constrained principal minors}
+For a square matrix $M$, the sum of all principal minors of all ranks which contain the first $n$ rows/columns is equal to $\det(I^{(n)}+M)$, where $I^{(n)}$ is the identity matrix with the first $n$ elements along the diagonal set to zero.
+\end{lemma}
+\textit{Proof.} We will proceed by induction. Firstly, for $n=0$, the sum is the sum of all principal minors for each rank $r$, denoted $E_r$. These sums form the coefficients of the characteristic polynomial of $M$ like so: \cite[Th. 1.2.16]{charpol}
+	\begin{equation}
+	\det(tI-M)=\sum_{r=0}^x(-1)^{r} t^{x-r} E_r
+	\end{equation}
+	where $x$ is the number of rows of $M$. Evaluating this sum at $t=-1$ yields
+	\begin{align}
+	\det(-I-M)&=\sum_{r=0}^x(-1)^{r} (-1)^{x-r} E_r\nonumber\\
+	\det(I+M)&=\sum_{r=0}^x E_r
+	\end{align}
+	which shows the lemma holds for $n=0$. Now: assume the lemma holds for $n$. For $n+1$, we have the sum of all principal minors of $M$ which contain the first $n+1$ rows/columns. We identify this as equivalent to the sum of all principal minors of $M$ which contain the first $n$ rows/columns, from which we subtract the sum of all principal minors of $M$ which contain the first $n$ rows/columns and do \textit{not} contain the $(n+1)$-th row/column. I.e. we can write
+	\begin{align}
+	\sum_{r=n+1}^{x}\sum_{\seq{a}\in\Gamma_r\seq{x^{(n+1)}}}&\det(M_{\seq{n+1}\oplus\seq{a},\seq{n+1}\oplus\seq{a}})=\\
+	&\sum_{r=n}^{x}\sum_{\seq{a}\in\Gamma_r\seq{x^{(n)}}}\left[\det(M_{\seq{n}\oplus\seq{a},\seq{n}\oplus\seq{a}})-\det(M'_{\seq{n}\oplus\seq{a},\seq{n}\oplus\seq{a}})\right] \nonumber
+	\end{align}
+	where $M'$ is obtained by setting all elements in the $(n+1)$-th row/column to zero. To the right side of the equation we apply the lemma, since it is assumed it holds for $n$:
+	\begin{equation} \label{eq: big minor sum from small minor sums}
+	\sum_{r=n+1}^{x}\sum_{\seq{a}\in\Gamma_r\seq{x^{(n+1)}}}\det(M_{\seq{n+1}\oplus\seq{a},\seq{n+1}\oplus\seq{a}})=\det(I^{(n)}+M)-\det(I^{(n)}+M')
+	\end{equation}
+	Now, taking the Laplace expansion of $\det(I^{(n)}+M)$ along the $(n+1)$-th row, the element in the $(n+1)$-th column is $1+M_{n+1,n+1}$ and its cofactor is $\det(I^{(n)}+M')$. Subtracting $1$ from this element and adding the cofactor to the full Laplace expansion preserves the determinant, revealing
+	\begin{equation} \label{eq: laplace expansion of small minor sum}
+	\det(I^{(n)}+M)=\det(I^{(n+1)}+M)+\det(I^{(n)}+M')
+	\end{equation}
+	Substituing Eq. \ref{eq: laplace expansion of small minor sum} into Eq. \ref{eq: big minor sum from small minor sums} yields
+	\begin{equation}
+	\sum_{r=n+1}^{x}\sum_{\seq{a}\in\Gamma_r\seq{x^{(n+1)}}}\det(M_{\seq{n+1}\oplus\seq{a},\seq{n+1}\oplus\seq{a}})=\det(I^{(n+1)}+M)
+	\end{equation}
+	which finishes the proof.
+	
+	\begin{lemma}\label{lemma:symmetrically constrained sum of complementary minors}
+	Consider two matrices $X, Y$ of shapes $(m,n)$ and $(n,m)$, respectively. The sum
+	\begin{equation}
+	\sum_{r=0}^{\min(m,n)}\sum_{\seq{a}\in\Gamma_r\seq{m^{(u)}}}\sum_{\seq{b}\in\Gamma_r\seq{n^{(v)}}}\det(X_{\seq{u}\oplus\seq{a},\seq{v}\oplus\seq{b}})\det(Y_{\seq{v}\oplus\seq{b},\seq{u}\oplus\seq{a}})
+	\end{equation}
+	where $\seq{x^{(y)}}$ signifies the sequence $\seq{x}$ with the first $y$ elements omitted, is equal to
+	\begin{equation}
+	(-1)^v\det(I^{(u+v)}+\mqty(0 & Y_{\text{r.} v} \\ X_{\text{c.} v} & X^{(\text{c.} v)} Y^{(\text{r.} v)}))=(-1)^u\det(I^{(u+v)}+\mqty(0 & X_{\text{r.} u} \\ Y_{\text{c.} u} & Y^{(\text{c.} u)} X^{(\text{r.} u)}))
+	\end{equation}
+	where subscript $\text{r. }z,\text{c. }z$ specifies the rows or columns of a submatrix by inclusion of the index sequence $z$, and the superscript $(\text{r. }z),(\text{c. }z)$ specifies the rows or columns of a submatrix by omission of the index sequence $z$.
+	\end{lemma}
+	\textit{Proof.} By applying the modified Cauchy-Binet formula \cite[App. C]{modified_cauchy_binet} we can contract either of the two sequences $\seq{a},\seq{b}$. Contracting sequence $\seq{a}$ yields
+	\begin{equation}
+	=(-1)^v\sum_{r=0}^{\min(m,n)}\sum_{\seq{a}\in\Gamma_r\seq{(m+v)^{(u+v)}}}\det(M_{\seq{u+v}\oplus\seq{a},\seq{u+v}\oplus\seq{a}})\qq{where}M=\mqty(0 & Y_{\text{r.} v} \\ X_{\text{c.} v} & X^{(\text{c.} v)}Y^{(\text{r.} v)})
+	\end{equation}
+	Applying lemma \ref{lemma:sum of constrained principal minors} directly yields the first result in the theorem. Contracting sequence $\seq{b}$ first and then applying the lemma yields the second result in the theorem. The proof is thus finished.
+	
+	\begin{lemma}\label{lemma:asymmetrically constrained sum of complementary minors}
+	Consider the generalisation of \ref{lemma:symmetrically constrained sum of complementary minors}, where the transpose of $X$ no longer has the same dimensions as $Y$, and where the constraints on row/column inclusion for the two minors in each term of the sum are asymmetrical:
+	\begin{equation}
+	S=\sum_{r}\sum_{\seq{a}\in\Gamma_{r_a}\seq{m}}\sum_{\seq{b}\in\Gamma_{r_b}\seq{n}}\det(X_{u_x\oplus\seq{a},v_x\oplus\seq{b}})\det(Y_{v_y\oplus\seq{b},u_y\oplus\seq{a}})
+	\end{equation}
+	where $u_x+v_y=v_x+u_y$ and $v_x\leq v_y$, $r_a$ and $r_b$ are taken such that the submatrices in each term are square, the sum over $r$ includes all possible square minors of $X,Y$ which satisfy the constraints, and where $D_{k\oplus\seq{l},m\oplus\seq{n}}$ is the smallest submatrix of $D$ which contains the upper left block of $D$ with shape $(k,m)$, as well as the submatrix of the lower right block of $D$ given by the row index sequence $\seq{l}$ and column index sequence $\seq{n}$. The sum evaluates to
+	\begin{equation}
+	S=(-1)^{v_y(1+v_y-v_x)}\det(I^{(u_x+v_y)}+\mqty(
+		0_{v_y,v_x} & Y_{\text{r.} v_y}\\
+		X_{\text{c.} v_x} & X^{(\text{c.} v_x)} Y^{(\text{r.} v_y)}
+	))
+	\end{equation}
+	\end{lemma}
+	\textit{Proof.} We start with a few observations. Firstly, the constraint $u_x+v_y=v_x+u_y$ is not arbitrary, and it is in fact necessary for the sum to be constructable, which can be seen from inspecting the dimensions of $X,Y$--this also makes the choice of $r_a,r_b$, and the summation limits of $r$ unique. Secondly, the notation $D_{k\oplus\seq{l},m\oplus\seq{n}}$ can be thought of as $D_{\seq{x},\seq{y}}$, where $\seq{x}$ is formed from indices $1\dots k$ concatenated with the sequence $\seq{l}$ where each element was increased by $k$, with construction of $\seq{y}$ being analogous. Thirdly, the fact only one of two possible contractions is presented follows from the minimal assumption $v_x\leq v_y$, which loses no generality. Should the opposite be true, relabelling $X,Y$ and $\seq{a},\seq{b}$ reduces the problem to its original form; should we instead specify $u_x\leq u_y$, relabelling $X,Y$ \textit{or} $\seq{a},\seq{b}$ once again reduces the problem to the statement above.
+	
+	Denote $\Delta v = v_y-v_x$. Consider the matrix $X'=I_{\Delta v}\oplus X$, i.e.
+	\begin{equation}
+	X'=\mqty(\dmat{I_{\Delta v}, X})\qq{hence}\det(X'_{u_x+\Delta v\oplus\seq{a},v_x+\Delta v\oplus\seq{b}})=\det(X_{u_x\oplus\seq{a},v_x\oplus\seq{b}})
+	\end{equation}
+	We can use the modified Cauchy-Binet formula to contract $\seq{b}$ like so:
+	\begin{align}
+	S=(-1)^{v_y}\sum_{r=0}^{\min(m,n)}\sum_{\seq{a}\in\Gamma_{r_a}\seq{m}}\det(M_{u_x+v_y\oplus\seq{a}, u_y+v_y\oplus\seq{a}})\qq{where}M=\mqty(
+		0_{v_y,v_y} & Y_{\text{r.} v_y}\\
+		X'_{\text{c.} v_y} & X'^{(\text{c.} v_y)} Y^{(\text{r.} v_y)}
+	)
+	\end{align}
+	We now observe that
+	\begin{equation}
+	X'_{\text{c.} v_y} = \mqty(
+		I_{\Delta v} & 0_{\Delta v, v_x}\\
+		0_{v_x, \Delta v} & X_{\text{c.} v_x}
+	)
+	\end{equation}
+	and since the first $\Delta v$ rows of $X'^{(\text{c.} v_y)}$ are zero, we also have
+	\begin{equation}
+	X'^{(\text{c.} v_y)} Y^{(\text{r.} v_y)} = \mqty(0_{\text{r.} \Delta v} \\ X^{(\text{c.} v_x)} Y^{(\text{r.} v_y)})
+	\end{equation}
+	Taking the Laplace expansion of $M$ for all $(\Delta v,\Delta v)$ minors along the first $\Delta v$ columns, there is only one non-zero contribution, which is $\det(I_{\Delta v})=1$. Considering its cofactor for any arbitrary constrained minor of $M$, we can rewrite the sum as
+	\begin{equation}
+	S = (-1)^{v_y(1+\Delta v)}\sum_{r=0}^{\min(m,n)}\sum_{\seq{a}\in\Gamma_{r_a}\seq{m}}\det(M'_{u_x+v_y\oplus\seq{a},v_x+u_y\oplus\seq{a}})\qq{where}M'=\mqty(
+		0_{v_y,v_x} & Y_{\text{r.} v_y}\\
+		X_{\text{c.} v_x} & X^{(\text{c.} v_x)}Y^{(\text{r.} v_y)}
+	)
+	\end{equation}
+	Since $u_x+v_y=v_x+u_y$, this sum can be reducing by direct application of Lemma \ref{lemma:sum of constrained principal minors}, which finishes the proof.
+	
+	\textit{Note.} We shall now explicitly state the construction of $r_a, r_b$ and the summation limits on $r$. Since we demand the submatrices of $X, Y$ be square, we have
+	\begin{eqnarray}
+	u_x + r_a = v_x + r_b = r \geq 0\\
+	u_y + r_a = v_y + r_b = r \geq 0
+	\end{eqnarray}
+	To satisfy both equations and inequalities, we take
+	\begin{multline}
+	r_a=r - \min(u_x,u_y),\qquad r_b=r - \min(v_x,v_y),\\
+	r = \max(\min(u_x, u_y), \min(v_x, v_y))\dots \min(X_{\text{rows}}-u_x+\min(u_x, u_y),X_{\text{cols}}-v_x+\min(v_x, v_y))
+	\end{multline}

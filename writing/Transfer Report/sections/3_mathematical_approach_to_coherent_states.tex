@@ -57,7 +57,7 @@ where the first-order matrix equation of motion becomes
 i\Omega\dv{t}\vec{Q}=\vec{R} \qq{where} \vec{R}=\mqty(\vec{R}^A\\\vec{R}^z) \qquad \vec{R}^z=\mqty(\vdots\\\vec{R}^{z,i}\\\vdots)
 \end{equation}
 and where
-\begin{equation}
+\begin{equation} \label{eq:dynamical_matrix}
 \Omega = \mqty(
 	\Omega^{AA} & \Omega^{A,1} & \cdots & \Omega^{A,j} & \cdots\\
 	\Omega^{1,A} & \Omega^{1,1} & \cdots & \Omega^{1,j} & \cdots\\
@@ -107,21 +107,21 @@ The transformed Lie algebra constitutes the generators of real traceless $(M\cro
 	For the sake of simplicity and adherence to existing literature, we will refer to this construction as $SU(M)$ coherent states, but we will still use the exponential map with the $SL(M,\mathbb{R})$ generators, as it leads to much simpler mathematical treatment.
 
 \subsection{General approach to particle-preserving CS decomposition} \label{sec:general_decomposition}
-	This method is based on the approach in \cite[App. E]{buonsante}. Suppose we have a reference state $\ket{\phi_0}$, and the quotient space of the dynamical group of some system is transversed by the exponential map of the operator $\hat{D}(z)$, so that
+	This method is based on the approach in \cite[App. E]{buonsante}. Suppose we have a reference state $\ket{\phi_0}$, and the quotient space of the dynamical group of some system is transversed by the exponential map of the operator $\hat{F}(z)$, so that
 	\begin{equation}
-	\unnormket{z}=e^{\hat{D}(z)}\ket{\phi_0}
+	\unnormket{z}=e^{\hat{F}(z)}\ket{\phi_0}
 	\end{equation}
-	and $\hat{D}(z)$ is a linear combination of transition operators which all destroy the vacuum state\footnote{This is characteristic of dynamical groups which preserve total particle number.}. Define $\hat{\phi}_0$ as such an operator so that
+	and $\hat{F}(z)$ is a linear combination of transition operators which all destroy the vacuum state\footnote{This is characteristic of dynamical groups which preserve total particle number.}. Define $\hat{\phi}_0$ as such an operator so that
 	\begin{equation}
 	\hat{\phi}_0\ket{\rm vac.} = \ket{\phi_0}
 	\end{equation}
 	Then we can write
 	\begin{equation}
-	\unnormket{z}=e^{\hat{D}(z)}\hat{\phi}_0e^{-\hat{D}(z)}\ket{\rm vac.}
+	\unnormket{z}=e^{\hat{F}(z)}\hat{\phi}_0e^{-\hat{F}(z)}\ket{\rm vac.}
 	\end{equation}
-	using the fact that $\hat{D}(z)\ket{\rm vac.}=0$. We now express the operator product using Hadamard's lemma:
+	using the fact that $\hat{F}(z)\ket{\rm vac.}=0$. We now express the operator product using Hadamard's lemma:
 	\begin{equation}\label{eq:hadamard sum}
-	e^{\hat{D}(z)}\hat{\phi}_0e^{-\hat{D}(z)}=\sum_{r=0}^\infty \frac{1}{r!}\comm{\hat{D}(z)}{\hat{\phi}_0}_r
+	e^{\hat{F}(z)}\hat{\phi}_0e^{-\hat{F}(z)}=\sum_{r=0}^\infty \frac{1}{r!}\comm{\hat{F}(z)}{\hat{\phi}_0}_r
 	\end{equation}
 	where
 	\begin{equation}

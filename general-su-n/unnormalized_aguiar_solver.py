@@ -1721,10 +1721,10 @@ class bosonic_su_n():
             if y_left != -1:
                 plt.ylim(y_left, y_right)
 
-            #if include_legend:
-            #    plt.legend()
+            if include_legend:
+                plt.legend()
 
-        #plt.tight_layout()
+        plt.tight_layout()
         if save_graph:
             Path(f"outputs/{self.output_subfolder_name}").mkdir(parents=True, exist_ok=True)
             plt.savefig(f"outputs/{self.output_subfolder_name}/" + str(self.ID) + "_graph_output.png")
@@ -1865,7 +1865,11 @@ class bosonic_su_n():
                         self.solution[-1][m] = float(row[self.encode_solution_header(m)])
                 self.is_solved = True
                 self.is_t_space_init = True
-                self.solution_benchmark = self.disk_jockey.metadata["fock_solution"]["benchmark"]
+                try:
+                    self.solution_benchmark = self.disk_jockey.metadata["fock_solution"]["benchmark"]
+                except:
+                    print("  Warning! Solution benchmark metadata missing")
+                    self.solution_benchmark = None
                 print(f"  Solution ({len(self.solution)} datapoints) loaded.")
 
         if "setup" in data_groups:
@@ -1930,7 +1934,12 @@ class bosonic_su_n():
 
                         for n in range(self.N[b_i]):
                             self.wavef_evol[b_i][-1][n] = wavef_evol_row[self.encode_wavef_evol_header(b_i, n)]
-                self.evol_benchmarks = self.disk_jockey.metadata["wavef_evol"]["evol_benchmarks"]
+                #self.evol_benchmarks = self.disk_jockey.metadata["wavef_evol"]["evol_benchmarks"]
+                try:
+                    self.evol_benchmarks = self.disk_jockey.metadata["wavef_evol"]["evol_benchmarks"]
+                except:
+                    print("  Warning! Evolution benchmark metadata missing")
+                    self.evol_benchmarks = [None]*len(self.basis)
                 self.is_wavef_evol = True
                 print(f"  Wavefunction evolution ({len(self.t_space)} datapoints) loaded.")
         if self.is_t_space_init:

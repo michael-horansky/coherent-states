@@ -95,6 +95,8 @@ def overlap(z1, z2, S, r = 0):
 
 
 def dtstr(seconds, max_depth = 2):
+    if seconds is None:
+        return("N/A")
     # Dynamically chooses the right format
     # max_depth is the number of different measurements (e.g. max_depth = 2: "2 days 5 hours")
     if seconds >= 60 * 60 * 24:

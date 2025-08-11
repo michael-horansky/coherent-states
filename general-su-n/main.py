@@ -128,7 +128,40 @@ bose_hubbard.plot_data( graph_list = ["expected_mode_occupancy"])"""
 #bose_hubbard = bosonic_su_n("bose_hubbard_M=3_S=20")
 
 
-bose_hubbard = bosonic_su_n("bose_hubbard_M=2_S=10_mixed_init_poster")
-bose_hubbard.load_data()
+#bose_hubbard = bosonic_su_n("bose_hubbard_M=2_S=10_mixed_init_poster")
+#bose_hubbard.load_data()
+#bose_hubbard.plot_data(graph_list = ["expected_mode_occupancy"])
 
-bose_hubbard.plot_data(graph_list = ["expected_mode_occupancy"])
+#bose_hubbard = bosonic_su_n("bose_hubbard_M=3_S=20")
+#bose_hubbard.load_data()
+#bose_hubbard.plot_data(graph_list = ["expected_mode_occupancy"])
+
+
+
+def random_skibidi(M, S, number_of_peaks, peak_spread = 1.0):
+    bose_hubbard = bosonic_su_n(f"BH_rand_bench_M={M}_S={S}_peaks={number_of_peaks}")
+    bose_hubbard.set_global_parameters(M, S)
+    bose_hubbard.set_hamiltonian_tensors(A_BH, B_BH)
+
+    initial_wf = []
+    for n in range(number_of_peaks):
+        rand_comps = np.random.normal(1.0, peak_spread, (M-1, 2))
+        cast_comps = []
+        for i in range(M-1):
+            cast_comps.append(rand_comps[i][0] + 1j * rand_comps[i][1])
+        initial_wf.append(np.array(cast_comps, dtype=complex))
+
+    print([initial_wf, [1] * number_of_peaks])
+    bose_hubbard.set_initial_wavefunction([initial_wf, [1] * number_of_peaks], "aguiar_disc")
+    # Note: to get more basis vectors in a sample, increase particle number! It makes saturation less probable :)
+    bose_hubbard.sample_gaussian(width = 1.0, conditioning_limit = 10e11, N_max = 1, max_saturation_steps = 5000)
+
+
+    bose_hubbard.simulate_uncoupled_basis(max_t = 2.0, N_dtp = 200, rtol = (1e-10, 1e-10), reg_timescale = (1e-5, 1e-5))
+    bose_hubbard.fock_solution(t_range = [2.0, 200])
+    bose_hubbard.save_data(["system", "setup", "solution"])
+
+    bose_hubbard.plot_data( graph_list = ["expected_mode_occupancy"])
+
+random_skibidi(2, 20, 15)
+

@@ -63,8 +63,24 @@ Qiao and Grossmann tested their fully variational method on a two-mode and a thr
 
 In the following figures, the "true" solution is obtained by explicit propagation on the full occupancy basis unless stated otherwise.
 
+The particular Hamiltonian parameters in these results match the ones chosen by Qiao and Grossmann in \cite{grossmann}.
+
 \subsubsection{Initial wavestate as a pure coherent state}
-When the initial wavestate is set to be a pure coherent state, our method becomes a massive improvement, since the trajectory of a single coherent state is semi-classical, and we can find it with a basis sample of size $N=1$. In Fig. \ref{fig:bosonic_pure_CS} I show the convergence of this minimal basis sample to the true solution for both two-mode and three-mode systems.
+When the initial wavestate is set to be a pure coherent state, our method becomes a massive improvement, since the trajectory of a single coherent state is semi-classical, and we can find it with a basis sample of size $N=1$. In Fig. \ref{fig:single_peak_benchmark} I show the convergence of this minimal basis sample to the true solution for both two-mode and three-mode systems.
+
+\begin{figure} \label{fig:single_peak_benchmark}
+\begin{center}
+\includegraphics[width=\textwidth]{images/single_peak_benchmark}
+\caption{These graphs show the calculated trajectories of bosonic pure coherent states using the single CS equations of motion as compared to the decomposition onto the full occupancy basis. Both trajectories are calculated using the Dormand-Prince method. The top graph shows a system with $M=2,S=20$ and the bottom graph shows a system with $M=3,S=20$. We see convergence for both the two-mode and the three-mode system, although the three-mode system is slightly less numerically stable (notice the wiggle in the total wavefunction norm). The CS solution is obtained in the order of $100$ ms; for the two-mode system, the full occupancy solution is obtained in the order of $1$ s; for the three-mode system, the full occupancy solution is obtained in the order of $1$ h.}
+\end{center}
+\end{figure}
 
 \subsubsection{Initial wavestate as a superposition of coherent states}
-We wish to show that the propagation of each basis state separately yields a suitable time-dependent frozen basis for an arbitrary initial wavefunction. Therefore I extended the pool of initial wavestates to superpositions of a small number of coherent states, and chose the basis for each setup as a set of all present coherent states.
+We wish to show that the propagation of each basis state separately yields a suitable time-dependent frozen basis for an arbitrary initial wavefunction. Therefore I extended the pool of initial wavestates to superpositions of a small number of coherent states, and chose the basis for each setup as a set of all present coherent states. Fig. \ref{fig:multiple_peaks_benchmark} demonstrates the validity and scope of this approach.
+
+\begin{figure} \label{fig:multiple_peaks_benchmark}
+\begin{center}
+\includegraphics[width=\textwidth]{images/multiple_peaks_benchmark}
+\caption{These graphs both show the evolution on a two-mode system with $S=20$; the upper graph has the initial wavefunction a superposition of $2$ pure coherent states, and the bottom graph a superposition of $5$ pure coherent states. For both graphs, the basis is chosen to be equal to the components of the initial wavefunction superposition, and the evolution converges to the true solution. Choosing an initial wavefunction a superposition of a larger number of coherent states (say $20$) will, however, prevent the model from converging easily, which shows the limit of this naive sampling method. For such highly-mixed initial wavefunctions, more general sampling methods are required (such as magnitude-squared weighted sampling from the parameter space). Nevertheless, this shows the validity of our method beyond pure-CS initial wavefunctions, extending it beyond the scope on which Qiao and Grossmann demonstrated their fully variational method.}
+\end{center}
+\end{figure}

@@ -67,7 +67,38 @@
 	
 	\section{Summary of original work done}
 	
+	During the first year of this doctorate degree, I have done the following original work:
+	\begin{itemize}
+	\item I have generalised the matrix form of the fully-variational equations of motion on a discrete CS sample as quoted by Qiao and Grossmann \cite[App. B]{grossmann}, which is also applicable to fermionic coherent states.
+	\item Based on the suggestion by my supervisor Prof Dmitry Shalashilin, I have built a framework in Python 3 for bosonic $SU(M)$ dynamics on an arbitrary second-order Hamiltonian for both the fully variational method and the new separate-basis-trajectory method, and implemented the Bose-Hubbard and the displaced harmonic trap systems in this framework.
+	\item Using this framework, I have achieved convergence for two- and three-mode systems for the Bose-Hubbard model on a scale which matches that of the work of Qiao and Grossmann, demonstrating the utility of the separate-basis-trajectory method. I have also extended the scope of this investigation onto problems with initial wavefunctions which are not pure bosonic coherent states.
+	\item I have derived the general matrix element of a product sequence of fermionic creation and annihilation operators for fermionic $SU(M)$ coherent states, which allows the evaluation of matrix elements of arbitrary particle-preserving operators, including the Hamiltonian.
+	\item I have built the skeleton of a framework in Python 3 using PySCF to translate the single-electron and electron-exchange energy integrals for an arbitrary molecule into a mode system onto which fermionic $SU(M)$ coherent state-based methods may be applied.
+	\end{itemize}
+	
 	\section{Research plan for the duration of the doctorate programme}
+	I propose the following tasks for the remaining duration of my doctorate programme to be done within this research project:
+	\begin{itemize}
+	\item Finishing the bosonic dynamics for separate basis trajectories (estimated duration: 2 months). This entails
+		\begin{itemize}
+		\item Implementing arbitrary initial wavefunction sampling techniques and testing various conditioning methods to maximise numerical stability
+		\item Scaling the mode and particle numbers to see the limits of this method
+		\item For high mode and particle numbers, it is no longer possible to calculate the "true" solution on the full occupancy basis; comparison data must be collected by other techniques, e.g. MCSCF.
+		\end{itemize}
+	\item Obtaining a succesful estimate for the ground state of a complex molecule using $SU(M)$ fermionic coherent states (estimated duration: 2 months).
+	\item Further investigation of the mathematical properties of $SU(M)$ fermionic coherent states, with the focus on lowering the time complexity of calculating the Hamiltonian matrix elements (estimated duration: 3 months).
+	\item Benchmarking different methods for obtaining the molecular ground state (estimated duration: 3 months).
+	\item Investigating alternative constructions for obtaining the molecular electronic ground state, such as the boson-analogous construction recently proposed by Prof Dmitry Shalashilin (estimated duration: 6 months).
+	\item Applying the fermionic $SU(M)$ methods for dynamics to other particle-preserving fermionic systems (e.g. qubit systems, electron gas with high chemical potential etc) (estimated duration: 6 months).
+	\item Investigating the underlying connection between bosonic and fermionic $SU(M)$ coherent states and generalising it to other dynamical groups, which massively enlargens the scale of the proposed methods in terms of fermionic physical systems which may be analysed (estimated duration: 1 year in parallel with other work)
+	\end{itemize}
+	
+	\section{Data management plan}
+	The project is purely theoretical/computational, and thus no collection of laboratory data is required.
+	
+	Collection of numerical data from the frameworks developed by me has so far been done on my personal computer and stored on a github repository. As I move ahead to upscale the data collection, especially for large-mode bosonic systems and complex molecules, I will create a designated workflow for collecting data on the MacBook machine provided to me by the Faculty, so that long-term data collection may be put into place without interrupting the development workflow.
+	
+	In case the computational complexity of the largest systems we choose to analyse exceeds what may reasonably covered by a single machine, parallelisation or employing high-performance computing systems will be considered; however, given that the utility we are trying to demonstrate is that of a low-time-complexity approach, this will probably not be necessary.
 	
 	
 	

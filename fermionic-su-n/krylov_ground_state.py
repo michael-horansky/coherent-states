@@ -65,7 +65,9 @@ class ground_state_solver():
     # ------------------------ Coherent state methods -------------------------
 
     def general_overlap(self, Z_a, Z_b, c, a):
-        # assumes c and a are both ascending. That's the only assumption. I'll add the perm sign soon, then no assumptions will be made (except for non-repeated indices i guess? easy to test for tbh)
+        # c and a contain distinct values, otherwise this is trivially zero
+        if (len(c) > len(set(c)) or len(a) > len(set(a))):
+            return(0.0)
         varsigma_a = []
         tau_a = []
         varsigma_b = []
@@ -98,6 +100,8 @@ class ground_state_solver():
         sigma_b = varsigma_b + sigma_intersection
         sigma_cup = varsigma_a + varsigma_b + sigma_intersection
         const_sign = functions.sign(self.S * (len(tau_a) + len(tau_b)) + (len(varsigma_a) - 1) * (len(varsigma_b) - 1) + 1 + sum(varsigma_a) + len(varsigma_a) + sum(varsigma_b) + len(varsigma_b) + functions.eta(sigma_intersection, varsigma_a + varsigma_b))
+        # Now for the normal ordering sign
+        const_sign *= functions.permutation_signature(c) * functions.permutation_signature(a)
         if len(tau_a) <= len(tau_b):
             fast_M = np.zeros((len(tau_b) + self.S - len(sigma_a), len(tau_b) + self.S - len(sigma_a)), dtype=complex)
             fast_M[:len(tau_b), len(tau_a):len(tau_a)+len(varsigma_a)] = np.take(np.take(Z_b, tau_b, axis = 0), varsigma_a, axis = 1)
@@ -190,6 +194,27 @@ class ground_state_solver():
 
 
 
+    def find_ground_state_sampling(self, **kwargs):
+        # kwargs:
+        #     -N: sample size
+        #     -lamb: None for no conditioning, or positive float for the conditioning parameter
+        #     -delta: width of the sampling distribution (normal, uncoupled ofc)
+        print(f"Obtaining the ground state with the method \"random sampling\" [N = {kwargs["N"]}, lambda = {kwargs["lamb"]}, delta = {kwargs["delta"]}]")
+
+        # We sample around the HF null guess, i.e. Z = 0
+        vector_sample = np.random.normal(0.0, kwargs["delta"], (kwargs["N"], self.M - self.S, self.S))
+
+        # We now diagonalise on the vector sample
+        H_eff = np.zeros((kwargs["N"], kwargs["N"]), dtype=complex)
+
+        for a in range(kwargs["N"]):
+            # Here the diagonal <Z_a|H|Z_a>
+
+            # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
+            for b in range(a):
+                # We explicitly calculate <Z_a | H | Z_b>
+
+
     def find_ground_state_krylov(self, **kwargs):
         # kwargs:
         #     -dt: float; time spacing of the basis sampling process
@@ -208,6 +233,7 @@ class ground_state_solver():
 
 
     find_ground_state_methods = {
+            "sampling" : find_ground_state_sampling,
             "krylov" : find_ground_state_krylov,
             "imag_timeprop" : find_ground_state_imaginary_timeprop
         }
@@ -294,11 +320,39 @@ class ground_state_solver():
         if len(m_i) == 1:
             return(self.H_one[self.modes[m_i[0]]][self.modes[m_f[0]]])
         elif len(m_i) == 2:
-            p = self.modes[m_i[0]]
-            q = self.modes[m_i[1]]
-            r = self.modes[m_f[0]]
-            s = self.modes[m_f[1]]
+            physicist_p = self.modes[m_i[0]]
+            physicist_q = self.modes[m_i[1]]
+            physicist_r = self.modes[m_f[0]]
+            physicist_s = self.modes[m_f[1]]
+            # We translate from Mulliken into physicist's notation using the equation (PQ|RS)=<PR|QS>
+            p = physicist_p
+            q = physicist_r
+            r = physicist_q
+            s = physicist_s
+            # Here p,q,r,s are in the Mulliken notation, and thus we can use the standard ordering to access the symmetrised AO integral
             return(self.H_two[int(p * (p * p * p + 2 * p * p + 3 * p + 2) / 8 + p * q * (p + 1) / 2 + q * (q + 1) / 2   + r * (r + 1) / 2 + s )])
+
+    def H_overlap(self, Z_a, Z_b):
+        # This method only uses the instance's H_one, H_two, to calculate <Z_a | H | Z_b>
+        # Z_a, Z_b are (M-S, S)-signed matrices
+        H_one_term = 0.0
+        # This is a sum over all mode pairs
+        for p in range(self.M):
+            for q in range(self.M):
+                H_one_term += self.mode_exchange_energy([p], [q]) * self.general_overlap(Z_a, Z_b, [p], [q])
+
+        H_two_term = 0.0
+        # This is a sum over pairs of strictly ascending mode pairs (for other cases we can use symmetry, which just becomes an extra factor here)
+        c_pairs = functions.subset_indices(np.arange(self.M), 2)
+        a_pairs = functions.subset_indices(np.arange(self.M), 2)
+        for c_pair in c_pairs:
+            for a_pair in a_pairs:
+                # c_pair = [q, p] (inverted order!)
+                # a_pair = [r, s]
+                core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * self.general_overlap(Z_a, Z_b, c_pair, a_pair)
+                # an extra contribution is from the 8 different exchanges, which yields 4(core_term + core_term*), however, we also have a pre-factor of 0.5
+                H_two_term += 2.0 * (core_term + np.conjugate(core_term))
+        return(H_one_term + H_two_term) #TODO the mulliken -> physicist notation conversion is incomplete, and that's why it is not yet antisymmetrised. SUBTRACT THE DIAGONAL TERM
 
 
 

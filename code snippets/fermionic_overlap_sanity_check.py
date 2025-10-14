@@ -24,12 +24,38 @@ def subset_indices(N, k):
     res = []
     for k_1 in range(0, len(N) - k + 1):
         minor = subset_indices(N[k_1+1:], k-1)
-        #if len(minor) > 0:
         for m in minor:
             res.append([N[k_1]] + m)
-        #else:
-        #    res.append([N[k_1]])
     return(res)
+
+def permutation_signature(arr):
+    # arr is a list of distinct values
+    def merge_sort(arr):
+        if len(arr) <= 1:
+            return arr, 0
+        mid = len(arr) // 2
+        left, inv_left = merge_sort(arr[:mid])
+        right, inv_right = merge_sort(arr[mid:])
+        merged, inv_split = merge_and_count(left, right)
+        return merged, inv_left + inv_right + inv_split
+
+    def merge_and_count(left, right):
+        merged = []
+        i = j = inv_count = 0
+        while i < len(left) and j < len(right):
+            if left[i] <= right[j]:
+                merged.append(left[i])
+                i += 1
+            else:
+                merged.append(right[j])
+                inv_count += len(left) - i
+                j += 1
+        merged += left[i:]
+        merged += right[j:]
+        return merged, inv_count
+
+    _, inversions = merge_sort(arr)
+    return 1 if inversions % 2 == 0 else -1
 
 def random_complex_matrix(m, n, interval = None):
     if interval is None:
@@ -487,6 +513,8 @@ class CS():
         sigma_b = varsigma_b + sigma_intersection
         sigma_cup = varsigma_a + varsigma_b + sigma_intersection
         const_sign = sign(self.S * (len(tau_a) + len(tau_b)) + (len(varsigma_a) - 1) * (len(varsigma_b) - 1) + 1 + sum(varsigma_a) + len(varsigma_a) + sum(varsigma_b) + len(varsigma_b) + eta(sigma_intersection, varsigma_a + varsigma_b))
+        # Now for the normal ordering sign
+        const_sign *= permutation_signature(c) * permutation_signature(a)
         if len(tau_a) <= len(tau_b):
             fast_M = np.zeros((len(tau_b) + self.S - len(sigma_a), len(tau_b) + self.S - len(sigma_a)), dtype=complex)
             #fast_M[:len(tau_b), :len(tau_a)] = 0

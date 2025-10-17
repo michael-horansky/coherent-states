@@ -4,6 +4,8 @@ import numpy as np
 #------------------------- Methods for combinatorics --------------------------
 #------------------------------------------------------------------------------
 
+def reduced_matrix(m, row_indices, column_indices):
+    return(np.delete(np.delete(m, row_indices, axis = 0), column_indices, axis = 1))
 
 def eta(i, l, offset = 0):
     # number of elements in l smaller than i
@@ -67,3 +69,44 @@ def permutation_signature(arr):
 
     _, inversions = merge_sort(arr)
     return 1 if inversions % 2 == 0 else -1
+
+
+
+# -----------------------------------------------------------------------------
+# ------------------------ Methods for data formatting ------------------------
+# -----------------------------------------------------------------------------
+
+def dtstr(seconds, max_depth = 2):
+    # Dynamically chooses the right format
+    # max_depth is the number of different measurements (e.g. max_depth = 2: "2 days 5 hours")
+    if seconds >= 60 * 60 * 24:
+        # Days
+        if max_depth == 1:
+            return(f"{int(np.round(seconds / (60 * 60 * 24)))} days")
+        remainder = seconds % (60 * 60 * 24)
+        days = int((seconds - remainder) / (60 * 60 * 24))
+        return(f"{days} days {dtstr(remainder, max_depth - 1)}")
+    if seconds >= 60 * 60:
+        # Hours
+        if max_depth == 1:
+            return(f"{int(np.round(seconds / (60 * 60)))} hours")
+        remainder = seconds % (60 * 60)
+        hours = int((seconds - remainder) / (60 * 60))
+        return(f"{hours} hours {dtstr(remainder, max_depth - 1)}")
+    if seconds >= 60:
+        # Minutes
+        if max_depth == 1:
+            return(f"{int(np.round(seconds / 60))} min")
+        remainder = seconds % (60)
+        minutes = int((seconds - remainder) / (60))
+        return(f"{minutes} min {dtstr(remainder, max_depth - 1)}")
+    if seconds >= 1:
+        # Seconds
+        if max_depth == 1:
+            return(f"{int(np.round(seconds))} sec")
+        remainder = seconds % (1)
+        secs = int((seconds - remainder))
+        return(f"{secs} sec {dtstr(remainder, max_depth - 1)}")
+    # Milliseconds
+    return(f"{int(np.round(seconds / 0.001))} ms")
+

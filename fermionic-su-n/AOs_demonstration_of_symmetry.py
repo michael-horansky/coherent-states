@@ -89,6 +89,10 @@ for index_set_i in range(len(all_indices)):
     if len({np.round(sym_H_ERI[index_set_i], decimals), np.round(H_ERI[p][q][r][s], decimals), np.round(H_ERI[q][p][r][s], decimals), np.round(H_ERI[p][q][s][r], decimals), np.round(H_ERI[q][p][s][r], decimals), np.round(H_ERI[r][s][p][q], decimals), np.round(H_ERI[s][r][p][q], decimals), np.round(H_ERI[r][s][q][p], decimals), np.round(H_ERI[s][r][q][p], decimals)}) > 1:
         all_agree = False
 
+    print(f"  Symmetrised value accessed explicitly: {sym_H_ERI[int(p * (p * p * p + 2 * p * p + 3 * p + 2) / 8 + p * q * (p + 1) / 2 + q * (q + 1) / 2   + r * (r + 1) / 2 + s )]}")
+    if sym_H_ERI[int(p * (p * p * p + 2 * p * p + 3 * p + 2) / 8 + p * q * (p + 1) / 2 + q * (q + 1) / 2   + r * (r + 1) / 2 + s )] != sym_H_ERI[index_set_i]:
+        all_agree = False
+
 if all_agree:
     print("All agree!")
 

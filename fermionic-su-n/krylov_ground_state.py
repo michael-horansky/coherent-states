@@ -2,6 +2,7 @@ import numpy as np
 
 from pyscf import gto, scf, cc
 
+from class_Semaphor import Semaphor
 import functions
 
 
@@ -55,6 +56,9 @@ class ground_state_solver():
 
         self.ID = ID
 
+        # Semaphor
+        self.semaphor = Semaphor(time_format = "%H:%M:%S")
+
         print("---------------------------- " + str(ID) + " -----------------------------")
 
 
@@ -105,28 +109,28 @@ class ground_state_solver():
         if len(tau_a) <= len(tau_b):
             fast_M = np.zeros((len(tau_b) + self.S - len(sigma_a), len(tau_b) + self.S - len(sigma_a)), dtype=complex)
             fast_M[:len(tau_b), len(tau_a):len(tau_a)+len(varsigma_a)] = np.take(np.take(Z_b, tau_b, axis = 0), varsigma_a, axis = 1)
-            fast_M[:len(tau_b), len(tau_a)+len(varsigma_a):] = np.take(reduced_matrix(Z_b, [], sigma_cup), tau_b, axis = 0)
+            fast_M[:len(tau_b), len(tau_a)+len(varsigma_a):] = np.take(functions.reduced_matrix(Z_b, [], sigma_cup), tau_b, axis = 0)
 
             fast_M[len(tau_b):len(tau_b) + len(varsigma_b),:len(tau_a)] = np.conjugate(np.take(np.take(Z_a, tau_a, axis = 0), varsigma_b, axis = 1).T)
-            fast_M[len(tau_b) + len(varsigma_b):, :len(tau_a)] = np.conjugate(np.take(reduced_matrix(Z_a, [], sigma_cup), tau_a, axis = 0).T)
+            fast_M[len(tau_b) + len(varsigma_b):, :len(tau_a)] = np.conjugate(np.take(functions.reduced_matrix(Z_a, [], sigma_cup), tau_a, axis = 0).T)
 
-            fast_M[len(tau_b):len(tau_b) + len(varsigma_b), len(tau_a):len(tau_a)+len(varsigma_a)] = np.matmul(np.conjugate(np.take(reduced_matrix(Z_a, tau_cup, []), varsigma_b, axis = 1).T), np.take(reduced_matrix(Z_b, tau_cup, []), varsigma_a, axis = 1))
-            fast_M[len(tau_b):len(tau_b) + len(varsigma_b), len(tau_a)+len(varsigma_a):] = np.matmul(np.conjugate(np.take(reduced_matrix(Z_a, tau_cup, []), varsigma_b, axis = 1).T), reduced_matrix(Z_b, tau_cup, sigma_cup))
-            fast_M[len(tau_b) + len(varsigma_b):, len(tau_a):len(tau_a)+len(varsigma_a)] = np.matmul(np.conjugate(reduced_matrix(Z_a, tau_cup, sigma_cup).T), np.take(reduced_matrix(Z_b, tau_cup, []), varsigma_a, axis = 1))
-            fast_M[len(tau_b) + len(varsigma_b):, len(tau_a)+len(varsigma_a):] = np.identity(self.S - len(sigma_cup)) + np.matmul(np.conjugate(reduced_matrix(Z_a, tau_cup, sigma_cup).T), reduced_matrix(Z_b, tau_cup, sigma_cup))
+            fast_M[len(tau_b):len(tau_b) + len(varsigma_b), len(tau_a):len(tau_a)+len(varsigma_a)] = np.matmul(np.conjugate(np.take(functions.reduced_matrix(Z_a, tau_cup, []), varsigma_b, axis = 1).T), np.take(functions.reduced_matrix(Z_b, tau_cup, []), varsigma_a, axis = 1))
+            fast_M[len(tau_b):len(tau_b) + len(varsigma_b), len(tau_a)+len(varsigma_a):] = np.matmul(np.conjugate(np.take(functions.reduced_matrix(Z_a, tau_cup, []), varsigma_b, axis = 1).T), functions.reduced_matrix(Z_b, tau_cup, sigma_cup))
+            fast_M[len(tau_b) + len(varsigma_b):, len(tau_a):len(tau_a)+len(varsigma_a)] = np.matmul(np.conjugate(functions.reduced_matrix(Z_a, tau_cup, sigma_cup).T), np.take(functions.reduced_matrix(Z_b, tau_cup, []), varsigma_a, axis = 1))
+            fast_M[len(tau_b) + len(varsigma_b):, len(tau_a)+len(varsigma_a):] = np.identity(self.S - len(sigma_cup)) + np.matmul(np.conjugate(functions.reduced_matrix(Z_a, tau_cup, sigma_cup).T), functions.reduced_matrix(Z_b, tau_cup, sigma_cup))
             cb_sign = functions.sign(len(tau_b) * (1 + len(tau_b) - len(tau_a)))
             return(const_sign * cb_sign * np.linalg.det(fast_M))
         else:
             fast_M = np.zeros((self.M - self.S + len(tau_a) + len(varsigma_a) - len(tau_cup), self.M - self.S + len(tau_a) + len(varsigma_a) - len(tau_cup)), dtype=complex)
             fast_M[:len(varsigma_b), len(varsigma_a):len(varsigma_a)+len(tau_a)] = np.take(np.take(np.conjugate(Z_a).T, varsigma_b, axis=0), tau_a, axis = 1)
-            fast_M[:len(varsigma_b), len(varsigma_a)+len(tau_a):] = np.take(reduced_matrix(np.conjugate(Z_a).T, [], tau_cup), varsigma_b, axis=0)
+            fast_M[:len(varsigma_b), len(varsigma_a)+len(tau_a):] = np.take(functions.reduced_matrix(np.conjugate(Z_a).T, [], tau_cup), varsigma_b, axis=0)
             fast_M[len(varsigma_b):len(varsigma_b)+len(tau_b), :len(varsigma_a)] = np.take(np.take(Z_b, tau_b, axis=0), varsigma_a, axis = 1)
-            fast_M[len(varsigma_b)+len(tau_b):, :len(varsigma_a)] = np.take(reduced_matrix(Z_b, tau_cup, []), varsigma_a, axis=1)
+            fast_M[len(varsigma_b)+len(tau_b):, :len(varsigma_a)] = np.take(functions.reduced_matrix(Z_b, tau_cup, []), varsigma_a, axis=1)
 
-            fast_M[len(varsigma_b):len(varsigma_b)+len(tau_b), len(varsigma_a):len(varsigma_a)+len(tau_a)] = np.matmul(np.take(reduced_matrix(Z_b, [], sigma_cup), tau_b, axis = 0), np.take(reduced_matrix(np.conjugate(Z_a).T, sigma_cup, []), tau_a, axis=1))
-            fast_M[len(varsigma_b):len(varsigma_b)+len(tau_b), len(varsigma_a)+len(tau_a):] = np.matmul(np.take(reduced_matrix(Z_b, [], sigma_cup), tau_b, axis = 0), reduced_matrix(np.conjugate(Z_a).T, sigma_cup, tau_cup))
-            fast_M[len(varsigma_b)+len(tau_b):, len(varsigma_a):len(varsigma_a)+len(tau_a)] = np.matmul(reduced_matrix(Z_b, tau_cup, sigma_cup), np.take(reduced_matrix(np.conjugate(Z_a).T, sigma_cup, []), tau_a, axis=1))
-            fast_M[len(varsigma_b)+len(tau_b):, len(varsigma_a)+len(tau_a):] = np.identity(self.M - self.S - len(tau_cup)) + np.matmul(reduced_matrix(Z_b, tau_cup, sigma_cup), reduced_matrix(np.conjugate(Z_a).T, sigma_cup, tau_cup))
+            fast_M[len(varsigma_b):len(varsigma_b)+len(tau_b), len(varsigma_a):len(varsigma_a)+len(tau_a)] = np.matmul(np.take(functions.reduced_matrix(Z_b, [], sigma_cup), tau_b, axis = 0), np.take(functions.reduced_matrix(np.conjugate(Z_a).T, sigma_cup, []), tau_a, axis=1))
+            fast_M[len(varsigma_b):len(varsigma_b)+len(tau_b), len(varsigma_a)+len(tau_a):] = np.matmul(np.take(functions.reduced_matrix(Z_b, [], sigma_cup), tau_b, axis = 0), functions.reduced_matrix(np.conjugate(Z_a).T, sigma_cup, tau_cup))
+            fast_M[len(varsigma_b)+len(tau_b):, len(varsigma_a):len(varsigma_a)+len(tau_a)] = np.matmul(functions.reduced_matrix(Z_b, tau_cup, sigma_cup), np.take(functions.reduced_matrix(np.conjugate(Z_a).T, sigma_cup, []), tau_a, axis=1))
+            fast_M[len(varsigma_b)+len(tau_b):, len(varsigma_a)+len(tau_a):] = np.identity(self.M - self.S - len(tau_cup)) + np.matmul(functions.reduced_matrix(Z_b, tau_cup, sigma_cup), functions.reduced_matrix(np.conjugate(Z_a).T, sigma_cup, tau_cup))
             cb_sign = functions.sign(len(varsigma_b) * (1 + len(varsigma_b) - len(varsigma_a)))
             return(const_sign * cb_sign * np.linalg.det(fast_M))
 
@@ -202,17 +206,37 @@ class ground_state_solver():
         print(f"Obtaining the ground state with the method \"random sampling\" [N = {kwargs["N"]}, lambda = {kwargs["lamb"]}, delta = {kwargs["delta"]}]")
 
         # We sample around the HF null guess, i.e. Z = 0
-        vector_sample = np.random.normal(0.0, kwargs["delta"], (kwargs["N"], self.M - self.S, self.S))
+        # We include one extra basis vector - the null point itself!
+        initial_vector_sample = np.zeros((1, self.M - self.S, self.S), dtype=complex)
+        additional_vector_sample = np.random.normal(0.0, kwargs["delta"], (kwargs["N"], self.M - self.S, self.S))
+        vector_sample = np.concatenate((initial_vector_sample, additional_vector_sample))
+        N = kwargs["N"] + 1
 
         # We now diagonalise on the vector sample
-        H_eff = np.zeros((kwargs["N"], kwargs["N"]), dtype=complex)
+        H_eff = np.zeros((N, N), dtype=complex)
 
-        for a in range(kwargs["N"]):
+        msg = f"  Explicit Hamiltonian evaluation begins..."
+        new_sem_ID = self.semaphor.create_event(np.linspace(0, N * (N + 1) / 2, 100 + 1), msg)
+
+        for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
+            H_eff[a][a] = self.H_overlap(vector_sample[a], vector_sample[a])
+            self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
 
             # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
             for b in range(a):
                 # We explicitly calculate <Z_a | H | Z_b>
+                H_eff[a][b] = self.H_overlap(vector_sample[a], vector_sample[b])
+                H_eff[b][a] = np.conjugate(H_eff[a][b])
+                self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
+
+        self.solution_benchmark = self.semaphor.finish_event(new_sem_ID, "    Evaluation")
+
+        energy_levels, energy_states = np.linalg.eig(H_eff)
+
+        ground_state_index = np.argmin(energy_levels)
+
+        print(f"Ground state found with energy {energy_levels[ground_state_index]}")
 
 
     def find_ground_state_krylov(self, **kwargs):
@@ -314,6 +338,31 @@ class ground_state_solver():
 
         print(self.modes)
 
+        null_state_energy = 0.0
+        for p in range(self.S):
+            # Only occupied states contribute
+            null_state_energy += self.mode_exchange_energy([p], [p])
+        c_pairs = functions.subset_indices(np.arange(self.S), 2)
+        for c_pair in c_pairs:
+            core_term = self.mode_exchange_energy([c_pair[0], c_pair[0]], [c_pair[1], c_pair[1]])
+            print(core_term)
+            # an extra contribution is from the 4 different order swaps, which yields 2(core_term + core_term*), however, we also have a pre-factor of 0.5
+            null_state_energy += (core_term + np.conjugate(core_term))
+
+        print(f"  Energy of the null state = {null_state_energy}")
+
+        # We print the diagonal elements of H_one
+        print("  Occupied:")
+        for p in range(self.S):
+            print(f"    H_one_{p},{p} = {self.mode_exchange_energy([p], [p])}")
+        print("  Unoccupied:")
+        for p in range(self.S, self.M):
+            print(f"    H_one_{p},{p} = {self.mode_exchange_energy([p], [p])}")
+
+    def get_H_two_element(self, p, q, r, s):
+
+        return(self.H_two[int(p * (p * p * p + 2 * p * p + 3 * p + 2) / 8 + p * q * (p + 1) / 2 + q * (q + 1) / 2   + r * (r + 1) / 2 + s )])
+
     def mode_exchange_energy(self, m_i, m_f):
         # m_i/f are lists of either one mode index (single electron exchange) or two mode indices (two electron exchange)
         # this function translates mode index exchanges into ao orbital exchanges, which are known
@@ -326,11 +375,11 @@ class ground_state_solver():
             physicist_s = self.modes[m_f[1]]
             # We translate from Mulliken into physicist's notation using the equation (PQ|RS)=<PR|QS>
             p = physicist_p
-            q = physicist_r
-            r = physicist_q
+            q = physicist_q
+            r = physicist_r
             s = physicist_s
             # Here p,q,r,s are in the Mulliken notation, and thus we can use the standard ordering to access the symmetrised AO integral
-            return(self.H_two[int(p * (p * p * p + 2 * p * p + 3 * p + 2) / 8 + p * q * (p + 1) / 2 + q * (q + 1) / 2   + r * (r + 1) / 2 + s )])
+            return(self.get_H_two_element(p, q, r, s) - self.get_H_two_element(p, r, q, s))
 
     def H_overlap(self, Z_a, Z_b):
         # This method only uses the instance's H_one, H_two, to calculate <Z_a | H | Z_b>
@@ -350,9 +399,9 @@ class ground_state_solver():
                 # c_pair = [q, p] (inverted order!)
                 # a_pair = [r, s]
                 core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * self.general_overlap(Z_a, Z_b, c_pair, a_pair)
-                # an extra contribution is from the 8 different exchanges, which yields 4(core_term + core_term*), however, we also have a pre-factor of 0.5
-                H_two_term += 2.0 * (core_term + np.conjugate(core_term))
-        return(H_one_term + H_two_term) #TODO the mulliken -> physicist notation conversion is incomplete, and that's why it is not yet antisymmetrised. SUBTRACT THE DIAGONAL TERM
+                # an extra contribution is from the 4 different order swaps, which yields 2(core_term + core_term*), however, we also have a pre-factor of 0.5
+                H_two_term += (core_term + np.conjugate(core_term))
+        return(H_one_term + H_two_term) #TODO the mulliken -> physicist notation conversion is incomplete, and that's why it is not yet antisymmetrised. SUBTRACT THE DIAGONAL TERM (NOT TRUE)
 
 
 

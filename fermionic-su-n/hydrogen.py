@@ -16,7 +16,7 @@ hydrogen_mol.build(
 
 water_solver = ground_state_solver("water")
 water_solver.initialise_molecule(water_mol)
-water_solver.find_ground_state("sampling", N = 10, lamb = None, delta = 1e-2)
+water_solver.find_ground_state("sampling", N = 10, lamb = None, delta = 1)
 
 
 

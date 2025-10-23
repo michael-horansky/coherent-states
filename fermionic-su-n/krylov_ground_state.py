@@ -1,4 +1,6 @@
 import numpy as np
+import scipy as sp
+import matplotlib.pyplot as plt
 
 from pyscf import gto, scf, cc
 
@@ -225,7 +227,7 @@ class ground_state_solver():
         N = kwargs["N"] + 1
 
         # Firstly we find the normalisation coefficients
-        norm_coefs = np.zeros(N, dtype=complex)
+        norm_coefs = np.zeros(N)
         norm_coefs[0] = 1.0
         for i in range(1, N):
             norm_coefs[i] = 1.0 / np.sqrt(self.overlap(vector_sample[i], vector_sample[i]))
@@ -233,7 +235,8 @@ class ground_state_solver():
         overlap_matrix = np.zeros((N, N), dtype=complex) # [a][b] = <a|b>
         for i in range(N):
             for j in range(N):
-                overlap_matrix[i][j] = self.overlap(vector_sample[i], vector_sample[j])
+                overlap_matrix[i][j] = self.overlap(vector_sample[i], vector_sample[j]) * norm_coefs[i] * norm_coefs[j]
+        print(overlap_matrix)
 
         # We now diagonalise on the vector sample
         H_eff = np.zeros((N, N), dtype=complex)
@@ -258,7 +261,29 @@ class ground_state_solver():
 
         print(H_eff)
 
-        unnorm_energy_levels, unnorm_energy_states = np.linalg.eig(H_eff)
+        def get_partial_sol(N_eff):
+            H_eff_trimmed = H_eff[:N_eff, :N_eff]
+            S_trimmed = overlap_matrix[:N_eff, :N_eff]
+            energy_levels, energy_states = sp.linalg.eigh(H_eff_trimmed, S_trimmed)
+            """unnorm_energy_levels, unnorm_energy_states = np.linalg.eig(H_eff_trimmed)
+            # The eigen-states are linear combinations of other states with non-unitary norm, and thus their energy values have to be renormalised as well
+            energy_levels = []
+            energy_states = []
+
+            for i in range(N_eff):
+                cur_vector = unnorm_energy_states[:,i]
+                cur_norm = 0.0
+                for a in range(N_eff):
+                    for b in range(N_eff):
+                        cur_norm += np.conjugate(cur_vector[a]) * cur_vector[b] * overlap_matrix[a][b] * norm_coefs[a] * norm_coefs[b]
+                energy_states.append(cur_vector / np.sqrt(cur_norm))
+                energy_levels.append(unnorm_energy_levels[i])"""
+            ground_state_index = np.argmin(energy_levels)
+            return(energy_levels[ground_state_index])
+
+
+
+        """unnorm_energy_levels, unnorm_energy_states = np.linalg.eig(H_eff)
 
         # The eigen-states are linear combinations of other states with non-unitary norm, and thus their energy values have to be renormalised as well
 
@@ -277,7 +302,15 @@ class ground_state_solver():
 
         ground_state_index = np.argmin(energy_levels)
 
-        print(f"Ground state found with energy {energy_levels[ground_state_index]}")
+        print(f"Ground state found with energy {energy_levels[ground_state_index]}")"""
+
+        convergence_sols = []
+        N_vals = []
+        for N_eff_val in range(1, N + 1):
+            N_vals.append(N_eff_val)
+            convergence_sols.append(get_partial_sol(N_eff_val))
+        plt.plot(N_vals, convergence_sols, "x")
+        plt.show()
 
 
     def find_ground_state_krylov(self, **kwargs):

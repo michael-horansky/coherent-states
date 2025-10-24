@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 
 from pyscf import gto, scf, cc
 
+from coherent_states.CS_Thouless import CS_Thouless
+from coherent_states.CS_Qubit import CS_Qubit
+
 from class_Semaphor import Semaphor
 import functions
 
@@ -54,6 +57,11 @@ class ground_state_solver():
     # --------------- STATIC METHODS, CONSTRUCTORS, DESCRIPTORS ---------------
     ###########################################################################
 
+    coherent_state_types = {
+        "Thouless" : CS_Thouless,
+        "Qubit" : CS_Qubit
+        }
+
     def __init__(self, ID):
 
         self.ID = ID
@@ -68,85 +76,6 @@ class ground_state_solver():
     # --------------------------- Internal methods ----------------------------
     ###########################################################################
 
-    # ------------------------ Coherent state methods -------------------------
-
-    def overlap(self, Z_a, Z_b):
-        # Calculates {Z_a | Z_b}, the unnormalised overlap
-        # Note that the norm of a vector | Z } is equal to sqrt({Z | Z})
-
-        # Z_a, Z_b are (M-S, S)-signed matrices
-        if self.M - self.S > self.S:
-            # We prefer I_S + Z_a\hc.Z_b
-            return(np.linalg.det(np.identity(self.S) + np.matmul(np.conjugate(Z_a.T), Z_b)))
-        else:
-            # We prefer I_(M-S) + Z_b.Z_a\hc
-            return(np.linalg.det(np.identity(self.M - self.S) + np.matmul(Z_b, np.conjugate(Z_a.T))))
-
-    def general_overlap(self, Z_a, Z_b, c, a):
-        # c and a contain distinct values, otherwise this is trivially zero
-        if (len(c) > len(set(c)) or len(a) > len(set(a))):
-            return(0.0)
-        varsigma_a = []
-        tau_a = []
-        varsigma_b = []
-        tau_b = []
-        tau_cup = []
-        sigma_intersection = []
-        for i in range(len(c)):
-            # using len(c) = len(a)
-            if c[i] < self.S:
-                # pi_1
-                if c[i] not in a:
-                    varsigma_a.append(c[i])
-                else:
-                    sigma_intersection.append(c[i])
-            else:
-                # pi_0
-                tau_a.append(c[i] - self.S)
-                if c[i] - self.S not in tau_cup:
-                    tau_cup.append(c[i] - self.S)
-            if a[i] < self.S:
-                # pi_1
-                if a[i] not in c:
-                    varsigma_b.append(a[i])
-            else:
-                # pi_0
-                tau_b.append(a[i] - self.S)
-                if a[i] - self.S not in tau_cup:
-                    tau_cup.append(a[i] - self.S)
-        sigma_a = varsigma_a + sigma_intersection
-        sigma_b = varsigma_b + sigma_intersection
-        sigma_cup = varsigma_a + varsigma_b + sigma_intersection
-        const_sign = functions.sign(self.S * (len(tau_a) + len(tau_b)) + (len(varsigma_a) - 1) * (len(varsigma_b) - 1) + 1 + sum(varsigma_a) + len(varsigma_a) + sum(varsigma_b) + len(varsigma_b) + functions.eta(sigma_intersection, varsigma_a + varsigma_b))
-        # Now for the normal ordering sign
-        const_sign *= functions.permutation_signature(c) * functions.permutation_signature(a)
-        if len(tau_a) <= len(tau_b):
-            fast_M = np.zeros((len(tau_b) + self.S - len(sigma_a), len(tau_b) + self.S - len(sigma_a)), dtype=complex)
-            fast_M[:len(tau_b), len(tau_a):len(tau_a)+len(varsigma_a)] = np.take(np.take(Z_b, tau_b, axis = 0), varsigma_a, axis = 1)
-            fast_M[:len(tau_b), len(tau_a)+len(varsigma_a):] = np.take(functions.reduced_matrix(Z_b, [], sigma_cup), tau_b, axis = 0)
-
-            fast_M[len(tau_b):len(tau_b) + len(varsigma_b),:len(tau_a)] = np.conjugate(np.take(np.take(Z_a, tau_a, axis = 0), varsigma_b, axis = 1).T)
-            fast_M[len(tau_b) + len(varsigma_b):, :len(tau_a)] = np.conjugate(np.take(functions.reduced_matrix(Z_a, [], sigma_cup), tau_a, axis = 0).T)
-
-            fast_M[len(tau_b):len(tau_b) + len(varsigma_b), len(tau_a):len(tau_a)+len(varsigma_a)] = np.matmul(np.conjugate(np.take(functions.reduced_matrix(Z_a, tau_cup, []), varsigma_b, axis = 1).T), np.take(functions.reduced_matrix(Z_b, tau_cup, []), varsigma_a, axis = 1))
-            fast_M[len(tau_b):len(tau_b) + len(varsigma_b), len(tau_a)+len(varsigma_a):] = np.matmul(np.conjugate(np.take(functions.reduced_matrix(Z_a, tau_cup, []), varsigma_b, axis = 1).T), functions.reduced_matrix(Z_b, tau_cup, sigma_cup))
-            fast_M[len(tau_b) + len(varsigma_b):, len(tau_a):len(tau_a)+len(varsigma_a)] = np.matmul(np.conjugate(functions.reduced_matrix(Z_a, tau_cup, sigma_cup).T), np.take(functions.reduced_matrix(Z_b, tau_cup, []), varsigma_a, axis = 1))
-            fast_M[len(tau_b) + len(varsigma_b):, len(tau_a)+len(varsigma_a):] = np.identity(self.S - len(sigma_cup)) + np.matmul(np.conjugate(functions.reduced_matrix(Z_a, tau_cup, sigma_cup).T), functions.reduced_matrix(Z_b, tau_cup, sigma_cup))
-            cb_sign = functions.sign(len(tau_b) * (1 + len(tau_b) - len(tau_a)))
-            return(const_sign * cb_sign * np.linalg.det(fast_M))
-        else:
-            fast_M = np.zeros((self.M - self.S + len(tau_a) + len(varsigma_a) - len(tau_cup), self.M - self.S + len(tau_a) + len(varsigma_a) - len(tau_cup)), dtype=complex)
-            fast_M[:len(varsigma_b), len(varsigma_a):len(varsigma_a)+len(tau_a)] = np.take(np.take(np.conjugate(Z_a).T, varsigma_b, axis=0), tau_a, axis = 1)
-            fast_M[:len(varsigma_b), len(varsigma_a)+len(tau_a):] = np.take(functions.reduced_matrix(np.conjugate(Z_a).T, [], tau_cup), varsigma_b, axis=0)
-            fast_M[len(varsigma_b):len(varsigma_b)+len(tau_b), :len(varsigma_a)] = np.take(np.take(Z_b, tau_b, axis=0), varsigma_a, axis = 1)
-            fast_M[len(varsigma_b)+len(tau_b):, :len(varsigma_a)] = np.take(functions.reduced_matrix(Z_b, tau_cup, []), varsigma_a, axis=1)
-
-            fast_M[len(varsigma_b):len(varsigma_b)+len(tau_b), len(varsigma_a):len(varsigma_a)+len(tau_a)] = np.matmul(np.take(functions.reduced_matrix(Z_b, [], sigma_cup), tau_b, axis = 0), np.take(functions.reduced_matrix(np.conjugate(Z_a).T, sigma_cup, []), tau_a, axis=1))
-            fast_M[len(varsigma_b):len(varsigma_b)+len(tau_b), len(varsigma_a)+len(tau_a):] = np.matmul(np.take(functions.reduced_matrix(Z_b, [], sigma_cup), tau_b, axis = 0), functions.reduced_matrix(np.conjugate(Z_a).T, sigma_cup, tau_cup))
-            fast_M[len(varsigma_b)+len(tau_b):, len(varsigma_a):len(varsigma_a)+len(tau_a)] = np.matmul(functions.reduced_matrix(Z_b, tau_cup, sigma_cup), np.take(functions.reduced_matrix(np.conjugate(Z_a).T, sigma_cup, []), tau_a, axis=1))
-            fast_M[len(varsigma_b)+len(tau_b):, len(varsigma_a)+len(tau_a):] = np.identity(self.M - self.S - len(tau_cup)) + np.matmul(functions.reduced_matrix(Z_b, tau_cup, sigma_cup), functions.reduced_matrix(np.conjugate(Z_a).T, sigma_cup, tau_cup))
-            cb_sign = functions.sign(len(varsigma_b) * (1 + len(varsigma_b) - len(varsigma_a)))
-            return(const_sign * cb_sign * np.linalg.det(fast_M))
 
     # -------------------------------------------------------------------------
     # ---------------------------- Solver methods -----------------------------
@@ -217,26 +146,33 @@ class ground_state_solver():
         #     -N: sample size
         #     -lamb: None for no conditioning, or positive float for the conditioning parameter
         #     -delta: width of the sampling distribution (normal, uncoupled ofc)
+        #     -CS: Type of coherent state to use
+
         print(f"Obtaining the ground state with the method \"random sampling\" [N = {kwargs["N"]}, lambda = {kwargs["lamb"]}, delta = {kwargs["delta"]}]")
 
         # We sample around the HF null guess, i.e. Z = 0
         # We include one extra basis vector - the null point itself!
-        initial_vector_sample = np.zeros((1, self.M - self.S, self.S), dtype=complex)
-        additional_vector_sample = np.random.normal(0.0, kwargs["delta"], (kwargs["N"], self.M - self.S, self.S))
+        cs_null_param = ground_state_solver.coherent_state_types[kwargs["CS"]].null_state(self.M, self.S)
+
+        initial_vector_sample = np.zeros((1,) + cs_null_param.shape, dtype=complex)
+        additional_vector_sample = np.random.normal(0.0, kwargs["delta"], (kwargs["N"],) + cs_null_param.shape)
         vector_sample = np.concatenate((initial_vector_sample, additional_vector_sample))
         N = kwargs["N"] + 1
+
+        CS_sample = []
+        for i in range(N):
+            CS_sample.append(ground_state_solver.coherent_state_types[kwargs["CS"]](self.M, self.S, cs_null_param + vector_sample[i]))
 
         # Firstly we find the normalisation coefficients
         norm_coefs = np.zeros(N)
         norm_coefs[0] = 1.0
         for i in range(1, N):
-            norm_coefs[i] = 1.0 / np.sqrt(self.overlap(vector_sample[i], vector_sample[i]))
+            norm_coefs[i] = 1.0 / np.sqrt(CS_sample[i].overlap(CS_sample[i]).real)
 
         overlap_matrix = np.zeros((N, N), dtype=complex) # [a][b] = <a|b>
         for i in range(N):
             for j in range(N):
-                overlap_matrix[i][j] = self.overlap(vector_sample[i], vector_sample[j]) * norm_coefs[i] * norm_coefs[j]
-        print(overlap_matrix)
+                overlap_matrix[i][j] = CS_sample[i].overlap(CS_sample[j]) * norm_coefs[i] * norm_coefs[j]
 
         # We now diagonalise on the vector sample
         H_eff = np.zeros((N, N), dtype=complex)
@@ -246,14 +182,14 @@ class ground_state_solver():
 
         for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
-            H_eff[a][a] = self.H_overlap(vector_sample[a], vector_sample[a]) * norm_coefs[a] * norm_coefs[a] + self.mol.energy_nuc()
+            H_eff[a][a] = self.H_overlap(CS_sample[a], CS_sample[a]) * norm_coefs[a] * norm_coefs[a] + self.mol.energy_nuc()
             self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
             print(f" Diagonal term {a+1}: {H_eff[a][a]}")
 
             # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
             for b in range(a):
                 # We explicitly calculate <Z_a | H | Z_b>
-                H_eff[a][b] = self.H_overlap(vector_sample[a], vector_sample[b]) * norm_coefs[a] * norm_coefs[b] + self.mol.energy_nuc()
+                H_eff[a][b] = self.H_overlap(CS_sample[a], CS_sample[b]) * norm_coefs[a] * norm_coefs[b] + self.mol.energy_nuc()
                 H_eff[b][a] = np.conjugate(H_eff[a][b])
                 self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
 
@@ -281,36 +217,12 @@ class ground_state_solver():
             ground_state_index = np.argmin(energy_levels)
             return(energy_levels[ground_state_index])
 
-
-
-        """unnorm_energy_levels, unnorm_energy_states = np.linalg.eig(H_eff)
-
-        # The eigen-states are linear combinations of other states with non-unitary norm, and thus their energy values have to be renormalised as well
-
-        energy_levels = []
-        energy_states = []
-
-        for i in range(N):
-            cur_vector = unnorm_energy_states[:,i]
-            cur_norm = 0.0
-            for a in range(N):
-                for b in range(N):
-                    cur_norm += np.conjugate(cur_vector[a]) * cur_vector[b] * overlap_matrix[a][b]
-            energy_states.append(cur_vector / cur_norm)
-            energy_levels.append(unnorm_energy_levels[i] / cur_norm)
-
-
-        ground_state_index = np.argmin(energy_levels)
-
-        print(f"Ground state found with energy {energy_levels[ground_state_index]}")"""
-
         convergence_sols = []
         N_vals = []
         for N_eff_val in range(1, N + 1):
             N_vals.append(N_eff_val)
             convergence_sols.append(get_partial_sol(N_eff_val))
-        plt.plot(N_vals, convergence_sols, "x")
-        plt.show()
+        return(N_vals, convergence_sols)
 
 
     def find_ground_state_krylov(self, **kwargs):
@@ -465,7 +377,8 @@ class ground_state_solver():
 
         null_state_energy = null_state_energy_one + null_state_energy_two + self.mol.energy_nuc()
         print(f"  Energy of the null state = {null_state_energy}")
-        print(f"  Energy of the null state with the overlap method = {self.H_overlap(np.zeros((self.M - self.S, self.S), dtype=complex), np.zeros((self.M - self.S, self.S), dtype=complex)) + self.mol.energy_nuc()}")
+        null_state = CS_Thouless(self.M, self.S, np.zeros((self.M - self.S, self.S), dtype=complex))
+        print(f"  Energy of the null state with the overlap method = {self.H_overlap(null_state, null_state) + self.mol.energy_nuc()}")
 
         # We print the diagonal elements of H_one
         print("  Occupied:")
@@ -511,14 +424,14 @@ class ground_state_solver():
                 #return(self.get_H_two_element(p, q, r, s))
         return(0.0)
 
-    def H_overlap(self, Z_a, Z_b):
+    def H_overlap(self, state_a, state_b):
         # This method only uses the instance's H_one, H_two, to calculate <Z_a | H | Z_b>
-        # Z_a, Z_b are (M-S, S)-signed matrices
+        # state_a, state_b are instances of any class inheriting from CS_Base
         H_one_term = 0.0
         # This is a sum over all mode pairs
         for p in range(self.M):
             for q in range(self.M):
-                H_one_term += self.mode_exchange_energy([p], [q]) * self.general_overlap(Z_a, Z_b, [p], [q])
+                H_one_term += self.mode_exchange_energy([p], [q]) * state_a.overlap(state_b, [p], [q]) #self.general_overlap(Z_a, Z_b, [p], [q])
         #print(f" H_one = {H_one_term}")
 
         H_two_term = 0.0
@@ -529,7 +442,7 @@ class ground_state_solver():
             for a_pair in a_pairs:
                 # c_pair = [q, p] (inverted order!)
                 # a_pair = [r, s]
-                core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * self.general_overlap(Z_a, Z_b, c_pair, a_pair)
+                core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * state_a.overlap(state_b, c_pair, a_pair) #self.general_overlap(Z_a, Z_b, c_pair, a_pair)
                 #print(self.general_overlap(Z_a, Z_b, c_pair, a_pair))
                 # an extra contribution is from the 4 different order swaps, which yields 2(core_term + core_term*), however, we also have a pre-factor of 0.5
                 H_two_term += (core_term)
@@ -546,9 +459,10 @@ class ground_state_solver():
 
     def find_ground_state(self, method, **kwargs):
         if method in self.find_ground_state_methods.keys():
-            self.find_ground_state_methods[method](self, **kwargs)
+            return(self.find_ground_state_methods[method](self, **kwargs))
         else:
             print(f"ERROR: Unknown ground state method {method}. Available methods: {self.find_ground_state_methods.keys()}")
+            return(None)
 
 
 

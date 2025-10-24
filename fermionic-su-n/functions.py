@@ -114,3 +114,24 @@ def dtstr(seconds, max_depth = 2):
     # Milliseconds
     return(f"{int(np.round(seconds / 0.001))} ms")
 
+def subplot_dimensions(number_of_plots):
+    # 1x1, 2x1, 3x1, 2x2, 3x2, 4x2, 3x3, 4x3, 5x3
+    if number_of_plots == 1:
+        return(1, 1)
+    if number_of_plots == 2:
+        return(2, 1)
+    if number_of_plots == 3:
+        return(3, 1)
+    if number_of_plots == 4:
+        return(2, 2)
+    if number_of_plots <= 6:
+        return(3, 2)
+    if number_of_plots <= 8:
+        return(4, 2)
+    if number_of_plots <= 9:
+        return(3, 3)
+    if number_of_plots <= 12:
+        return(4, 3)
+    if number_of_plots <= 15:
+        return(5, 3)
+    return(int(np.ceil(np.sqrt(number_of_plots))), int(np.ceil(np.sqrt(number_of_plots))))

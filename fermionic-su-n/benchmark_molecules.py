@@ -1,8 +1,10 @@
-
+import numpy as np
+import matplotlib.pyplot as plt
 
 from pyscf import gto, scf, fci
 from krylov_ground_state import ground_state_solver
 
+import functions
 
 # -------------------------- Li2
 
@@ -74,10 +76,29 @@ no_mol.build(
     spin = 1  # NO is a doublet (15 electrons) -> 1 unpaired electron
 )
 
-benchmark_molecules = [li2_mol]
+benchmark_molecules = {
+    "Li2" : li2_mol,
+    "N2" : n2_mol
+    }
 
+plot_x, plot_y = functions.subplot_dimensions(len(benchmark_molecules))
 
-for i in range(len(benchmark_molecules)):
-    mol_solver = ground_state_solver(f"bench_mol_{i}")
-    mol_solver.initialise_molecule(benchmark_molecules[i])
-    mol_solver.find_ground_state("sampling", N = 10, lamb = None, delta = 1e-2)
+i = 0
+for mol_name, mol in benchmark_molecules.items():
+    plt.subplot(plot_y, plot_x, i+1)
+    plt.title(f"Molecule {mol_name}")
+    plt.xlabel("No. configs")
+    plt.ylabel("E [Hartree]")
+
+    mol_solver = ground_state_solver(f"bench_mol_{mol_name}")
+    mol_solver.initialise_molecule(mol)
+    N_vals_t, energy_levels_t = mol_solver.find_ground_state("sampling", N = 2, lamb = None, delta = 1e-2, CS = "Thouless")
+    N_vals_q, energy_levels_q = mol_solver.find_ground_state("sampling", N = 2, lamb = None, delta = 1e-2, CS = "Qubit")
+
+    plt.plot(N_vals_t, energy_levels_t, "x", label = "Thouless")
+    plt.plot(N_vals_q, energy_levels_q, "x", label = "Qubit")
+
+    i += 1
+
+plt.tight_layout()
+plt.show()

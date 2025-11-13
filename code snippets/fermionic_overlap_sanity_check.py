@@ -513,7 +513,7 @@ class CS():
         sigma_b = varsigma_b + sigma_intersection
         sigma_cup = varsigma_a + varsigma_b + sigma_intersection
         const_sign = sign(self.S * (len(tau_a) + len(tau_b)) + (len(varsigma_a) - 1) * (len(varsigma_b) - 1) + 1 + sum(varsigma_a) + len(varsigma_a) + sum(varsigma_b) + len(varsigma_b) + eta(sigma_intersection, varsigma_a + varsigma_b))
-        # Now for the normal ordering sign
+        # Now for the monotone ordering sign
         const_sign *= permutation_signature(c) * permutation_signature(a)
         if len(tau_a) <= len(tau_b):
             fast_M = np.zeros((len(tau_b) + self.S - len(sigma_a), len(tau_b) + self.S - len(sigma_a)), dtype=complex)
@@ -570,6 +570,227 @@ class CS():
         return(sign(i+j+1) * np.linalg.det(M))
 
 
+    # ------------ Standard (Lowdin) formulas for benchmarking
+
+    def general_update_overlap(self, other, c, a):
+        # Firstly, we find the direct overlap
+        master_matrix = np.identity(self.S) + np.matmul(np.conjugate(self.Z.T), other.Z)
+        direct_overlap = np.linalg.det(master_matrix)
+
+        varsigma_a = []
+        tau_a = []
+        varsigma_b = []
+        tau_b = []
+        tau_cup = []
+        sigma_intersection = []
+        for i in range(len(c)):
+            # using len(c) = len(a)
+            if c[i] < self.S:
+                # pi_1
+                if c[i] not in a:
+                    varsigma_a.append(c[i])
+                else:
+                    sigma_intersection.append(c[i])
+            else:
+                # pi_0
+                tau_a.append(c[i] - self.S)
+                if c[i] - self.S not in tau_cup:
+                    tau_cup.append(c[i] - self.S)
+            if a[i] < self.S:
+                # pi_1
+                if a[i] not in c:
+                    varsigma_b.append(a[i])
+            else:
+                # pi_0
+                tau_b.append(a[i] - self.S)
+                if a[i] - self.S not in tau_cup:
+                    tau_cup.append(a[i] - self.S)
+        sigma_a = varsigma_a + sigma_intersection
+        sigma_b = varsigma_b + sigma_intersection
+        sigma_cup = varsigma_a + varsigma_b + sigma_intersection
+        const_sign = sign(self.S * (len(tau_a) + len(tau_b)) + (len(varsigma_a) - 1) * (len(varsigma_b) - 1) + 1 + sum(varsigma_a) + len(varsigma_a) + sum(varsigma_b) + len(varsigma_b) + eta(sigma_intersection, varsigma_a + varsigma_b))
+        # Now for the monotone ordering sign
+        const_sign *= permutation_signature(c) * permutation_signature(a)
+
+        if len(tau_a) <= len(tau_b):
+
+            const_sign *= sign(len(tau_b) * (1 + len(tau_b) - len(tau_a)))
+
+            x = len(tau_a) + len(varsigma_a) # this is the schur complement scale
+            numer_A = np.zeros((x, x), dtype = complex)
+            numer_B = np.zeros((x, self.S - len(sigma_cup)), dtype = complex)
+            numer_C = np.zeros((self.S - len(sigma_cup), x), dtype = complex)
+
+            numer_A[:len(tau_b), len(tau_a):len(tau_a)+len(varsigma_a)] = np.take(np.take(other.Z, tau_b, axis = 0), varsigma_a, axis = 1)
+            numer_A[len(tau_b):len(tau_b) + len(varsigma_b),:len(tau_a)] = np.conjugate(np.take(np.take(self.Z, tau_a, axis = 0), varsigma_b, axis = 1).T)
+            numer_A[len(tau_b):, len(tau_a):] = np.matmul(np.conjugate(np.take(reduced_matrix(self.Z, tau_cup, []), varsigma_b, axis = 1).T), np.take(reduced_matrix(other.Z, tau_cup, []), varsigma_a, axis = 1))
+
+            numer_B[:len(tau_b), :] = np.take(reduced_matrix(other.Z, [], sigma_cup), tau_b, axis = 0)
+            numer_B[len(tau_b):, :] = np.matmul(np.conjugate(np.take(reduced_matrix(self.Z, tau_cup, []), varsigma_b, axis = 1).T), reduced_matrix(other.Z, tau_cup, sigma_cup))
+
+            numer_C[:, :len(tau_a)] = np.conjugate(np.take(reduced_matrix(self.Z, [], sigma_cup), tau_a, axis = 0).T)
+            numer_C[:, len(tau_a):] = np.matmul(np.conjugate(reduced_matrix(self.Z, tau_cup, sigma_cup).T), np.take(reduced_matrix(other.Z, tau_cup, []), varsigma_a, axis = 1))
+
+            denom_A_11 = np.conjugate(np.take(np.take(self.Z, tau_cup, axis = 0), sigma_cup, axis = 1).T)
+            denom_A_12 = np.conjugate(np.take(np.delete(self.Z, tau_cup, axis = 0), sigma_cup, axis = 1).T)
+            denom_A_21 = np.conjugate(np.delete(np.take(self.Z, tau_cup, axis = 0), sigma_cup, axis = 1).T)
+            denom_A_22 = np.conjugate(np.delete(np.delete(self.Z, tau_cup, axis = 0), sigma_cup, axis = 1).T)
+
+            denom_B_11 = np.take(np.take(other.Z, tau_cup, axis = 0), sigma_cup, axis = 1)
+            denom_B_12 = np.delete(np.take(other.Z, tau_cup, axis = 0), sigma_cup, axis = 1)
+            denom_B_21 = np.take(np.delete(other.Z, tau_cup, axis = 0), sigma_cup, axis = 1)
+            denom_B_22 = np.delete(np.delete(other.Z, tau_cup, axis = 0), sigma_cup, axis = 1)
+
+
+            Y = np.identity(self.S - len(sigma_cup)) + np.matmul(np.conjugate(reduced_matrix(self.Z, tau_cup, sigma_cup).T), reduced_matrix(other.Z, tau_cup, sigma_cup))
+            Y_inv = np.linalg.inv(Y) # we can make this quicker!
+
+            X_scale = len(sigma_cup)
+
+
+        else:
+
+            const_sign *= sign(len(varsigma_b) * (1 + len(varsigma_b) - len(varsigma_a)))
+
+            x = len(tau_a) + len(varsigma_a) # this is the schur complement scale
+            numer_A = np.zeros((x, x), dtype = complex)
+            numer_B = np.zeros((x, self.M - self.S - len(tau_cup)), dtype = complex)
+            numer_C = np.zeros((self.M - self.S - len(tau_cup), x), dtype = complex)
+
+            numer_A[:len(varsigma_b), len(varsigma_a):len(varsigma_a)+len(tau_a)] = np.take(np.take(np.conjugate(self.Z).T, varsigma_b, axis=0), tau_a, axis = 1)
+            numer_A[len(varsigma_b):, len(varsigma_a):] = np.matmul(np.take(reduced_matrix(other.Z, [], sigma_cup), tau_b, axis = 0), np.take(reduced_matrix(np.conjugate(self.Z).T, sigma_cup, []), tau_a, axis=1))
+            numer_A[len(varsigma_b):len(varsigma_b)+len(tau_b), :len(varsigma_a)] = np.take(np.take(other.Z, tau_b, axis=0), varsigma_a, axis = 1)
+
+            numer_B[:len(varsigma_b), :] = np.take(reduced_matrix(np.conjugate(self.Z).T, [], tau_cup), varsigma_b, axis=0)
+            numer_B[len(varsigma_b):, :] = np.matmul(np.take(reduced_matrix(other.Z, [], sigma_cup), tau_b, axis = 0), reduced_matrix(np.conjugate(self.Z).T, sigma_cup, tau_cup))
+
+            numer_C[:, :len(varsigma_a)] = np.take(reduced_matrix(other.Z, tau_cup, []), varsigma_a, axis=1)
+            numer_C[:, len(varsigma_a):] = np.matmul(reduced_matrix(other.Z, tau_cup, sigma_cup), np.take(reduced_matrix(np.conjugate(self.Z).T, sigma_cup, []), tau_a, axis=1))
+
+            denom_A_11 = np.take(np.take(other.Z, tau_cup, axis = 0), sigma_cup, axis = 1)
+            denom_A_12 = np.delete(np.take(other.Z, tau_cup, axis = 0), sigma_cup, axis = 1)
+            denom_A_21 = np.take(np.delete(other.Z, tau_cup, axis = 0), sigma_cup, axis = 1)
+            denom_A_22 = np.delete(np.delete(other.Z, tau_cup, axis = 0), sigma_cup, axis = 1)
+
+            denom_B_11 = np.conjugate(np.take(np.take(self.Z, tau_cup, axis = 0), sigma_cup, axis = 1).T)
+            denom_B_12 = np.conjugate(np.take(np.delete(self.Z, tau_cup, axis = 0), sigma_cup, axis = 1).T)
+            denom_B_21 = np.conjugate(np.delete(np.take(self.Z, tau_cup, axis = 0), sigma_cup, axis = 1).T)
+            denom_B_22 = np.conjugate(np.delete(np.delete(self.Z, tau_cup, axis = 0), sigma_cup, axis = 1).T)
+
+            Y = np.identity(self.M - self.S - len(tau_cup)) + np.matmul(reduced_matrix(other.Z, tau_cup, sigma_cup), reduced_matrix(np.conjugate(self.Z).T, sigma_cup, tau_cup))
+            Y_inv = np.linalg.inv(Y) # we can make this quicker!
+
+            X_scale = len(tau_cup)
+
+        X = (denom_A_11 @ denom_B_12 + denom_A_12 @ denom_B_22) @ (Y_inv - Y_inv @ denom_A_21 @ np.linalg.inv(np.identity(X_scale) + denom_B_12 @ Y_inv @ denom_A_21) @ denom_B_12 @ Y_inv) @ (denom_A_21 @ denom_B_11 + denom_A_22 @ denom_B_21)
+        return(const_sign * direct_overlap * np.linalg.det(numer_A - numer_B @ Y_inv @ numer_C) / (np.linalg.det(np.identity(X_scale) + denom_B_12 @ Y_inv @ denom_A_21) * np.linalg.det(np.identity(X_scale) + denom_A_11 @ denom_B_11 + denom_A_12 @ denom_B_21 - X )))
+
+    def general_update_overlap_test(self, other, c, a):
+        # Firstly, we find the direct overlap
+        master_matrix = np.identity(self.S) + np.matmul(np.conjugate(self.Z.T), other.Z)
+        master_matrix_alt = np.identity(self.M - self.S) + np.matmul(other.Z, np.conjugate(self.Z.T))
+        master_matrix_inv = np.linalg.inv(master_matrix)
+        master_matrix_alt_inv = np.linalg.inv(master_matrix_alt)
+        direct_overlap = np.linalg.det(master_matrix)
+        # in the real application, the inverses and determinants above are supplied as arguments, since they are the only ingredients necessitating an O(M^3) complexity
+
+        varsigma_a = []
+        tau_a = []
+        varsigma_b = []
+        tau_b = []
+        tau_cup = []
+        sigma_intersection = []
+        for i in range(len(c)):
+            # using len(c) = len(a)
+            if c[i] < self.S:
+                # pi_1
+                if c[i] not in a:
+                    varsigma_a.append(c[i])
+                else:
+                    sigma_intersection.append(c[i])
+            else:
+                # pi_0
+                tau_a.append(c[i] - self.S)
+                if c[i] - self.S not in tau_cup:
+                    tau_cup.append(c[i] - self.S)
+            if a[i] < self.S:
+                # pi_1
+                if a[i] not in c:
+                    varsigma_b.append(a[i])
+            else:
+                # pi_0
+                tau_b.append(a[i] - self.S)
+                if a[i] - self.S not in tau_cup:
+                    tau_cup.append(a[i] - self.S)
+        sigma_a = varsigma_a + sigma_intersection
+        sigma_b = varsigma_b + sigma_intersection
+        sigma_cup = varsigma_a + varsigma_b + sigma_intersection
+        const_sign = sign(self.S * (len(tau_a) + len(tau_b)) + (len(varsigma_a) - 1) * (len(varsigma_b) - 1) + 1 + sum(varsigma_a) + len(varsigma_a) + sum(varsigma_b) + len(varsigma_b) + eta(sigma_intersection, varsigma_a + varsigma_b))
+        # Now for the monotone ordering sign
+        const_sign *= permutation_signature(c) * permutation_signature(a)
+        if len(tau_a) <= len(tau_b):
+            const_sign *= sign(len(tau_b) * (1 + len(tau_b) - len(tau_a)))
+
+            x = len(tau_a) + len(varsigma_a) # this is the schur complement scale
+            numer_A = np.zeros((x, x), dtype = complex)
+            numer_B = np.zeros((x, self.S - len(sigma_cup)), dtype = complex)
+            numer_C = np.zeros((self.S - len(sigma_cup), x), dtype = complex)
+
+            numer_A[:len(tau_b), len(tau_a):len(tau_a)+len(varsigma_a)] = np.take(np.take(other.Z, tau_b, axis = 0), varsigma_a, axis = 1)
+            numer_A[len(tau_b):len(tau_b) + len(varsigma_b),:len(tau_a)] = np.conjugate(np.take(np.take(self.Z, tau_a, axis = 0), varsigma_b, axis = 1).T)
+            numer_A[len(tau_b):, len(tau_a):] = np.matmul(np.conjugate(np.take(reduced_matrix(self.Z, tau_cup, []), varsigma_b, axis = 1).T), np.take(reduced_matrix(other.Z, tau_cup, []), varsigma_a, axis = 1))
+
+            numer_B[:len(tau_b), :] = np.take(reduced_matrix(other.Z, [], sigma_cup), tau_b, axis = 0)
+            numer_B[len(tau_b):, :] = np.matmul(np.conjugate(np.take(reduced_matrix(self.Z, tau_cup, []), varsigma_b, axis = 1).T), reduced_matrix(other.Z, tau_cup, sigma_cup))
+
+            numer_C[:, :len(tau_a)] = np.conjugate(np.take(reduced_matrix(self.Z, [], sigma_cup), tau_a, axis = 0).T)
+            numer_C[:, len(tau_a):] = np.matmul(np.conjugate(reduced_matrix(self.Z, tau_cup, sigma_cup).T), np.take(reduced_matrix(other.Z, tau_cup, []), varsigma_a, axis = 1))
+
+            X_inv = np.delete(np.delete(master_matrix_inv, sigma_cup, axis = 0), sigma_cup, axis = 1) - np.take(np.delete(master_matrix_inv, sigma_cup, axis = 0), sigma_cup, axis = 1) @ np.linalg.inv(np.take(np.take(master_matrix_inv, sigma_cup, axis = 0), sigma_cup, axis = 1)) @ np.delete(np.take(master_matrix_inv, sigma_cup, axis = 0), sigma_cup, axis = 1)
+
+            P = np.delete(np.take(other.Z, tau_cup, axis = 0), sigma_cup, axis = 1) @ X_inv @ np.conjugate(np.delete(np.take(self.Z, tau_cup, axis = 0), sigma_cup, axis = 1).T)
+
+            Y_inv_update_left = np.conjugate(np.delete(np.take(self.Z, tau_cup, axis = 0), sigma_cup, axis = 1).T)
+            Y_inv_update_right = np.delete(np.take(other.Z, tau_cup, axis = 0), sigma_cup, axis = 1)
+
+            X_scale_a = len(sigma_cup)
+            X_scale_b = len(tau_cup)
+
+            second_denom_matrix = np.identity(X_scale_a) + np.conjugate(np.take(self.Z, sigma_cup, axis = 1).T) @ np.take(other.Z, sigma_cup, axis = 1) - np.conjugate(np.take(self.Z, sigma_cup, axis = 1).T) @ np.delete(other.Z, sigma_cup, axis = 1) @ X_inv @ np.conjugate(np.delete(self.Z, sigma_cup, axis = 1).T) @ np.take(other.Z, sigma_cup, axis = 1)
+
+
+        else:
+            const_sign *= sign(len(varsigma_b) * (1 + len(varsigma_b) - len(varsigma_a)))
+
+            x = len(tau_a) + len(varsigma_a) # this is the schur complement scale
+            numer_A = np.zeros((x, x), dtype = complex)
+            numer_B = np.zeros((x, self.M - self.S - len(tau_cup)), dtype = complex)
+            numer_C = np.zeros((self.M - self.S - len(tau_cup), x), dtype = complex)
+
+            numer_A[:len(varsigma_b), len(varsigma_a):len(varsigma_a)+len(tau_a)] = np.take(np.take(np.conjugate(self.Z).T, varsigma_b, axis=0), tau_a, axis = 1)
+            numer_A[len(varsigma_b):, len(varsigma_a):] = np.matmul(np.take(reduced_matrix(other.Z, [], sigma_cup), tau_b, axis = 0), np.take(reduced_matrix(np.conjugate(self.Z).T, sigma_cup, []), tau_a, axis=1))
+            numer_A[len(varsigma_b):len(varsigma_b)+len(tau_b), :len(varsigma_a)] = np.take(np.take(other.Z, tau_b, axis=0), varsigma_a, axis = 1)
+
+            numer_B[:len(varsigma_b), :] = np.take(reduced_matrix(np.conjugate(self.Z).T, [], tau_cup), varsigma_b, axis=0)
+            numer_B[len(varsigma_b):, :] = np.matmul(np.take(reduced_matrix(other.Z, [], sigma_cup), tau_b, axis = 0), reduced_matrix(np.conjugate(self.Z).T, sigma_cup, tau_cup))
+
+            numer_C[:, :len(varsigma_a)] = np.take(reduced_matrix(other.Z, tau_cup, []), varsigma_a, axis=1)
+            numer_C[:, len(varsigma_a):] = np.matmul(reduced_matrix(other.Z, tau_cup, sigma_cup), np.take(reduced_matrix(np.conjugate(self.Z).T, sigma_cup, []), tau_a, axis=1))
+
+            X_inv = np.delete(np.delete(master_matrix_alt_inv, tau_cup, axis = 0), tau_cup, axis = 1) - np.take(np.delete(master_matrix_alt_inv, tau_cup, axis = 0), tau_cup, axis = 1) @ np.linalg.inv(np.take(np.take(master_matrix_alt_inv, tau_cup, axis = 0), tau_cup, axis = 1)) @ np.delete(np.take(master_matrix_alt_inv, tau_cup, axis = 0), tau_cup, axis = 1)
+
+            P = np.conjugate(np.take(np.delete(self.Z, tau_cup, axis = 0), sigma_cup, axis = 1).T) @ X_inv @ np.take(np.delete(other.Z, tau_cup, axis = 0), sigma_cup, axis = 1)
+
+            Y_inv_update_left = np.take(np.delete(other.Z, tau_cup, axis = 0), sigma_cup, axis = 1)
+            Y_inv_update_right = np.conjugate(np.take(np.delete(self.Z, tau_cup, axis = 0), sigma_cup, axis = 1).T)
+
+            X_scale_a = len(tau_cup)
+            X_scale_b = len(sigma_cup)
+
+            second_denom_matrix = np.identity(X_scale_a) + np.take(other.Z, tau_cup, axis = 0) @ np.conjugate(np.take(self.Z, tau_cup, axis = 0).T) - np.take(other.Z, tau_cup, axis = 0) @ np.conjugate(np.delete(self.Z, tau_cup, axis = 0).T) @ X_inv @ np.delete(other.Z, tau_cup, axis = 0) @ np.conjugate(np.take(self.Z, tau_cup, axis = 0).T)
+
+        Y_inv = X_inv + X_inv @ Y_inv_update_left @ np.linalg.inv(np.identity(X_scale_b) - Y_inv_update_right @ X_inv @ Y_inv_update_left) @ (Y_inv_update_right @ X_inv)
+        return(const_sign * direct_overlap * np.linalg.det(numer_A - numer_B @ Y_inv @ numer_C) * np.linalg.det(np.identity(X_scale_b) - P) / np.linalg.det(second_denom_matrix))
 
 
 """
@@ -642,7 +863,7 @@ def comprehensive_overlap_test(print_wrongs = False):
     mode_two_total = [0] * max_n
     mode_two_correct = [0] * max_n
     print(f"Commencing comprehensive testing of the general overlap method for M = {M}, S = {S}.")
-    for n in range(1, max_n + 1):
+    for n in range(0, max_n + 1):
         print(f"  Annihilation sequence length {n}...")
         inds_c = subset_indices(np.arange(0, M, 1, dtype=int), n)
         inds_a = subset_indices(np.arange(0, M, 1, dtype=int), n)
@@ -652,22 +873,27 @@ def comprehensive_overlap_test(print_wrongs = False):
                 B = CS(M, S, random_complex_matrix(M-S, S, (-1.0, 1.0)))
                 A.occupancy_basis_decomposition.apply_operators([], ind_c)
                 B.occupancy_basis_decomposition.apply_operators([], ind_a)
-                slow = A.occupancy_basis_decomposition.overlap(B.occupancy_basis_decomposition)
+                #slow = A.occupancy_basis_decomposition.overlap(B.occupancy_basis_decomposition)
                 quick = A.alt_general_overlap(B, ind_c, ind_a)
+                update = A.general_update_overlap_test(B, ind_c, ind_a)
+                #print("Slow:  ", slow)
+                #print("Quick: ", quick)
+                #print("Update:", update)
 
                 len_sigma_c = eta(S, ind_c)
                 len_sigma_a = eta(S, ind_a)
                 if len_sigma_c >= len_sigma_a:
                     # this means tau_a <= tau_b
                     mode_one_total[n-1] += 1
-                    if(np.round(slow, 4) == np.round(quick, 4)):
+                    #if(len(set([np.round(slow, 4), np.round(quick, 4), np.round(update, 4)])) == 1):
+                    if(len(set([np.round(quick, 4), np.round(update, 4)])) == 1):
                         mode_one_correct[n-1] += 1
                     else:
                         print("  Wrong at:", ind_c, ind_a)
                 else:
                     # this means tau_a > tau_b
                     mode_two_total[n-1] += 1
-                    if(np.round(slow, 4) == np.round(quick, 4)):
+                    if(np.round(update, 4) == np.round(quick, 4)):
                         mode_two_correct[n-1] += 1
                     else:
                         print("  Wrong at:", ind_c, ind_a)
@@ -678,8 +904,8 @@ def comprehensive_overlap_test(print_wrongs = False):
     for i in range(max_n):
         print(f"  n = {i+1}: {mode_two_correct[i]}/{mode_two_total[i]} correct")
 
-M = 8
-S = 4
+M = 10
+S = 7
 N = 5
 
 comprehensive_overlap_test(True)

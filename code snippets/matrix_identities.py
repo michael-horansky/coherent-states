@@ -225,5 +225,27 @@ def test_weighted_minor_sum():
     quick_sum_var = 0.5 * (np.trace(np.matmul(M, reduced_V_a_var.T)) * np.trace(np.matmul(M, reduced_V_b_var.T)) - np.trace(N_var)) / np.sum(V_var)
     print(f"  Quick sum = {quick_sum_var:.4f}")"""
 
-test_weighted_minor_sum()
+def test_theorem_F():
 
+    m = 5
+    n = 7
+
+    rho = [0, 2, 3]
+    sigma = [4, 6]
+
+    A = random_complex_matrix(m, n, (-1, 1))
+    B = random_complex_matrix(n, m, (-1, 1))
+
+    X_inv = np.linalg.inv(np.delete(np.delete(np.identity(m)+A@B, rho, axis = 0), rho, axis = 1))
+
+    LHS = np.linalg.det(np.identity(m)+A@B) / np.linalg.det(np.identity(m - len(rho)) + np.delete(np.delete(A, rho, axis = 0), sigma, axis = 1) @ np.delete(np.delete(B, sigma, axis = 0), rho, axis = 1))
+
+    RHS = np.linalg.det(np.identity(len(rho)) + np.take(A, rho, axis = 0) @ (np.identity(n) - np.delete(B, rho, axis = 1) @ X_inv @ np.delete(A, rho, axis = 0)) @ np.take(B, rho, axis = 1)) / np.linalg.det(np.identity(len(sigma)) - np.delete(np.take(B, sigma, axis = 0), rho, axis = 1) @ X_inv @ np.take(np.delete(A, rho, axis = 0), sigma, axis = 1))
+
+    if np.round(LHS, 4) == np.round(RHS, 4):
+        print("Theorem F holds!")
+    else:
+        print("It doesn't work.")
+
+#test_weighted_minor_sum()
+test_theorem_F()

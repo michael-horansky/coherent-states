@@ -77,9 +77,12 @@ no_mol.build(
 )
 
 benchmark_molecules = {
-    "Li2" : li2_mol,
     "N2" : n2_mol
     }
+#benchmark_molecules = {
+#    "Li2" : li2_mol,
+#    "N2" : n2_mol
+#    }
 
 plot_x, plot_y = functions.subplot_dimensions(len(benchmark_molecules))
 
@@ -92,11 +95,22 @@ for mol_name, mol in benchmark_molecules.items():
 
     mol_solver = ground_state_solver(f"bench_mol_{mol_name}")
     mol_solver.initialise_molecule(mol)
-    N_vals_t, energy_levels_t = mol_solver.find_ground_state("sampling", N = 2, lamb = None, delta = 1e-2, CS = "Thouless")
-    N_vals_q, energy_levels_q = mol_solver.find_ground_state("sampling", N = 2, lamb = None, delta = 1e-2, CS = "Qubit")
+    N_vals_t, energy_levels_t = mol_solver.find_ground_state("sampling", N = 10, lamb = None, sampling_method = "highest_orbital", CS = "Thouless")
+    #N_vals_q, energy_levels_q = mol_solver.find_ground_state("sampling", N = 2, lamb = None, delta = 1e-2, CS = "Qubit")
+
+    # Now for the reference full CI
+    hf = scf.RHF(mol)          # Create the HF object
+    hf.kernel()  # Perform the SCF calculation
+    cisolver = fci.FCI(mol, hf.mo_coeff)  # Full CI solver with HF orbitals
+    ci_energy, ci_wavefunction = cisolver.kernel()
+    print("Full CI ground state energy =", ci_energy)
 
     plt.plot(N_vals_t, energy_levels_t, "x", label = "Thouless")
-    plt.plot(N_vals_q, energy_levels_q, "x", label = "Qubit")
+    #plt.plot(N_vals_q, energy_levels_q, "x", label = "Qubit")
+
+    plt.axhline(y = ci_energy, label = "full CI")
+
+    plt.legend()
 
     i += 1
 

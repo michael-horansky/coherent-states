@@ -1,8 +1,12 @@
+
+# like krylov_ground_state, but using the Oliver Bramley approach verbatim
+
+
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 
-from pyscf import gto, scf, cc, ao2mo, fci
+from pyscf import gto, scf, cc
 
 from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_Qubit import CS_Qubit
@@ -145,30 +149,23 @@ class ground_state_solver():
         # kwargs:
         #     -N: sample size
         #     -lamb: None for no conditioning, or positive float for the conditioning parameter
-        #     -sampling_method: magic word for how the CS samples its parameter tensor
+        #     -delta: width of the sampling distribution (normal, uncoupled ofc)
         #     -CS: Type of coherent state to use
 
-
-        print(f"Obtaining the ground state with the method \"random sampling\" [N = {kwargs["N"]}, lambda = {kwargs["lamb"]}, sampling method = {kwargs["sampling_method"]}]")
+        print(f"Obtaining the ground state with the method \"random sampling\" [N = {kwargs["N"]}, lambda = {kwargs["lamb"]}, delta = {kwargs["delta"]}]")
 
         # We sample around the HF null guess, i.e. Z = 0
         # We include one extra basis vector - the null point itself!
         cs_null_param = ground_state_solver.coherent_state_types[kwargs["CS"]].null_state(self.M, self.S)
 
-
-        #if kwargs["weights"] is None:
-        #    kwargs["weights"] = np.ones(cs_null_param.shape)
-
-        """initial_vector_sample = np.zeros((1,) + cs_null_param.shape, dtype=complex)
+        initial_vector_sample = np.zeros((1,) + cs_null_param.shape, dtype=complex)
         additional_vector_sample = np.random.normal(0.0, kwargs["delta"], (kwargs["N"],) + cs_null_param.shape)
         vector_sample = np.concatenate((initial_vector_sample, additional_vector_sample))
-        #random_weights = np.concatenate((np.zeros((1,), dtype=complex), np.random.normal(0.0, kwargs["delta"], (kwargs["N"],))))"""
         N = kwargs["N"] + 1
 
-        CS_sample = [ground_state_solver.coherent_state_types[kwargs["CS"]].null_state(self.M, self.S)]
-        for i in range(kwargs["N"]):
-            CS_sample.append(ground_state_solver.coherent_state_types[kwargs["CS"]].random_state(self.M, self.S, kwargs["sampling_method"]))
-            #CS_sample.append(ground_state_solver.coherent_state_types[kwargs["CS"]](self.M, self.S, cs_null_param + vector_sample[i] * kwargs["weights"]))
+        CS_sample = []
+        for i in range(N):
+            CS_sample.append(ground_state_solver.coherent_state_types[kwargs["CS"]](self.M, self.S, cs_null_param + vector_sample[i]))
 
         # Firstly we find the normalisation coefficients
         norm_coefs = np.zeros(N)
@@ -176,25 +173,22 @@ class ground_state_solver():
         for i in range(1, N):
             norm_coefs[i] = 1.0 / np.sqrt(CS_sample[i].overlap(CS_sample[i]).real)
 
-        print("-- Normalisation coefs:", norm_coefs)
-
         overlap_matrix = np.zeros((N, N), dtype=complex) # [a][b] = <a|b>
         for i in range(N):
             for j in range(N):
                 overlap_matrix[i][j] = CS_sample[i].overlap(CS_sample[j]) * norm_coefs[i] * norm_coefs[j]
-        print("-- Overlap matrix:")
-        print(overlap_matrix)
 
         # We now diagonalise on the vector sample
         H_eff = np.zeros((N, N), dtype=complex)
 
-        msg = f"  Explicit Hamiltonian evaluation begins"
+        msg = f"  Explicit Hamiltonian evaluation begins..."
         new_sem_ID = self.semaphor.create_event(np.linspace(0, N * (N + 1) / 2, 100 + 1), msg)
 
         for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
             H_eff[a][a] = self.H_overlap(CS_sample[a], CS_sample[a]) * norm_coefs[a] * norm_coefs[a]
             self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
+            print(f" Diagonal term {a+1}: {H_eff[a][a]}")
 
             # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
             for b in range(a):
@@ -205,43 +199,26 @@ class ground_state_solver():
 
         self.solution_benchmark = self.semaphor.finish_event(new_sem_ID, "    Evaluation")
 
-        # H_eff diagonal terms
-        for i in range(N):
-            print(f"  Z_{i} self-energy: {H_eff[i][i]+self.mol.energy_nuc()}")
-            if H_eff[i][i]+self.mol.energy_nuc() < self.ci_energy:
-                print("SMALLER THAN GROUND STATE???")
+        print(H_eff)
 
         def get_partial_sol(N_eff):
-            print(f"-------------------- Configuration space = {N_eff} --------------------")
             H_eff_trimmed = H_eff[:N_eff, :N_eff]
             S_trimmed = overlap_matrix[:N_eff, :N_eff]
-
-            if np.all(np.linalg.eigvals(S_trimmed) > 0):
-                print("    Overlap matrix is positive definite")
-            if np.all(np.round(S_trimmed, 3) - np.round(np.conjugate(S_trimmed.T), 3) == 0):
-                print("    Overlap matrix is Hermitian")
-            if np.all(np.round(H_eff_trimmed, 3) - np.round(np.conjugate(H_eff_trimmed.T), 3) == 0):
-                print("    Effective Hamiltonian matrix is Hermitian")
-
-            cond_S = np.linalg.cond(S_trimmed)
-            print(f"    Overlap matrix condition number: {cond_S}")
-            print(f"    Overlap matrix eigenvalues: {np.linalg.eigvals(S_trimmed)}")
-            print(f"    Energy bound: {np.min(np.linalg.eigvals(H_eff_trimmed) / np.linalg.eigvals(S_trimmed))}")
-
             energy_levels, energy_states = sp.linalg.eigh(H_eff_trimmed, S_trimmed)
-            ground_state_index = np.argmin(energy_levels)
+            """unnorm_energy_levels, unnorm_energy_states = np.linalg.eig(H_eff_trimmed)
+            # The eigen-states are linear combinations of other states with non-unitary norm, and thus their energy values have to be renormalised as well
+            energy_levels = []
+            energy_states = []
 
-            print("      Ground state as CS superposition:", energy_states[:, ground_state_index])
-            ground_state_norm = 0.0
-            direct_ground_state_energy = 0.0
             for i in range(N_eff):
-                for j in range(N_eff):
-                    ground_state_norm += np.conjugate(energy_states[i][ground_state_index]) * energy_states[j][ground_state_index] * S_trimmed[i][j]
-                    direct_ground_state_energy += np.conjugate(energy_states[i][ground_state_index]) * energy_states[j][ground_state_index] * H_eff_trimmed[i][j]
-            print(f"        Ground state norm = {ground_state_norm}")
-            print(f"        Ground state direct energy calc = {direct_ground_state_energy} (after renorm: {direct_ground_state_energy / ground_state_norm})")
-            print(f"        Compare to eigh val = {energy_levels[ground_state_index]}")
-
+                cur_vector = unnorm_energy_states[:,i]
+                cur_norm = 0.0
+                for a in range(N_eff):
+                    for b in range(N_eff):
+                        cur_norm += np.conjugate(cur_vector[a]) * cur_vector[b] * overlap_matrix[a][b] * norm_coefs[a] * norm_coefs[b]
+                energy_states.append(cur_vector / np.sqrt(cur_norm))
+                energy_levels.append(unnorm_energy_levels[i])"""
+            ground_state_index = np.argmin(energy_levels)
             return(energy_levels[ground_state_index] + self.mol.energy_nuc())
 
         convergence_sols = []
@@ -297,66 +274,78 @@ class ground_state_solver():
         print(f"    There are {self.mol.nao} atomic orbitals, each able to hold 2 electrons of opposing spin.")
         print(f"    The molecule is occupied by {self.mol.tot_electrons()} electrons in total.")
         print(f"    The molecule consists of the following atoms: {self.mol.elements}")
-        print(f"    The atomic orbitals are ordered as follows: {self.mol.ao_labels()}")
+        print(f"    The atomic orbitals (modes) are ordered as follows: {self.mol.ao_labels()}")
         print(self.element_to_basis)
         print(gto.charge("O"))
 
         print("  Calculating 1e integrals...")
-        AO_H_one = self.mol.intor('int1e_kin', hermi = 1) + self.mol.intor('int1e_nuc', hermi = 1)
+        self.H_one = self.mol.intor('int1e_kin', hermi = 1) + self.mol.intor('int1e_nuc', hermi = 1)
 
         print("  Calculating 2e integrals...")
         #self.H_two = self.mol.intor('int2e', aosym = "s1")
-        AO_H_two = self.mol.intor('int2e', aosym = "s1")
+        exchange_integrals_mulliken = self.mol.intor('int2e', aosym = "s1")
         # <ij|g|kl> = (ik|jl)
         # slater-condon: <psi|g|psi> = 1/2 sum_i sum_j (<ij|g|ij> - <ij|g|ji>)
+        self.H_two = exchange_integrals_mulliken - exchange_integrals_mulliken.transpose(0,2,1,3)
 
-        print("  Finding the molecular orbitals using mean-field approximations...")
-        mean_field = scf.RHF(mol).run()
-        MO_coefs = mean_field.mo_coeff
+        print("  Creating canonical order for spin orbitals...")
 
-        print("  Transforming 1e and 2e integrals to MO basis...")
-        self.MO_H_one = np.matmul(MO_coefs.T, np.matmul(AO_H_one, MO_coefs))
-        MO_H_two_packed = ao2mo.kernel(self.mol, MO_coefs)
-        MO_H_two_no_spin = ao2mo.restore(1, MO_H_two_packed, MO_coefs.shape[1]) # In mulliken notation: MO_H_two[p][q][r][s] = (pq|rs)
+        print("    Initial guess: molecule-independent atomic orbitals")
+        # For each atom, its basis functions are ordered by self-energy from
+        # lowest to highest (doubling each one to account for spin degeneracy),
+        # and then the first Z modes are considered as occupied, where Z is the
+        # atom's proton number. The occupied and unoccupied modes among all
+        # atoms are meshed together into pi_1 and pi_0 and ordered by energy.
+
+        pi_1_provisional = [] # every element is [self-energy, orbital index, spin (0 or 1)]
+        pi_0_provisional = []
+
+        for atom_i in range(len(self.mol.elements)):
+            proton_number = gto.charge(self.mol.elements[atom_i])
+            ao_indices = []
+            for i in range(self.element_to_basis[atom_i][1], self.element_to_basis[atom_i][2], 1):
+                ao_indices.append([self.H_one[i][i], i])
+            ao_indices.sort(key = lambda x : x[0])
+            unallocated_charges = proton_number
+            cur_ao_index = 0
+            while(unallocated_charges > 0):
+                if unallocated_charges > 1:
+                    pi_1_provisional += [ao_indices[cur_ao_index] + [0], ao_indices[cur_ao_index] + [1]]
+                    unallocated_charges -= 2
+                else:
+                    pi_1_provisional += [ao_indices[cur_ao_index] + [0]] # By default we have the spin alpha state occupied
+                    pi_0_provisional += [ao_indices[cur_ao_index] + [1]]
+                    unallocated_charges -= 1
+                cur_ao_index += 1
+            while(cur_ao_index < len(ao_indices)):
+                pi_0_provisional += [ao_indices[cur_ao_index] + [0], ao_indices[cur_ao_index] + [1]]
+                cur_ao_index += 1
+
+        pi_1_provisional.sort(key = lambda x : x[0])
+        pi_0_provisional.sort(key = lambda x : x[0])
+
+        self.modes = [] # [mode index] = [ao index, spin]
+        for i in range(len(pi_1_provisional)):
+            self.modes.append(pi_1_provisional[i][1:3])
+        for i in range(len(pi_0_provisional)):
+            self.modes.append(pi_0_provisional[i][1:3])
+
+        print(self.modes)
 
 
-        # Let's try ordering the MOs by their 1e self-energy and occupy the lowest S ones
-        MO_self_energies = [] # [[energy of MO 0, 0], [energy of MO 1, 1]...]
-        for i in range(self.mol.nao):
-            MO_self_energies.append([self.MO_H_one[i][i], i])
+        self.H_two_full = np.zeros((self.M, self.M, self.M, self.M), dtype = complex) # [mode p][mode q][mode r][mode s] = <ij|g|ij> - <ij|g|ji>
+        for p in range(self.M):
+            for q in range(self.M):
+                for r in range(self.M):
+                    for s in range(self.M):
+                        # for each, the props are self.modes[p] = [p_ao, p_spin] etc
+                        # We require p_spin = s_spin and q_spin = r_spin
+                        if p == q or r == s:
+                            continue
 
-        MO_self_energies.sort(key = lambda x : x[0])
-
-        # Now we occupy the lowest S guys
-        self.modes = [] # [mode index] = [mo_index, spin]
-        for i in range(self.mol.nao):
-            self.modes.append([MO_self_energies[i][1], 0])
-            self.modes.append([MO_self_energies[i][1], 1])
-
-        self.MO_H_two = np.zeros((self.M, self.M, self.M, self.M), dtype = complex)
-        for p in range(self.mol.nao):
-            for q in range(self.mol.nao):
-                for r in range(self.mol.nao):
-                    for s in range(self.mol.nao):
-                        corresponding_integral = MO_H_two_no_spin[MO_self_energies[p][1]][MO_self_energies[q][1]][MO_self_energies[r][1]][MO_self_energies[s][1]]
-                        self.MO_H_two[p * 2    ][r * 2    ][q * 2    ][s * 2    ] = corresponding_integral
-                        self.MO_H_two[p * 2 + 1][r * 2    ][q * 2 + 1][s * 2    ] = corresponding_integral
-                        self.MO_H_two[p * 2    ][r * 2 + 1][q * 2    ][s * 2 + 1] = corresponding_integral
-                        self.MO_H_two[p * 2 + 1][r * 2 + 1][q * 2 + 1][s * 2 + 1] = corresponding_integral
-        self.MO_H_two = self.MO_H_two.transpose(0, 1, 3, 2) - self.MO_H_two # Slater-Condon antisymmetrisation
-
-        print("    Antisym tests")
-        print("      Hermitian?", (np.round(self.MO_H_two - self.MO_H_two.transpose(2, 3, 0, 1), 2) == 0).all())
-        print("      Antisym on first pair", (np.round(self.MO_H_two + self.MO_H_two.transpose(1, 0, 2, 3), 2) == 0).all())
-        print("      Antisym on second pair", (np.round(self.MO_H_two + self.MO_H_two.transpose(0, 1, 3, 2), 2) == 0).all())
-
-        """print("Occupied MO energies:")
-        for i in range(self.S):
-            print(self.MO_H_one[self.modes[i][0]][self.modes[i][0]])
-        print("Unoccupied MO energies:")
-        for i in range(self.S, self.M):
-            print(self.MO_H_one[self.modes[i][0]][self.modes[i][0]])"""
-
+                        if set([self.modes[p][1], self.modes[q][1]]) == set([self.modes[r][1], self.modes[s][1]]):
+                        #if self.modes[p][1] == self.modes[r][1] and self.modes[q][1] == self.modes[s][1]:
+                            self.H_two_full[p][q][r][s] = exchange_integrals_mulliken[self.modes[p][0]][self.modes[r][0]][self.modes[q][0]][self.modes[s][0]]
 
         null_state_energy = 0.0
         null_state_energy_one = 0.0
@@ -364,11 +353,33 @@ class ground_state_solver():
             # Only occupied states contribute
             null_state_energy_one += self.mode_exchange_energy([p], [p])
         print(f" Null state energy one = {null_state_energy_one}")
+        c_pairs = functions.subset_indices(np.arange(self.S), 2)
         null_state_energy_two = 0.0
         for p in range(self.S):
             for q in range(self.S):
-                null_state_energy_two += 0.5 * self.mode_exchange_energy([p, q], [q, p])
-                #null_state_energy_two += 0.5 * (self.MO_H_two[p][q][p][q] - self.MO_H_two[p][q][q][p])
+                #core_term = self.mode_exchange_energy([p, p], [q, q])
+                #core_term =
+                #print(core_term)
+                #null_state_energy += core_term
+
+                """ao_p = self.modes[p][0]
+                spin_p = self.modes[p][1]
+                ao_q = self.modes[q][0]
+                spin_q = self.modes[q][1]
+
+                #core_term = exchange_integrals_mulliken[ao_p][ao_p][ao_q][ao_q]
+                #if spin_p == spin_q:
+                #    core_term -= exchange_integrals_mulliken[ao_p][ao_q][ao_q][ao_p]
+                core_term = self.H_two[ao_p][ao_p][ao_q][ao_q]
+                null_state_energy += core_term"""
+                #print(f"{p}, {q}: {core_term}")
+
+                #if p == q:
+                    # repeated spin-orbital creation operator is zero
+                #    continue
+
+                null_state_energy_two += 0.5 * self.H_two_full[q][p][p][q]
+                #print(p, q, 0.5 * self.H_two_full[q][p][p][q])
 
         print(f" Null state energy two = {null_state_energy_two}")
 
@@ -377,10 +388,13 @@ class ground_state_solver():
         null_state = CS_Thouless(self.M, self.S, np.zeros((self.M - self.S, self.S), dtype=complex))
         print(f"  Energy of the null state with the overlap method = {self.H_overlap(null_state, null_state) + self.mol.energy_nuc()}")
 
-        hf = scf.RHF(self.mol)          # Create the HF object
-        hf.kernel()  # Perform the SCF calculation
-        cisolver = fci.FCI(mol, hf.mo_coeff)
-        self.ci_energy, _ = cisolver.kernel()
+        # We print the diagonal elements of H_one
+        print("  Occupied:")
+        for p in range(self.S):
+            print(f"    H_one_{p},{p} = {self.mode_exchange_energy([p], [p])}")
+        print("  Unoccupied:")
+        for p in range(self.S, self.M):
+            print(f"    H_one_{p},{p} = {self.mode_exchange_energy([p], [p])}")
 
     def get_H_two_element(self, p, q, r, s):
         return(0.5 * self.H_two[p][q][r][s])
@@ -390,11 +404,11 @@ class ground_state_solver():
         # m_i/f are lists of either one mode index (single electron exchange) or two mode indices (two electron exchange)
         # this function translates mode index exchanges into ao orbital exchanges, which are known
         if len(m_i) == 1:
-            #if self.modes[m_i[0]][1] == self.modes[m_f[0]][1]:
-            return(self.MO_H_one[self.modes[m_i[0]][0]][self.modes[m_f[0]][0]])
+            if self.modes[m_i[0]][1] == self.modes[m_f[0]][1]:
+                return(self.H_one[self.modes[m_i[0]][0]][self.modes[m_f[0]][0]])
         elif len(m_i) == 2:
             #if self.modes[m_i[0]][1] == self.modes[m_f[1]][1] and self.modes[m_i[1]][1] == self.modes[m_f[0]][1]:
-            return(self.MO_H_two[m_i[0]][m_i[1]][m_f[0]][m_f[1]])
+            return(self.H_two_full[m_i[0]][m_i[1]][m_f[0]][m_f[1]])
             physicist_p = self.modes[m_i[0]][0]
             physicist_q = self.modes[m_i[1]][0]
             physicist_r = self.modes[m_f[0]][0]
@@ -421,15 +435,11 @@ class ground_state_solver():
     def H_overlap(self, state_a, state_b):
         # This method only uses the instance's H_one, H_two, to calculate <Z_a | H | Z_b>
         # state_a, state_b are instances of any class inheriting from CS_Base
-
-        # Firstly we prepare update information
-        master_matrix_det, master_matrix_inv, master_matrix_alt_inv = state_a.get_update_information(state_b)
-
         H_one_term = 0.0
         # This is a sum over all mode pairs
         for p in range(self.M):
             for q in range(self.M):
-                H_one_term += self.mode_exchange_energy([p], [q]) * state_a.overlap_update(state_b, [p], [q], master_matrix_det, master_matrix_inv, master_matrix_alt_inv) #self.general_overlap(Z_a, Z_b, [p], [q])
+                H_one_term += self.mode_exchange_energy([p], [q]) * state_a.overlap(state_b, [p], [q]) #self.general_overlap(Z_a, Z_b, [p], [q])
         #print(f" H_one = {H_one_term}")
 
         H_two_term = 0.0
@@ -440,7 +450,7 @@ class ground_state_solver():
             for a_pair in a_pairs:
                 # c_pair = [q, p] (inverted order!)
                 # a_pair = [r, s]
-                core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * state_a.overlap_update(state_b, c_pair, a_pair, master_matrix_det, master_matrix_inv, master_matrix_alt_inv) #self.general_overlap(Z_a, Z_b, c_pair, a_pair)
+                core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * state_a.overlap(state_b, c_pair, a_pair) #self.general_overlap(Z_a, Z_b, c_pair, a_pair)
                 #print(self.general_overlap(Z_a, Z_b, c_pair, a_pair))
                 # an extra contribution is from the 4 different order swaps, which yields 2(core_term + core_term*), however, we also have a pre-factor of 0.5
                 H_two_term += (core_term)

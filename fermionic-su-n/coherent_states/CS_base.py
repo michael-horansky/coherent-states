@@ -6,11 +6,18 @@
 
 class CS_Base():
 
-    @staticmethod
-    def null_state(M, S):
+    sampling_methods = ["uniform", "highest_orbital"]
+
+    @classmethod
+    def null_state(cls, M, S):
         # returns a parameter matrix which corresponds to the Hartree
         # no-excitation state
         return(None)
+
+    @classmethod
+    def random_state(cls, M, S, sampling_method):
+        return(None)
+
 
     def __init__(self, M, S, z):
         # z is the parameter object. In general, it is a multi-dimensional
@@ -31,4 +38,12 @@ class CS_Base():
         # both operator sequences are 1D lists of mode indices
 
         return(None)
+
+    def overlap_update(self, other, c = [], a = [], master_matrix_det = None, master_matrix_inv = None, master_matrix_alt_inv = None):
+        return(self.overlap(other, c, a))
+
+    def get_update_information(self, other):
+        # returns master_matrix_det, master_matrix_inv, master_matrix_alt_inv
+
+        return(None, None, None)
 

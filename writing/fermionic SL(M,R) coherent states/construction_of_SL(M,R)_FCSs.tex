@@ -346,9 +346,68 @@
 	\end{equation}
 	
 	Firstly, the expression for the inverse of a reduced matrix given in \cite{reverse_bordering} can be trivially generalised as follows:
-	\begin{equation}
-	(M^{(r.\mu, c.\mu)})^{-1}=(M^{-1})^{(r.\mu, c.\mu)}-(M^{-1})^{(r.\mu)}_{c.\seq{\mu}} (M_{r.\seq{\mu},c.\seq{\mu}})^{-1} (M^{-1})^{(c.\mu)}_{r.\seq{\mu}}
+	\begin{equation} \label{eq: matrix reduction inverse}
+	(M^{(r.\mu, c.\mu)})^{-1}=(M^{-1})^{(r.\mu, c.\mu)}-(M^{-1})^{(r.\mu)}_{c.\seq{\mu}} (M^{-1}_{r.\seq{\mu},c.\seq{\mu}})^{-1} (M^{-1})^{(c.\mu)}_{r.\seq{\mu}}
 	\end{equation}
+	Secondly, we consider Schur's formula:
+	\begin{equation}
+	\det(\mqty{A & B \\ C & D}) = \det(D)\det(A - BD^{-1}C)
+	\end{equation}
+	
+	Now, consider the matrix in the determinant in Eq. \ref{eq: general reduced overlap determinant}. We may partition it like so
+	\begin{eqnarray}
+	A &=& \mqty(
+			0_{\abs{\tau'},\abs{\tau}} & (Z_b)_{\seq{\tau'},\seq{\varsigma}} \\
+			(Z_a\hc)_{\seq{\varsigma'},\seq{\tau}} & (Z_a\hc)^{(\text{c.} \tau\cup\tau')}_{\text{r.} \seq{\varsigma'}}(Z_b)^{(\text{r.} \tau\cup\tau')}_{\text{c.} \seq{\varsigma}}
+			)\\
+	B &=& \mqty(
+			(Z_b)^{(\text{c.} \sigma\cup\sigma')}_{\text{r.} \seq{\tau'}}\\
+			(Z_a\hc)^{(\text{c.} \tau\cup\tau')}_{\text{r.} \seq{\varsigma'}}(Z_b)^{(\text{r.} \tau\cup\tau', \text{c.} \sigma\cup\sigma')}
+			)\\
+	C &=& \mqty(
+			(Z_a\hc)^{(\text{r.} \sigma\cup\sigma')}_{\text{c.} \seq{\tau}} & (Z_a\hc)^{(\text{r.} \sigma\cup\sigma', \text{c.} \tau\cup\tau')}(Z_b)^{(\text{r.} \tau\cup\tau')}_{\text{c.} \seq{\varsigma}}
+			)\\
+	D &=& I + (Z_a\hc)^{(\text{r.} \sigma\cup\sigma', \text{c.} \tau\cup\tau')}(Z_b)^{(\text{r.} \tau\cup\tau', \text{c.} \sigma\cup\sigma')}
+	\end{eqnarray}
+	We may apply Schur's formula and recover the equality
+	\begin{equation} \label{eq: fraction mel over D}
+	\frac{\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}}{\det(D)}=s\cdot \det(A-BD^{-1}C)
+	\end{equation}
+	where $s$ is the sign prefactor cited in Eq. \ref{eq: general reduced overlap determinant}.
+	
+	By applying Theorem \ref{theorem: ratio of full and reduced determinant product} to the overlap $\braket{Z_a}{Z_b}$ we directly obtain
+	\begin{equation} \label{eq: fraction overlap over D}
+	\frac{\braket{Z_a}{Z_b}}{\det(D)}=\frac{\det(I+(Z_a\hc)_{\text{r.} \seq{\sigma\cup\sigma'}}(Z_b)_{\text{c.} \seq{\sigma\cup\sigma'}}-(Z_a\hc)_{\text{r.} \seq{\sigma\cup\sigma'}}(Z_b)^{(\text{c.} \sigma\cup\sigma')}X^{-1}(Z_a\hc)^{(\text{r.} \sigma\cup\sigma')}(Z_b)_{\text{c.} \seq{\sigma\cup\sigma'}})}{\det(I-(Z_b)_{\text{r.} \seq{\tau\cup\tau'}}^{(\text{c.} \sigma\cup\sigma')}X^{-1}(Z_a\hc)_{\text{c.} \seq{\tau\cup\tau'}}^{(\text{r.} \sigma\cup\sigma')})}
+	\end{equation}
+	where
+	\begin{equation}
+	X=(I+Z_a\hc Z_b)^{(\text{r.} \sigma\cup\sigma', \text{c.} \sigma\cup\sigma')}
+	\end{equation}
+	Assuming that the inverse of $I+Z_a\hc Z_b$ is known, we can calculate $X^{-1}, D^{-1}$ easily using Eq. \ref{eq: matrix reduction inverse} and the Woodbury matrix identity:
+	\begin{align}
+	X^{-1}&= ((I+Z_a\hc Z_b)^{-1})^{(\text{r.} \sigma\cup\sigma',\text{c.} \sigma\cup\sigma')}\nonumber\\
+	 & - ((I+Z_a\hc Z_b)^{-1})^{(\text{r.} \sigma\cup\sigma')}_{\text{c.} \seq{\sigma\cup\sigma'}}((I+Z_a\hc Z_b)^{-1}_{\text{r.} \seq{\sigma\cup\sigma'}, \text{c.} \seq{\sigma\cup\sigma'}})^{-1}((I+Z_a\hc Z_b)^{-1})^{(\text{c.} \sigma\cup\sigma')}_{\text{r.} \seq{\sigma\cup\sigma'}}\\
+	 D^{-1} &= X^{-1} + X^{-1} (Z_a\hc)^{(\text{r.} \sigma\cup\sigma')}_{\text{c.}\seq{\tau\cup\tau'}} \left(I - (Z_b)^{(\text{c.} \sigma\cup\sigma')}_{\text{r.}\seq{\tau\cup\tau'}} X^{-1} (Z_a\hc)^{(\text{r.} \sigma\cup\sigma')}_{\text{c.}\seq{\tau\cup\tau'}}\right)^{-1} (Z_b)^{(\text{c.} \sigma\cup\sigma')}_{\text{r.}\seq{\tau\cup\tau'}} X^{-1}
+	\end{align}
+	Dividing Eq. \ref{eq: fraction mel over D} by Eq. \ref{eq: fraction overlap over D} yields
+	\begin{multline} \label{eq: fermionic matrix element as a rank update}
+	\frac{\mel{Z_a}{\hat{f}\hc_{\seq{\tau}^-}\hat{f}\hc_{\seq{\sigma}^-}\hat{f}_{\seq{\sigma'}}\hat{f}_{\seq{\tau'}}}{Z_b}}{\braket{Z_a}{Z_b}}=(-1)^{S(\abs{\tau}+\abs{\tau'})+(\abs{\varsigma}-1)(\abs{\varsigma'}-1)+1+\sum\seq{\varsigma}+\sum\seq{\varsigma'}+\sum_i\eta_{(\sigma\cap\sigma')_i}(\seq{\varsigma\cup\varsigma'})\abs{\tau'}(1+\abs{\tau'}-\abs{\tau})}\\
+	\cdot\frac{\det(A-BD^{-1}C)\det(I-(Z_b)_{\text{r.} \seq{\tau\cup\tau'}}^{(\text{c.} \sigma\cup\sigma')}X^{-1}(Z_a\hc)_{\text{c.} \seq{\tau\cup\tau'}}^{(\text{r.} \sigma\cup\sigma')})}{\det(I+(Z_a\hc)_{\text{r.} \seq{\sigma\cup\sigma'}}(Z_b)_{\text{c.} \seq{\sigma\cup\sigma'}}-(Z_a\hc)_{\text{r.} \seq{\sigma\cup\sigma'}}(Z_b)^{(\text{c.} \sigma\cup\sigma')}X^{-1}(Z_a\hc)^{(\text{r.} \sigma\cup\sigma')}(Z_b)_{\text{c.} \seq{\sigma\cup\sigma'}})}
+	\end{multline}
+	which is the formula we wanted.
+	
+	An analogous expression can be trivially derived for the case $|\tau|\geq|\tau'|$ by considering the alternative overlap matrix blocks as expressed in Eq. \ref{eq: general reduced overlap determinant alt} together with the alternative prefactor sign, and by taking $X=(I+Z_b Z_a\hc)^{(\text{r.} \tau\cup\tau', \text{c.} \tau\cup\tau')}$.
+	
+	\subsubsection{Computational complexity of calculating arbitrary matrix elements}
+	Consider an arbitrary $n$th-order operator $\hat{A}$ in the form
+	\begin{equation}
+	\hat{A}=\sum_{\rho\in [1\dots M]^n}\sum_{\rho'\in [1\dots M]^n} A_{\rho_1 \dots \rho_n, \rho'_1\dots \rho'_n} \hat{f}\hc_{\rho_1}\dots\hat{f}\hc_{\rho_n}\hat{f}_{\rho'_1}\dots\hat{f}_{\rho'_n}
+	\end{equation}
+	where $A$ is a tensor antisymmetric with respect to the exchange of any pair within the first or the second half of its indices (corresponding to the sign change upon permuting the non-monotonic sequences $\rho,\rho'$ respectively). In general, what is the computational complexity of calculating $\mel{Z_a}{\hat{A}}{Z_b}$ for a pair of fermionic coherent states $\ket{Z_a},\ket{Z_b}$?
+	
+	If $(M-S)\ll S$ or $S \ll M-S$, the computational complexity might be decreased by carefully choosing between the two forms in Eqns. \ref{eq: general reduced overlap determinant}, \ref{eq: general reduced overlap determinant alt}, respectively, since the bottleneck for a single element of the sum of fermionic operator product sequences is calculating the determinant, which has complexity $O(x^3)$ for an $(x,x)$ matrix. In general, we do not have such kind of luck, and we will henceforth be treating the case when $(M-S)\sim S\sim M$, where the number of modes represents the scale of the system.
+	
+	It being closely related to an arbitrarily weighted sum of elements in the $n$th-rank compound matrix of $I+Z_a\hc Z_b$ (or $I+Z_bZ_a\hc$), there is no shortcut allowing us to bypass term-by-term enumeration of the sum of fermionic operator product sequences other than the initial grouping of terms related by permuting $\rho,\rho'$, of which there are $n!^2$. Therefore, the term-by-term enumeration having the complexity of $\mathcal{O}(M^{2n})$ and the evaluation of each term having the complexity $\mathcal{O}(M^3)$, the naive calculation has the complexity $\mathcal{O}(M^{2n+3})$. However, we may improve this slightly with the following procedure: We may initially evaluate $\braket{Z_a}{Z_b}$ and the inverses of $I+Z_a\hc Z_b$ and $I+Z_b Z_a\hc$ (which, costing $\mathcal{O}(M^3)$, will not be the bottleneck), and then we may use Eq. \ref{eq: fermionic matrix element as a rank update} (and its analogous alternative) for each term of the sum, only having the complexity $\mathcal{O}(M^2)$ if the order of matrix products is considered carefully and if $n\ll M$, as is expected for any practical instance. Therefore the time complexity of evaluating $\mel{Z_a}{\hat{A}}{Z_b}$ is $\mathcal{O}(M^{2(n+1)})$, and this is equal to the time complexity of finding the matrix elements for all possible fermionic operator product sequences of order $n$.
 	
 	\section{Full-variational equations of motion}
 	In this section we express the time-dependent Schrodinger equation discretised on a finite unnormalised coherent state basis of size $Z$, where the full wavestate $\ket{\Psi}$ is parametrised by the time-dependent quantities $Z^m_{ij}$, which describes the $m$-th basis state $\unnormket{Z^m}$, and $A_m$, which is the decomposition coefficient of $\unnormket{Z^m}$. Formally
@@ -693,6 +752,58 @@
 	r_a=r - \min(u_x,u_y),\qquad r_b=r - \min(v_x,v_y),\\
 	r = \max(\min(u_x, u_y), \min(v_x, v_y))\dots \min(X_{\text{rows}}-u_x+\min(u_x, u_y),X_{\text{cols}}-v_x+\min(v_x, v_y))
 	\end{multline}
+	
+	\section{Ratio of full and reduced determinant product}
+	\begin{theorem}\label{theorem: ratio of full and reduced determinant product}
+	Consider two rectangular matrices $A, B$ of dimensions $(m,n), (n,m)$, respectively. Consider two index sequences $\seq{\rho}\subset\seq{m},\seq{\sigma}\subset\seq{n}$. Define the auxiliary matrix
+	\begin{equation}
+	X = (I+AB)^{(\text{r.} \rho, \text{c.} \rho)}
+	\end{equation}
+	Then, the following equation holds:
+	\begin{equation}
+	\frac{\det(I+AB)}{\det(I+A^{(\text{r.} \rho,\text{c.} \sigma)}B^{(\text{r.} \sigma,\text{c.} \rho)})}=\frac{\det(I+A_{\text{r.} \seq{\rho}}(I-B^{(\text{c.} \rho)}X^{-1} A^{(\text{r.} \rho)})B_{\text{c.} \seq{\rho}})}{\det(I-B_{\text{r.} \seq{\sigma}}^{(\text{c.} \rho)}X^{-1} A_{\text{c.} \seq{\sigma}}^{(\text{r.} \rho)})}
+	\end{equation}
+	\end{theorem}
+	\textit{Proof.} By simultaneous reordering of rows and columns, which corresponds to a determinant-preserving similarity transformation:
+	\begin{equation}
+	\det(I+AB)=\det(\mqty{
+		I+A_{\text{r.} \seq{\rho}}B_{\text{c.} \seq{\rho}} & A_{\text{r.} \seq{\rho}}B^{(\text{c.} \rho)}\\
+		A^{(\text{r.} \rho)}B_{\text{c.} \seq{\rho}} & X
+	})
+	\end{equation}
+	By Schur's formula:
+	\begin{equation}\label{eq: det master by det X}
+	\det(I+AB)=\det(X)\det(I+A_{\text{r.} \seq{\rho}}B_{\text{c.} \seq{\rho}} - A_{\text{r.} \seq{\rho}}B^{(\text{c.} \rho)}X^{-1}A^{(\text{r.} \rho)}B_{\text{c.} \seq{\rho}})
+	\end{equation}
+	We express
+	\begin{equation}
+	X = I+A^{(\text{r.} \rho,\text{c.} \sigma)}B^{(\text{r.} \sigma,\text{c.} \rho)} + A_{\text{c.} \seq{\sigma}}^{(\text{r.} \rho)}B_{\text{r.} \seq{\sigma}}^{(\text{c.} \rho)}
+	\end{equation}
+	which under the matrix determinant lemma yields
+	\begin{equation}
+	\det(X)=\det(I+A^{(\text{r.} \rho,\text{c.} \sigma)}B^{(\text{r.} \sigma,\text{c.} \rho)})\det(I+B_{\text{r.} \seq{\sigma}}^{(\text{c.} \rho)}(I+A^{(\text{r.} \rho,\text{c.} \sigma)}B^{(\text{r.} \sigma,\text{c.} \rho)})^{-1}A_{\text{c.} \seq{\sigma}}^{(\text{r.} \rho)})
+	\end{equation}
+	Applying the Woodbury identity for matrix inverse also allows us to express
+	\begin{equation}
+	(I+A^{(\text{r.} \rho,\text{c.} \sigma)}B^{(\text{r.} \sigma,\text{c.} \rho)})^{-1}=X^{-1}+X^{-1}A_{\text{c.} \seq{\sigma}}^{(\text{r.} \rho)}\left(I-B_{\text{r.} \seq{\sigma}}^{(\text{c.} \rho)}X^{-1}A_{\text{c.} \seq{\sigma}}^{(\text{r.} \rho)}\right)^{-1}B_{\text{r.} \seq{\sigma}}^{(\text{c.} \rho)}X^{-1}
+	\end{equation}
+	Denoting
+	\begin{equation}
+	P=B_{\text{r.} \seq{\sigma}}^{(\text{c.} \rho)}X^{-1}A_{\text{c.} \seq{\sigma}}^{(\text{r.} \rho)}
+	\end{equation}
+	we see that
+	\begin{align}
+	I+B_{\text{r.} \seq{\sigma}}^{(\text{c.} \rho)}(I+A^{(\text{r.} \rho,\text{c.} \sigma)}B^{(\text{r.} \sigma,\text{c.} \rho)})^{-1}A_{\text{c.} \seq{\sigma}}^{(\text{r.} \rho)}&= I+P+P(I-P)^{-1}P\nonumber\\
+	&= I+P-(I-P-I)(I-P)^{-1}P\nonumber\\
+	&= I+P-P+(I-P)^{-1}P\nonumber\\
+	&= (I-P)^{-1}(I-P)+(I-P)^{-1}P\nonumber\\
+	&= (I-P)^{-1}
+	\end{align}
+	hence
+	\begin{equation}\label{eq: det X by P}
+	\det(X)=\frac{\det(I+A^{(\text{r.} \rho,\text{c.} \sigma)}B^{(\text{r.} \sigma,\text{c.} \rho)})}{\det(I-B_{\text{r.} \seq{\sigma}}^{(\text{c.} \rho)}X^{-1}A_{\text{c.} \seq{\sigma}}^{(\text{r.} \rho)})}
+	\end{equation}
+	Substituting Eq. \ref{eq: det X by P} into Eq. \ref{eq: det master by det X} finishes the proof.
 	
 	\begin{thebibliography}{10}
 	

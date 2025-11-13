@@ -6,8 +6,12 @@ from krylov_ground_state import ground_state_solver
 # water molecule
 water_mol = gto.Mole()
 water_mol.build(
-    atom = '''O 0 0 0; H  0 1 0; H 0 0 1''',
-    basis = 'sto-3g')
+    atom = '''
+    Li   0.0000000000   0.0000000000  -2.5256187838
+    Li   0.0000000000   0.0000000000   2.5256187838
+    ''',
+    basis = 'sto-3g'
+)
 
 """hydrogen_mol = gto.Mole()
 hydrogen_mol.build(
@@ -16,7 +20,7 @@ hydrogen_mol.build(
 
 water_solver = ground_state_solver("water")
 water_solver.initialise_molecule(water_mol)
-water_solver.find_ground_state("sampling", N = 10, lamb = None, delta = 1)
+#water_solver.find_ground_state("sampling", N = 10, lamb = None, delta = 1)
 
 
 
@@ -30,3 +34,4 @@ hf.kernel()  # Perform the SCF calculation
 cisolver = fci.FCI(water_mol, hf.mo_coeff)  # Full CI solver with HF orbitals
 ci_energy, ci_wavefunction = cisolver.kernel()
 print(f"Full CI ground-state energy: {ci_energy} Hartree")
+

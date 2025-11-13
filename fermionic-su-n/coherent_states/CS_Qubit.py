@@ -26,10 +26,21 @@ def esp(roots, order):
 
 class CS_Qubit(CS_Base):
 
-    @staticmethod
-    def null_state(M, S):
+    @classmethod
+    def null_state(cls, M, S):
         # returns an instance of this class which corresponds to the Hartree no-excitation state
-        return(np.concatenate((np.ones(S, dtype = complex), np.zeros(M - S, dtype=complex))))
+        return(cls(M, S, np.concatenate((np.ones(S, dtype = complex), np.zeros(M - S, dtype=complex)))))
+
+    @classmethod
+    def random_state(cls, M, S, sampling_method):
+        if sampling_method == "uniform":
+            #random_z = np.random.normal(0.0, 1.0, M) + 1j * np.random.normal(0.0, 1.0, M)
+            random_z = np.concatenate((np.random.normal(1.0, 1.0, S), np.random.normal(1.0, 1.0, M - S)))
+            return(cls(M, S, random_z))
+        if sampling_method == "highest_orbital":
+            random_z = np.concatenate((np.random.normal(100.0, 100.0, S-2), np.random.normal(1.0, 1.0, 2), np.random.normal(0.0, 0.1, M - S)))
+            return(cls(M, S, random_z))
+        return(None)
 
     def __init__(self, M, S, z):
         super().__init__(M, S, z)
@@ -73,6 +84,14 @@ class CS_Qubit(CS_Base):
             z_b.insert(0, cur_sign * other.z[j])
 
         return(prefactor * esp(np.conjugate(z_a) * z_b, self.S - len(c)))
+
+    def overlap_update(self, other, c = [], a = [], master_matrix_det = None, master_matrix_inv = None, master_matrix_alt_inv = None):
+        return(self.overlap(other, c, a))
+
+    def get_update_information(self, other):
+        # returns master_matrix_det, master_matrix_inv, master_matrix_alt_inv
+
+        return(None, None, None)
 
 
 

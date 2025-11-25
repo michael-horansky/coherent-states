@@ -199,7 +199,8 @@ class ground_state_solver():
         norm_coefs = np.zeros(N)
         norm_coefs[0] = 1.0
         for i in range(1, N):
-            norm_coefs[i] = 1.0 / np.sqrt(CS_sample[i].overlap(CS_sample[i]).real)
+            sig, mag = CS_sample[i].log_norm_coef
+            norm_coefs[i] = sig * np.exp(-mag / 2.0)
 
         print("-- Normalisation coefs:", norm_coefs)
 
@@ -208,7 +209,7 @@ class ground_state_solver():
         overlap_matrix = np.zeros((N, N), dtype=complex) # [a][b] = <a|b>
         for i in range(N):
             for j in range(N):
-                overlap_matrix[i][j] = CS_sample[i].overlap(CS_sample[j]) * norm_coefs[i] * norm_coefs[j]
+                overlap_matrix[i][j] = CS_sample[i].norm_overlap(CS_sample[j])
         print("-- Overlap matrix:")
         print(overlap_matrix)
 
@@ -232,7 +233,7 @@ class ground_state_solver():
         for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
             cur_H_overlap, overlap_diagnostic = self.H_overlap(CS_sample[a], CS_sample[a])
-            H_eff[a][a] = cur_H_overlap * norm_coefs[a] * norm_coefs[a]
+            H_eff[a][a] = cur_H_overlap
             if overlap_diagnostic > max_overlap_diagnostic:
                 max_overlap_diagnostic = overlap_diagnostic
             self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
@@ -241,7 +242,7 @@ class ground_state_solver():
             for b in range(a):
                 # We explicitly calculate <Z_a | H | Z_b>
                 cur_H_overlap, overlap_diagnostic = self.H_overlap(CS_sample[a], CS_sample[b])
-                H_eff[a][b] = cur_H_overlap * norm_coefs[a] * norm_coefs[b]
+                H_eff[a][b] = cur_H_overlap
                 H_eff[b][a] = np.conjugate(H_eff[a][b])
                 if overlap_diagnostic > max_overlap_diagnostic:
                     max_overlap_diagnostic = overlap_diagnostic
@@ -531,7 +532,7 @@ class ground_state_solver():
         for p in range(self.M):
             for q in range(self.M):
                 #H_one_term += self.mode_exchange_energy([p], [q]) * state_a.overlap_update(state_b, [p], [q], master_matrix_det, master_matrix_inv, master_matrix_alt_inv) #self.general_overlap(Z_a, Z_b, [p], [q])
-                H_one_term += self.mode_exchange_energy([p], [q]) * state_a.overlap(state_b, [p], [q])
+                H_one_term += self.mode_exchange_energy([p], [q]) * state_a.norm_overlap(state_b, [p], [q])
         #print(f" H_one = {H_one_term}")
 
         H_two_term = 0.0
@@ -543,7 +544,7 @@ class ground_state_solver():
                 # c_pair = [q, p] (inverted order!)
                 # a_pair = [r, s]
                 #core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * state_a.overlap_update(state_b, c_pair, a_pair, master_matrix_det, master_matrix_inv, master_matrix_alt_inv) #self.general_overlap(Z_a, Z_b, c_pair, a_pair)
-                core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * state_a.overlap(state_b, c_pair, a_pair)
+                core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * state_a.norm_overlap(state_b, c_pair, a_pair)
                 #print(self.general_overlap(Z_a, Z_b, c_pair, a_pair))
                 # an extra contribution is from the 4 different order swaps, which yields 2(core_term + core_term*), however, we also have a pre-factor of 0.5
                 H_two_term += (core_term)

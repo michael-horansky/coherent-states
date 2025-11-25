@@ -28,6 +28,9 @@ class CS_Base():
 
         self.z = z
 
+        log_norm_sign, log_norm_mag = self.slog_overlap(self)
+        self.log_norm_coef = (log_norm_sign, log_norm_mag)
+
     def overlap(self, other, c = [], a = []):
         # This method evaluates <self | creation\hc annihilation | other>
         # Note that creation_sequence indices are in inverted order!
@@ -43,7 +46,17 @@ class CS_Base():
         return(self.overlap(other, c, a))
 
     def get_update_information(self, other):
-        # returns master_matrix_det, master_matrix_inv, master_matrix_alt_inv
+        # returns master_matrix_det, master_matrix_inv, master_matrix_alt_inv, diagnostic
 
-        return(None, None, None)
+        return(None, None, None, None)
+
+    def slog_overlap(self, other, c = [], a = []):
+        return(None, None)
+
+    def norm_overlap(self, other, c = [], a = []):
+        # normalised overlap which prevents ftp error
+        slog_overlap_sign, slog_overlap_mag = self.slog_overlap(other, c, a)
+        sign_a, mag_a = self.log_norm_coef
+        sign_b, mag_b = other.log_norm_coef
+        return((slog_overlap_sign * sign_a * sign_b) * np.exp(slog_overlap_mag - (mag_a + mag_b) / 2.0))
 

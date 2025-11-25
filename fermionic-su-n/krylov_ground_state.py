@@ -8,6 +8,7 @@ from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_Qubit import CS_Qubit
 
 from class_Semaphor import Semaphor
+from class_DSM import DSM
 import functions
 
 
@@ -62,12 +63,28 @@ class ground_state_solver():
         "Qubit" : CS_Qubit
         }
 
+    data_nodes = {
+        "system" : {"log" : "txt", "log_machine" : "plk"}, # User actions summary
+        "molecule" : {"mol_structure" : "plk", "mode_structure" : "plk"}, # molecule properties
+        "samples" : {"basis_samples" : "plk"}, # The specific samples, useful to reconstruct the ground state
+        "results" : {"result_energy_states" : "plk"}, # The solution as found by the CS method
+        "diagnostics" : {"diagnostic_log" : "txt"} # Condition numbers, eigenvalue min-max ratios, norms etc
+    }
+
     def __init__(self, ID):
 
         self.ID = ID
 
         # Semaphor
         self.semaphor = Semaphor(time_format = "%H:%M:%S")
+
+        # Data Storage Manager
+        self.disk_jockey = DSM(f"outputs/{self.ID}")
+        self.disk_jockey.create_data_nodes(ground_state_solver.data_nodes)
+
+        self.user_log = f"initialised solver {self.ID}\n"
+        self.diagnostics_log = []
+        # The structure of the diagnostics log is like so: every element is either a list (for multiple same-level subprocedures) or a dict (for a header : content) pair
 
         print("---------------------------- " + str(ID) + " -----------------------------")
 
@@ -148,8 +165,11 @@ class ground_state_solver():
         #     -sampling_method: magic word for how the CS samples its parameter tensor
         #     -CS: Type of coherent state to use
 
+        self.user_log += f"find_ground_state_sampling [N = {kwargs["N"]}, lambda = {kwargs["lamb"]}, sampling method = {kwargs["sampling_method"]}]\n"
+        procedure_diagnostic = []
 
-        print(f"Obtaining the ground state with the method \"random sampling\" [N = {kwargs["N"]}, lambda = {kwargs["lamb"]}, sampling method = {kwargs["sampling_method"]}]")
+
+        print(f"Obtaining the ground state with the method \"random sampling\" [CS types = {kwargs["CS"]}, N = {kwargs["N"]}, lambda = {kwargs["lamb"]}, sampling method = {kwargs["sampling_method"]}]")
 
         # We sample around the HF null guess, i.e. Z = 0
         # We include one extra basis vector - the null point itself!
@@ -170,6 +190,11 @@ class ground_state_solver():
             CS_sample.append(ground_state_solver.coherent_state_types[kwargs["CS"]].random_state(self.M, self.S, kwargs["sampling_method"]))
             #CS_sample.append(ground_state_solver.coherent_state_types[kwargs["CS"]](self.M, self.S, cs_null_param + vector_sample[i] * kwargs["weights"]))
 
+        basis_samples_bulk = []
+        for i in range(N):
+            basis_samples_bulk.append(CS_sample[i].z)
+        self.disk_jockey.commit_datum_bulk("basis_samples", basis_samples_bulk)
+
         # Firstly we find the normalisation coefficients
         norm_coefs = np.zeros(N)
         norm_coefs[0] = 1.0
@@ -178,6 +203,8 @@ class ground_state_solver():
 
         print("-- Normalisation coefs:", norm_coefs)
 
+        procedure_diagnostic.append(f"basis norm max/min = {np.max(norm_coefs) / np.min(norm_coefs)}")
+
         overlap_matrix = np.zeros((N, N), dtype=complex) # [a][b] = <a|b>
         for i in range(N):
             for j in range(N):
@@ -185,23 +212,42 @@ class ground_state_solver():
         print("-- Overlap matrix:")
         print(overlap_matrix)
 
+        # At what trim number is the condition number maximal?
+        S_cond_trim_max = 1
+        S_cond_trim_max_val = 1.0
+        for N_trim in range(2, N + 1):
+            cur_S_cond_trim_val = np.linalg.cond(overlap_matrix[:N_trim, :N_trim])
+            if cur_S_cond_trim_val > S_cond_trim_max_val:
+                S_cond_trim_max = N_trim
+                S_cond_trim_max_val = cur_S_cond_trim_val
+        procedure_diagnostic.append(f"overlap max condition val = {S_cond_trim_max_val} at N_eff = {S_cond_trim_max}")
+
         # We now diagonalise on the vector sample
         H_eff = np.zeros((N, N), dtype=complex)
 
         msg = f"  Explicit Hamiltonian evaluation begins"
         new_sem_ID = self.semaphor.create_event(np.linspace(0, N * (N + 1) / 2, 100 + 1), msg)
 
+        max_overlap_diagnostic = 0.0
         for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
-            H_eff[a][a] = self.H_overlap(CS_sample[a], CS_sample[a]) * norm_coefs[a] * norm_coefs[a]
+            cur_H_overlap, overlap_diagnostic = self.H_overlap(CS_sample[a], CS_sample[a])
+            H_eff[a][a] = cur_H_overlap * norm_coefs[a] * norm_coefs[a]
+            if overlap_diagnostic > max_overlap_diagnostic:
+                max_overlap_diagnostic = overlap_diagnostic
             self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
 
             # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
             for b in range(a):
                 # We explicitly calculate <Z_a | H | Z_b>
-                H_eff[a][b] = self.H_overlap(CS_sample[a], CS_sample[b]) * norm_coefs[a] * norm_coefs[b]
+                cur_H_overlap, overlap_diagnostic = self.H_overlap(CS_sample[a], CS_sample[b])
+                H_eff[a][b] = cur_H_overlap * norm_coefs[a] * norm_coefs[b]
                 H_eff[b][a] = np.conjugate(H_eff[a][b])
+                if overlap_diagnostic > max_overlap_diagnostic:
+                    max_overlap_diagnostic = overlap_diagnostic
                 self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
+
+        procedure_diagnostic.append(f"overlap max update diagnostic = {max_overlap_diagnostic}")
 
         self.solution_benchmark = self.semaphor.finish_event(new_sem_ID, "    Evaluation")
 
@@ -249,6 +295,10 @@ class ground_state_solver():
         for N_eff_val in range(1, N + 1):
             N_vals.append(N_eff_val)
             convergence_sols.append(get_partial_sol(N_eff_val))
+
+        self.disk_jockey.commit_datum_bulk("result_energy_states", [N_vals, convergence_sols])
+        self.diagnostics_log.append({"find_ground_state_sampling" : procedure_diagnostic})
+
         return(N_vals, convergence_sols)
 
 
@@ -375,12 +425,63 @@ class ground_state_solver():
         null_state_energy = null_state_energy_one + null_state_energy_two + self.mol.energy_nuc()
         print(f"  Energy of the null state = {null_state_energy}")
         null_state = CS_Thouless(self.M, self.S, np.zeros((self.M - self.S, self.S), dtype=complex))
-        print(f"  Energy of the null state with the overlap method = {self.H_overlap(null_state, null_state) + self.mol.energy_nuc()}")
+        null_state_direct_self_energy, _ = self.H_overlap(null_state, null_state)
+        print(f"  Energy of the null state with the overlap method = {null_state_direct_self_energy + self.mol.energy_nuc()}")
 
         hf = scf.RHF(self.mol)          # Create the HF object
         hf.kernel()  # Perform the SCF calculation
         cisolver = fci.FCI(mol, hf.mo_coeff)
         self.ci_energy, _ = cisolver.kernel()
+
+
+        self.user_log += f"initialise_molecule [M = {self.M}, S = {self.S}]"
+        mol_structure_bulk = {
+            "atom" : self.mol.atom,
+            "basis" : self.mol.basis,
+            "spin" : self.mol.spin
+            }
+        mode_structure_bulk = {
+            "M" : self.M,
+            "S" : self.S,
+            "modes" : self.modes,
+            "MO_H_one" : self.MO_H_one,
+            "MO_H_two" : self.MO_H_two
+            }
+        self.disk_jockey.commit_datum_bulk("mol_structure", mol_structure_bulk)
+        self.disk_jockey.commit_datum_bulk("mode_structure", mode_structure_bulk)
+
+    def print_diagnostic_log(self):
+        # returns the log as a string
+        output = f"----------------- {self.ID} diagnostic log -----------------\n"
+        cur_depth = 0
+        tw = 4 # tab width
+        def enter_node(element):
+            nonlocal output, cur_depth
+            if isinstance(element, list):
+                for sub_element in element:
+                    enter_node(sub_element)
+            if isinstance(element, dict):
+                for header, sub_element in element.items():
+                    output += " " * tw * cur_depth + header + "\n"
+                    cur_depth += 1
+                    enter_node(sub_element)
+                    cur_depth -= 1
+            if isinstance(element, str):
+                output += " " * tw * cur_depth + element + "\n"
+
+        enter_node(self.diagnostics_log)
+        return(output)
+
+    def save_data(self):
+        # Save user log
+        self.disk_jockey.commit_datum_bulk("log", self.user_log)
+
+        # save diagnostic
+        self.disk_jockey.commit_datum_bulk("diagnostic_log", self.print_diagnostic_log())
+
+    def load_data(self):
+        # loads data using disk jockey
+        pass
 
     def get_H_two_element(self, p, q, r, s):
         return(0.5 * self.H_two[p][q][r][s])
@@ -423,13 +524,14 @@ class ground_state_solver():
         # state_a, state_b are instances of any class inheriting from CS_Base
 
         # Firstly we prepare update information
-        master_matrix_det, master_matrix_inv, master_matrix_alt_inv = state_a.get_update_information(state_b)
+        master_matrix_det, master_matrix_inv, master_matrix_alt_inv, overlap_diagnostic = state_a.get_update_information(state_b)
 
         H_one_term = 0.0
         # This is a sum over all mode pairs
         for p in range(self.M):
             for q in range(self.M):
-                H_one_term += self.mode_exchange_energy([p], [q]) * state_a.overlap_update(state_b, [p], [q], master_matrix_det, master_matrix_inv, master_matrix_alt_inv) #self.general_overlap(Z_a, Z_b, [p], [q])
+                #H_one_term += self.mode_exchange_energy([p], [q]) * state_a.overlap_update(state_b, [p], [q], master_matrix_det, master_matrix_inv, master_matrix_alt_inv) #self.general_overlap(Z_a, Z_b, [p], [q])
+                H_one_term += self.mode_exchange_energy([p], [q]) * state_a.overlap(state_b, [p], [q])
         #print(f" H_one = {H_one_term}")
 
         H_two_term = 0.0
@@ -440,7 +542,8 @@ class ground_state_solver():
             for a_pair in a_pairs:
                 # c_pair = [q, p] (inverted order!)
                 # a_pair = [r, s]
-                core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * state_a.overlap_update(state_b, c_pair, a_pair, master_matrix_det, master_matrix_inv, master_matrix_alt_inv) #self.general_overlap(Z_a, Z_b, c_pair, a_pair)
+                #core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * state_a.overlap_update(state_b, c_pair, a_pair, master_matrix_det, master_matrix_inv, master_matrix_alt_inv) #self.general_overlap(Z_a, Z_b, c_pair, a_pair)
+                core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * state_a.overlap(state_b, c_pair, a_pair)
                 #print(self.general_overlap(Z_a, Z_b, c_pair, a_pair))
                 # an extra contribution is from the 4 different order swaps, which yields 2(core_term + core_term*), however, we also have a pre-factor of 0.5
                 H_two_term += (core_term)
@@ -449,7 +552,7 @@ class ground_state_solver():
                     print(f" {[c_pair[1], c_pair[0]], a_pair} = {core_term}")"""
         #print(H_two_term)
         #print(f" H_two = {H_two_term}")
-        return(H_one_term + H_two_term) #TODO the mulliken -> physicist notation conversion is incomplete, and that's why it is not yet antisymmetrised. SUBTRACT THE DIAGONAL TERM (NOT TRUE)
+        return(H_one_term + H_two_term, overlap_diagnostic) #TODO the mulliken -> physicist notation conversion is incomplete, and that's why it is not yet antisymmetrised. SUBTRACT THE DIAGONAL TERM (NOT TRUE)
 
 
 

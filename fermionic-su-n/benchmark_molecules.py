@@ -105,6 +105,8 @@ for mol_name, mol in benchmark_molecules.items():
     ci_energy, ci_wavefunction = cisolver.kernel()
     print("Full CI ground state energy =", ci_energy)
 
+    print(mol_solver.print_diagnostic_log())
+
     plt.plot(N_vals_t, energy_levels_t, "x", label = "Thouless")
     #plt.plot(N_vals_q, energy_levels_q, "x", label = "Qubit")
 

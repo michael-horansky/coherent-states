@@ -200,7 +200,9 @@ class ground_state_solver():
         norm_coefs[0] = 1.0
         for i in range(1, N):
             sig, mag = CS_sample[i].log_norm_coef
-            norm_coefs[i] = sig * np.exp(-mag / 2.0)
+            if (sig * np.exp(-mag / 2.0)).imag > 1e-04:
+                procedure_diagnostic.append(f"basis norm not real!!")
+            norm_coefs[i] = (sig * np.exp(-mag / 2.0)).real
 
         print("-- Normalisation coefs:", norm_coefs)
 
@@ -232,7 +234,7 @@ class ground_state_solver():
         max_overlap_diagnostic = 0.0
         for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
-            cur_H_overlap, overlap_diagnostic = self.H_overlap(CS_sample[a], CS_sample[a])
+            cur_H_overlap, overlap_diagnostic = self.H_overlap(CS_sample[a], CS_sample[a], True)
             H_eff[a][a] = cur_H_overlap
             if overlap_diagnostic > max_overlap_diagnostic:
                 max_overlap_diagnostic = overlap_diagnostic
@@ -241,7 +243,7 @@ class ground_state_solver():
             # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
             for b in range(a):
                 # We explicitly calculate <Z_a | H | Z_b>
-                cur_H_overlap, overlap_diagnostic = self.H_overlap(CS_sample[a], CS_sample[b])
+                cur_H_overlap, overlap_diagnostic = self.H_overlap(CS_sample[a], CS_sample[b], True)
                 H_eff[a][b] = cur_H_overlap
                 H_eff[b][a] = np.conjugate(H_eff[a][b])
                 if overlap_diagnostic > max_overlap_diagnostic:
@@ -379,7 +381,7 @@ class ground_state_solver():
         MO_self_energies.sort(key = lambda x : x[0])
 
         # Now we occupy the lowest S guys
-        self.modes = [] # [mode index] = [mo_index, spin]
+        self.modes = [] # [mode index] = [mo_index, spin]def
         for i in range(self.mol.nao):
             self.modes.append([MO_self_energies[i][1], 0])
             self.modes.append([MO_self_energies[i][1], 1])
@@ -395,6 +397,31 @@ class ground_state_solver():
                         self.MO_H_two[p * 2    ][r * 2 + 1][q * 2    ][s * 2 + 1] = corresponding_integral
                         self.MO_H_two[p * 2 + 1][r * 2 + 1][q * 2 + 1][s * 2 + 1] = corresponding_integral
         self.MO_H_two = self.MO_H_two.transpose(0, 1, 3, 2) - self.MO_H_two # Slater-Condon antisymmetrisation
+        """def spatial_idx(P):
+            return MO_self_energies[P // 2][1]
+        def spin_idx(P):
+            return P % 2
+
+        # build antisymmetrized spin-orbital integrals:
+        for P in range(self.M):
+            p = spatial_idx(P); sp = spin_idx(P)
+            for Q in range(self.M):
+                q = spatial_idx(Q); sq = spin_idx(Q)
+                for R in range(self.M):
+                    r = spatial_idx(R); sr = spin_idx(R)
+                    for S in range(self.M):
+                        s = spatial_idx(S); ss = spin_idx(S)
+
+                        val = 0.0
+                        # (pq|rs) term if spins match P<->R and Q<->S
+                        if sp == sr and sq == ss:
+                            val += MO_H_two_no_spin[p][q][r][s]
+                        # subtract (pq|sr) term if spins match P<->S and Q<->R
+                        if sp == ss and sq == sr:
+                            val -= MO_H_two_no_spin[p][q][s][r]
+
+                        self.MO_H_two[P, Q, R, S] = val"""
+
 
         print("    Antisym tests")
         print("      Hermitian?", (np.round(self.MO_H_two - self.MO_H_two.transpose(2, 3, 0, 1), 2) == 0).all())
@@ -426,7 +453,7 @@ class ground_state_solver():
         null_state_energy = null_state_energy_one + null_state_energy_two + self.mol.energy_nuc()
         print(f"  Energy of the null state = {null_state_energy}")
         null_state = CS_Thouless(self.M, self.S, np.zeros((self.M - self.S, self.S), dtype=complex))
-        null_state_direct_self_energy, _ = self.H_overlap(null_state, null_state)
+        null_state_direct_self_energy = self.H_overlap(null_state, null_state)
         print(f"  Energy of the null state with the overlap method = {null_state_direct_self_energy + self.mol.energy_nuc()}")
 
         hf = scf.RHF(self.mol)          # Create the HF object
@@ -450,6 +477,16 @@ class ground_state_solver():
             }
         self.disk_jockey.commit_datum_bulk("mol_structure", mol_structure_bulk)
         self.disk_jockey.commit_datum_bulk("mode_structure", mode_structure_bulk)
+
+    def search_for_states(self, state_type, sampling_method, inclusion):
+        found_states = 0
+        while(True):
+            cur_state = ground_state_solver.coherent_state_types[state_type].random_state(self.M, self.S, sampling_method)
+            if inclusion(cur_state):
+                print("Success!")
+                print(f"State found with z = {repr(cur_state.z)}")
+            found_states += 1
+            print(f"Tried {found_states} states\r")
 
     def print_diagnostic_log(self):
         # returns the log as a string
@@ -490,7 +527,7 @@ class ground_state_solver():
 
     def mode_exchange_energy(self, m_i, m_f, debug = False):
         # m_i/f are lists of either one mode index (single electron exchange) or two mode indices (two electron exchange)
-        # this function translates mode index exchanges into ao orbital exchanges, which are known
+        # this function translates mode index exchanges into mo orbital exchanges, which are known
         if len(m_i) == 1:
             #if self.modes[m_i[0]][1] == self.modes[m_f[0]][1]:
             return(self.MO_H_one[self.modes[m_i[0]][0]][self.modes[m_f[0]][0]])
@@ -520,7 +557,7 @@ class ground_state_solver():
                 #return(self.get_H_two_element(p, q, r, s))
         return(0.0)
 
-    def H_overlap(self, state_a, state_b):
+    def H_overlap(self, state_a, state_b, include_diagnostic = False):
         # This method only uses the instance's H_one, H_two, to calculate <Z_a | H | Z_b>
         # state_a, state_b are instances of any class inheriting from CS_Base
 
@@ -553,7 +590,9 @@ class ground_state_solver():
                     print(f" {[c_pair[1], c_pair[0]], a_pair} = {core_term}")"""
         #print(H_two_term)
         #print(f" H_two = {H_two_term}")
-        return(H_one_term + H_two_term, overlap_diagnostic) #TODO the mulliken -> physicist notation conversion is incomplete, and that's why it is not yet antisymmetrised. SUBTRACT THE DIAGONAL TERM (NOT TRUE)
+        if include_diagnostic:
+            return(H_one_term + H_two_term, overlap_diagnostic) #TODO the mulliken -> physicist notation conversion is incomplete, and that's why it is not yet antisymmetrised. SUBTRACT THE DIAGONAL TERM (NOT TRUE)
+        return(H_one_term + H_two_term)
 
 
 

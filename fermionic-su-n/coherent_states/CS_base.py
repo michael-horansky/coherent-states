@@ -21,12 +21,13 @@ class CS_Base():
         return(None)
 
 
-    def __init__(self, M, S, z):
+    def __init__(self, M, S, z, S_spin = None):
         # z is the parameter object. In general, it is a multi-dimensional
         # complex ndarray
 
         self.M = M
         self.S = S
+        self.S_spin = S_spin # either None or a tuple (S_alpha, S_beta)
 
         self.z = z
 

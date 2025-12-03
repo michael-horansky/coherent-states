@@ -297,5 +297,24 @@ bad_states = []
 for bad_state_param in bad_state_parameters:
     bad_states.append(CS_Thouless(mol_solver.M, mol_solver.S, bad_state_param))
 
+# What we're gonna do is calculate the energy through the CS overlap formula and also through the explicit decomposition onto the full occupancy basis. If even that is below the ground state, then something stinky is going on with this molecule.
+
+fbs = bad_states[0] # first bad state
+
+mean_field = scf.RHF(n2_mol).run()
+
+norb = mean_field.mo_coeff.shape[1]
+nalpha, nbeta = n2_mol.nelec   # (nα, nβ)
+
+print("Number of orbitals:", norb)
+print("Number of electrons")
+print("    in alpha states:", nalpha)
+print("    in beta states:", nbeta)
+
+strs_a = fci.cistring.gen_occslst(range(norb), nalpha)  # all α bitstrings
+strs_b = fci.cistring.gen_occslst(range(norb), nbeta)   # all β bitstrings
+
+
+
 
 

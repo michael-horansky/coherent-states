@@ -12,6 +12,9 @@ from class_DSM import DSM
 import functions
 
 
+# this solver assumes that the occupancies in the spin-alpha and spin-beta subspaces are restricted separately.
+
+
 # water molecule
 mol = gto.Mole()
 mol.build(
@@ -341,10 +344,6 @@ class ground_state_solver():
         self.M = self.mol.nao * 2
         self.S = self.mol.tot_electrons()
 
-        nalpha, nbeta = self.mol.nelec
-        self.N_alpha = nalpha
-        self.N_beta = nbeta
-
         # We create helpful dictionaries to describe the molecule
         self.element_to_basis = [] # [element index] = [type of element, AO index start, AO index end (non-inclusive)]
         cur_aoslice = self.mol.aoslice_by_atom()
@@ -352,7 +351,7 @@ class ground_state_solver():
             self.element_to_basis.append([self.mol.elements[i], int(cur_aoslice[i][2]), int(cur_aoslice[i][3])])
 
         print(f"    There are {self.mol.nao} atomic orbitals, each able to hold 2 electrons of opposing spin.")
-        print(f"    The molecule is occupied by {self.mol.tot_electrons()} electrons in total: {self.N_alpha} with spin alpha, {self.N_beta} with spin beta.")
+        print(f"    The molecule is occupied by {self.mol.tot_electrons()} electrons in total.")
         print(f"    The molecule consists of the following atoms: {self.mol.elements}")
         print(f"    The atomic orbitals are ordered as follows: {self.mol.ao_labels()}")
         print(self.element_to_basis)

@@ -188,18 +188,20 @@ class ground_state_solver():
         #random_weights = np.concatenate((np.zeros((1,), dtype=complex), np.random.normal(0.0, kwargs["delta"], (kwargs["N"],))))"""
         N = kwargs["N"] + 1
 
-        CS_sample = [ground_state_solver.coherent_state_types[kwargs["CS"]].null_state(self.M, self.S)]
+        CS_sample = [[ground_state_solver.coherent_state_types[kwargs["CS"]].null_state(self.mol.nao, self.S_alpha), ground_state_solver.coherent_state_types[kwargs["CS"]].null_state(self.mol.nao, self.S_beta)]]
         for i in range(kwargs["N"]):
-            CS_sample.append(ground_state_solver.coherent_state_types[kwargs["CS"]].random_state(self.M, self.S, kwargs["sampling_method"]))
-            #CS_sample.append(ground_state_solver.coherent_state_types[kwargs["CS"]](self.M, self.S, cs_null_param + vector_sample[i] * kwargs["weights"]))
+            CS_sample.append([
+                ground_state_solver.coherent_state_types[kwargs["CS"]].random_state(self.mol.nao, self.S_alpha, kwargs["sampling_method"]),
+                ground_state_solver.coherent_state_types[kwargs["CS"]].random_state(self.mol.nao, self.S_beta, kwargs["sampling_method"])
+                ])
 
         basis_samples_bulk = []
         for i in range(N):
-            basis_samples_bulk.append(CS_sample[i].z)
+            basis_samples_bulk.append([CS_sample[i][0].z, CS_sample[i][1].z])
         self.disk_jockey.commit_datum_bulk("basis_samples", basis_samples_bulk)
 
         # Firstly we find the normalisation coefficients
-        norm_coefs = np.zeros(N)
+        """norm_coefs = np.zeros(N)
         norm_coefs[0] = 1.0
         for i in range(1, N):
             sig, mag = CS_sample[i].log_norm_coef
@@ -209,12 +211,12 @@ class ground_state_solver():
 
         print("-- Normalisation coefs:", norm_coefs)
 
-        procedure_diagnostic.append(f"basis norm max/min = {np.max(norm_coefs) / np.min(norm_coefs)}")
+        procedure_diagnostic.append(f"basis norm max/min = {np.max(norm_coefs) / np.min(norm_coefs)}")"""
 
         overlap_matrix = np.zeros((N, N), dtype=complex) # [a][b] = <a|b>
         for i in range(N):
             for j in range(N):
-                overlap_matrix[i][j] = CS_sample[i].norm_overlap(CS_sample[j])
+                overlap_matrix[i][j] = CS_sample[i][0].norm_overlap(CS_sample[j][0]) * CS_sample[i][1].norm_overlap(CS_sample[j][1])
         print("-- Overlap matrix:")
         print(overlap_matrix)
 
@@ -234,33 +236,26 @@ class ground_state_solver():
         msg = f"  Explicit Hamiltonian evaluation begins"
         new_sem_ID = self.semaphor.create_event(np.linspace(0, N * (N + 1) / 2, 100 + 1), msg)
 
-        max_overlap_diagnostic = 0.0
         for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
-            cur_H_overlap, overlap_diagnostic = self.H_overlap(CS_sample[a], CS_sample[a], True)
+            cur_H_overlap = self.H_overlap(CS_sample[a], CS_sample[a])
             H_eff[a][a] = cur_H_overlap
-            if overlap_diagnostic > max_overlap_diagnostic:
-                max_overlap_diagnostic = overlap_diagnostic
             self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
 
             # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
             for b in range(a):
                 # We explicitly calculate <Z_a | H | Z_b>
-                cur_H_overlap, overlap_diagnostic = self.H_overlap(CS_sample[a], CS_sample[b], True)
+                cur_H_overlap = self.H_overlap(CS_sample[a], CS_sample[b])
                 H_eff[a][b] = cur_H_overlap
                 H_eff[b][a] = np.conjugate(H_eff[a][b])
-                if overlap_diagnostic > max_overlap_diagnostic:
-                    max_overlap_diagnostic = overlap_diagnostic
                 self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
-
-        procedure_diagnostic.append(f"overlap max update diagnostic = {max_overlap_diagnostic}")
 
         self.solution_benchmark = self.semaphor.finish_event(new_sem_ID, "    Evaluation")
 
         # H_eff diagonal terms
         for i in range(N):
-            print(f"  Z_{i} self-energy: {H_eff[i][i]+self.mol.energy_nuc()}")
-            if H_eff[i][i]+self.mol.energy_nuc() < self.ci_energy:
+            print(f"  Z_{i} self-energy: {H_eff[i][i]}")
+            if H_eff[i][i] < self.ci_energy:
                 print("SMALLER THAN GROUND STATE???")
 
         def get_partial_sol(N_eff):
@@ -294,7 +289,7 @@ class ground_state_solver():
             print(f"        Ground state direct energy calc = {direct_ground_state_energy} (after renorm: {direct_ground_state_energy / ground_state_norm})")
             print(f"        Compare to eigh val = {energy_levels[ground_state_index]}")
 
-            return(energy_levels[ground_state_index] + self.mol.energy_nuc())
+            return(energy_levels[ground_state_index])
 
         convergence_sols = []
         N_vals = []
@@ -344,6 +339,10 @@ class ground_state_solver():
         self.M = self.mol.nao * 2
         self.S = self.mol.tot_electrons()
 
+        nalpha, nbeta = self.mol.nelec
+        self.S_alpha = nalpha
+        self.S_beta = nbeta
+
         # We create helpful dictionaries to describe the molecule
         self.element_to_basis = [] # [element index] = [type of element, AO index start, AO index end (non-inclusive)]
         cur_aoslice = self.mol.aoslice_by_atom()
@@ -351,7 +350,7 @@ class ground_state_solver():
             self.element_to_basis.append([self.mol.elements[i], int(cur_aoslice[i][2]), int(cur_aoslice[i][3])])
 
         print(f"    There are {self.mol.nao} atomic orbitals, each able to hold 2 electrons of opposing spin.")
-        print(f"    The molecule is occupied by {self.mol.tot_electrons()} electrons in total.")
+        print(f"    The molecule is occupied by {self.mol.tot_electrons()} electrons in total: {self.S_alpha} with spin alpha, {self.S_beta} with spin beta.")
         print(f"    The molecule consists of the following atoms: {self.mol.elements}")
         print(f"    The atomic orbitals are ordered as follows: {self.mol.ao_labels()}")
         print(self.element_to_basis)
@@ -362,9 +361,15 @@ class ground_state_solver():
 
         print("  Calculating 2e integrals...")
         #self.H_two = self.mol.intor('int2e', aosym = "s1")
-        AO_H_two = self.mol.intor('int2e', aosym = "s1")
-        # <ij|g|kl> = (ik|jl)
-        # slater-condon: <psi|g|psi> = 1/2 sum_i sum_j (<ij|g|ij> - <ij|g|ji>)
+        AO_H_two_chemist = self.mol.intor('int2e', aosym = "s1")
+        # <ij|kl> = (ik|jl)
+
+        # We now construct AO_H_two as the coefficient tensor in second quantisation according to Szabo & Ostlund: Modern Quantum Chemistry p. 95, Eq. 2.232
+        # O_2 = 0.5 * sum_ijkl <ij|kl> f\hc_i f\hc_j f_l f_k
+        # Using <ij|kl> = (ik|jl) we have
+        # O_ijkl = 0.5 (il|jk)
+        # By symmetry: (ij|kl) = (ji|kl) = (ij|lk) = (ji|lk)
+        # Hence O_ijkl = O_ljki = O_ikjl = O_lkji
 
         print("  Finding the molecular orbitals using mean-field approximations...")
         mean_field = scf.RHF(mol).run()
@@ -373,95 +378,75 @@ class ground_state_solver():
         print("  Transforming 1e and 2e integrals to MO basis...")
         self.MO_H_one = np.matmul(MO_coefs.T, np.matmul(AO_H_one, MO_coefs))
         MO_H_two_packed = ao2mo.kernel(self.mol, MO_coefs)
-        MO_H_two_no_spin = ao2mo.restore(1, MO_H_two_packed, MO_coefs.shape[1]) # In mulliken notation: MO_H_two[p][q][r][s] = (pq|rs)
+        MO_H_two_chemist = ao2mo.restore(1, MO_H_two_packed, MO_coefs.shape[1]) # In mulliken notation: MO_H_two[p][q][r][s] = (pq|rs)
 
+        self.MO_H_two = MO_H_two_chemist.transpose(0, 2, 1, 3)# - MO_H_two_chemist.transpose(0, 3, 1, 2)
 
-        # Let's try ordering the MOs by their 1e self-energy and occupy the lowest S ones
-        MO_self_energies = [] # [[energy of MO 0, 0], [energy of MO 1, 1]...]
+        # We construct the second quantised space as occupied \oplus unoccupied orbitals
+        occ_orbs = [i for i, o in enumerate(mean_field.mo_occ) if o > 0]
+        # TODO note that by using RHF, we assume N_alpha = N_beta. We can generalise the process by using UHF,
+        # but this would mean using separate MO coeffs for alpha and beta subspaces
+
+        self.modes = occ_orbs.copy()
         for i in range(self.mol.nao):
-            MO_self_energies.append([self.MO_H_one[i][i], i])
+            if i not in occ_orbs:
+                self.modes.append(i) # already ordered by mol.mo_energy
 
-        MO_self_energies.sort(key = lambda x : x[0])
+        print("  ------------------ NULL STATE analysis ------------------")
+        print("  Occupied orbitals:", occ_orbs)
 
-        # Now we occupy the lowest S guys
-        self.modes = [] # [mode index] = [mo_index, spin]def
-        for i in range(self.mol.nao):
-            self.modes.append([MO_self_energies[i][1], 0])
-            self.modes.append([MO_self_energies[i][1], 1])
 
-        self.MO_H_two = np.zeros((self.M, self.M, self.M, self.M), dtype = complex)
-        for p in range(self.mol.nao):
-            for q in range(self.mol.nao):
-                for r in range(self.mol.nao):
-                    for s in range(self.mol.nao):
-                        corresponding_integral = MO_H_two_no_spin[MO_self_energies[p][1]][MO_self_energies[q][1]][MO_self_energies[r][1]][MO_self_energies[s][1]]
-                        self.MO_H_two[p * 2    ][r * 2    ][q * 2    ][s * 2    ] = corresponding_integral
-                        self.MO_H_two[p * 2 + 1][r * 2    ][q * 2 + 1][s * 2    ] = corresponding_integral
-                        self.MO_H_two[p * 2    ][r * 2 + 1][q * 2    ][s * 2 + 1] = corresponding_integral
-                        self.MO_H_two[p * 2 + 1][r * 2 + 1][q * 2 + 1][s * 2 + 1] = corresponding_integral
-        self.MO_H_two = self.MO_H_two.transpose(0, 1, 3, 2) - self.MO_H_two # Slater-Condon antisymmetrisation
-        """def spatial_idx(P):
-            return MO_self_energies[P // 2][1]
-        def spin_idx(P):
-            return P % 2
 
-        # build antisymmetrized spin-orbital integrals:
-        for P in range(self.M):
-            p = spatial_idx(P); sp = spin_idx(P)
-            for Q in range(self.M):
-                q = spatial_idx(Q); sq = spin_idx(Q)
-                for R in range(self.M):
-                    r = spatial_idx(R); sr = spin_idx(R)
-                    for S in range(self.M):
-                        s = spatial_idx(S); ss = spin_idx(S)
-
-                        val = 0.0
-                        # (pq|rs) term if spins match P<->R and Q<->S
-                        if sp == sr and sq == ss:
-                            val += MO_H_two_no_spin[p][q][r][s]
-                        # subtract (pq|sr) term if spins match P<->S and Q<->R
-                        if sp == ss and sq == sr:
-                            val -= MO_H_two_no_spin[p][q][s][r]
-
-                        self.MO_H_two[P, Q, R, S] = val"""
 
 
         print("    Antisym tests")
-        print("      Hermitian?", (np.round(self.MO_H_two - self.MO_H_two.transpose(2, 3, 0, 1), 2) == 0).all())
-        print("      Antisym on first pair", (np.round(self.MO_H_two + self.MO_H_two.transpose(1, 0, 2, 3), 2) == 0).all())
-        print("      Antisym on second pair", (np.round(self.MO_H_two + self.MO_H_two.transpose(0, 1, 3, 2), 2) == 0).all())
-
-        """print("Occupied MO energies:")
-        for i in range(self.S):
-            print(self.MO_H_one[self.modes[i][0]][self.modes[i][0]])
-        print("Unoccupied MO energies:")
-        for i in range(self.S, self.M):
-            print(self.MO_H_one[self.modes[i][0]][self.modes[i][0]])"""
-
+        print("      Sym 0 <-> 3?", (np.round(self.MO_H_two - self.MO_H_two.transpose(3, 1, 2, 0), 2) == 0).all())
+        print("      Sym 1 <-> 2", (np.round(self.MO_H_two - self.MO_H_two.transpose(0, 2, 1, 3), 2) == 0).all())
 
         null_state_energy = 0.0
         null_state_energy_one = 0.0
-        for p in range(self.S):
+        for p in range(self.S_alpha):
             # Only occupied states contribute
-            null_state_energy_one += self.mode_exchange_energy([p], [p])
+            null_state_energy_one += 2 *  self.mode_exchange_energy([p], [p])
         print(f" Null state energy one = {null_state_energy_one}")
         null_state_energy_two = 0.0
-        for p in range(self.S):
-            for q in range(self.S):
-                null_state_energy_two += 0.5 * self.mode_exchange_energy([p, q], [q, p])
-                #null_state_energy_two += 0.5 * (self.MO_H_two[p][q][p][q] - self.MO_H_two[p][q][q][p])
+
+        """for p in range(self.S_alpha):
+            for q in range(self.S_alpha):
+                if p != q:
+                    null_state_energy_two += 4 * self.mode_exchange_energy([p, q], [q, p])
+                #null_state_energy_two += 0.5 * (self.MO_H_two[p][q][p][q] - self.MO_H_two[p][q][q][p])"""
+        # we are looking for quadruplets of the type pqqp and pqpq. These are equivalent (and hence double up) when p, q act on the same spin
+        # When p,q act on different spins, only one of the two options is permitted (e.g. p_up q_down q_down p_up contributes, but p_up q_down q_up p_down is trivially zero)
+        # Also, iff p,q act on different spins, then they may act on the same spatial modes -> p_up p_down p_down p_up
+
+        # Equal spin contribution
+        """for p in range(self.S_alpha):
+            for q in range(self.S_alpha):
+                if p != q:
+                    null_state_energy_two += 4 * self.mode_exchange_energy([p, q], [q, p])"""
+
+        # Differing spin contribution
+        """for p in range(self.S_alpha):
+            for q in range(self.S_alpha):
+                null_state_energy_two += 1 * self.mode_exchange_energy([p, q], [q, p])"""
+
+        # antisym spin-orbital approach
+        for p in range(self.S_alpha):
+            for q in range(self.S_alpha):
+                null_state_energy_two += 2 * MO_H_two_chemist[p][p][q][q] - MO_H_two_chemist[p][q][q][p]
 
         print(f" Null state energy two = {null_state_energy_two}")
 
         null_state_energy = null_state_energy_one + null_state_energy_two + self.mol.energy_nuc()
         print(f"  Energy of the null state = {null_state_energy}")
-        null_state = CS_Thouless(self.M, self.S, np.zeros((self.M - self.S, self.S), dtype=complex))
+        null_state_alpha = CS_Thouless(self.mol.nao, self.S_alpha, np.zeros((self.mol.nao - self.S_alpha, self.S_alpha), dtype=complex))
+        null_state_beta = CS_Thouless(self.mol.nao, self.S_beta, np.zeros((self.mol.nao - self.S_beta, self.S_beta), dtype=complex))
+        null_state = [null_state_alpha, null_state_beta]
         null_state_direct_self_energy = self.H_overlap(null_state, null_state)
-        print(f"  Energy of the null state with the overlap method = {null_state_direct_self_energy + self.mol.energy_nuc()}")
+        print(f"  Energy of the null state with the overlap method = {null_state_direct_self_energy}")
 
-        hf = scf.RHF(self.mol)          # Create the HF object
-        hf.kernel()  # Perform the SCF calculation
-        cisolver = fci.FCI(mol, hf.mo_coeff)
+        cisolver = fci.FCI(self.mol, MO_coefs)
         self.ci_energy, self.ci_sol = cisolver.kernel()
 
 
@@ -525,77 +510,163 @@ class ground_state_solver():
         pass
 
     def get_H_two_element(self, p, q, r, s):
-        return(0.5 * self.H_two[p][q][r][s])
+        return(self.H_two[p][q][r][s])
         #return(self.H_two[int(p * (p * p * p + 2 * p * p + 3 * p + 2) / 8 + p * q * (p + 1) / 2 + q * (q + 1) / 2   + r * (r + 1) / 2 + s )])
 
     def mode_exchange_energy(self, m_i, m_f, debug = False):
+        # This function translates mode indices to spatial MO indices and returns the coefficient tensor element
+
         # m_i/f are lists of either one mode index (single electron exchange) or two mode indices (two electron exchange)
-        # this function translates mode index exchanges into mo orbital exchanges, which are known
+        # the indices in m_i/f are SPATIAL, and are interpreted as acting on one spin state only.
         if len(m_i) == 1:
-            #if self.modes[m_i[0]][1] == self.modes[m_f[0]][1]:
-            return(self.MO_H_one[self.modes[m_i[0]][0]][self.modes[m_f[0]][0]])
+            return(self.MO_H_one[self.modes[m_i[0]]][self.modes[m_f[0]]])
         elif len(m_i) == 2:
             #if self.modes[m_i[0]][1] == self.modes[m_f[1]][1] and self.modes[m_i[1]][1] == self.modes[m_f[0]][1]:
-            return(self.MO_H_two[m_i[0]][m_i[1]][m_f[0]][m_f[1]])
-            physicist_p = self.modes[m_i[0]][0]
-            physicist_q = self.modes[m_i[1]][0]
-            physicist_r = self.modes[m_f[0]][0]
-            physicist_s = self.modes[m_f[1]][0]
-            # We translate from Mulliken into physicist's notation using the equation (PQ|RS)=<PR|QS>
-            p = physicist_p
-            q = physicist_q
-            r = physicist_r
-            s = physicist_s
-
-            if debug:
-                print(p, q, r, s)
-
-            spin_p = self.modes[m_i[0]][1]
-            spin_q = self.modes[m_i[1]][1]
-            spin_r = self.modes[m_f[0]][1]
-            spin_s = self.modes[m_f[1]][1]
-            # Here p,q,r,s are in the Mulliken notation, and thus we can use the standard ordering to access the symmetrised AO integral
-            if spin_p == spin_s and spin_q == spin_r:
-                return(self.H_two_full[p][q][r][s])
-                #return(self.get_H_two_element(p, q, r, s))
+            return(self.MO_H_two[self.modes[m_i[0]]][self.modes[m_i[1]]][self.modes[m_f[0]]][self.modes[m_f[1]]])
         return(0.0)
 
-    def H_overlap(self, state_a, state_b, include_diagnostic = False):
-        # This method only uses the instance's H_one, H_two, to calculate <Z_a | H | Z_b>
-        # state_a, state_b are instances of any class inheriting from CS_Base
+    def H_overlap(self, pair_a, pair_b):
+        # This method calculates <Z_a | H | Z_b>, including the nuclear self-energy
+        # here pair_a/b = [state_a/b with spin alpha, state_a/b with spin beta]
 
-        # Firstly we prepare update information
-        master_matrix_det, master_matrix_inv, master_matrix_alt_inv, overlap_diagnostic = state_a.get_update_information(state_b)
+        alpha_overlap = pair_a[0].norm_overlap(pair_b[0])
+        beta_overlap = pair_a[1].norm_overlap(pair_b[1])
+
+        #print("lolll", alpha_overlap, beta_overlap)
 
         H_one_term = 0.0
         # This is a sum over all mode pairs
-        for p in range(self.M):
-            for q in range(self.M):
-                #H_one_term += self.mode_exchange_energy([p], [q]) * state_a.overlap_update(state_b, [p], [q], master_matrix_det, master_matrix_inv, master_matrix_alt_inv) #self.general_overlap(Z_a, Z_b, [p], [q])
-                H_one_term += self.mode_exchange_energy([p], [q]) * state_a.norm_overlap(state_b, [p], [q])
-        #print(f" H_one = {H_one_term}")
+        for p in range(self.mol.nao):
+            for q in range(self.mol.nao):
+                # alpha
+                H_one_term += self.mode_exchange_energy([p], [q]) * pair_a[0].norm_overlap(pair_b[0], [p], [q]) * beta_overlap
+                # beta
+                H_one_term += self.mode_exchange_energy([p], [q]) * pair_a[1].norm_overlap(pair_b[1], [p], [q]) * alpha_overlap
 
         H_two_term = 0.0
+
+        # Same spin (sigma = theta)
+
         # This is a sum over pairs of strictly ascending mode pairs (for other cases we can use symmetry, which just becomes an extra factor here)
-        c_pairs = functions.subset_indices(np.arange(self.M), 2)
-        a_pairs = functions.subset_indices(np.arange(self.M), 2)
+        """c_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
+        a_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
         for c_pair in c_pairs:
             for a_pair in a_pairs:
-                # c_pair = [q, p] (inverted order!)
-                # a_pair = [r, s]
-                #core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * state_a.overlap_update(state_b, c_pair, a_pair, master_matrix_det, master_matrix_inv, master_matrix_alt_inv) #self.general_overlap(Z_a, Z_b, c_pair, a_pair)
-                core_term = self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * state_a.norm_overlap(state_b, c_pair, a_pair)
-                #print(self.general_overlap(Z_a, Z_b, c_pair, a_pair))
-                # an extra contribution is from the 4 different order swaps, which yields 2(core_term + core_term*), however, we also have a pre-factor of 0.5
-                H_two_term += (core_term)
-                """if np.round(np.abs(core_term), 2) != 0:
-                    self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair, debug = True)
-                    print(f" {[c_pair[1], c_pair[0]], a_pair} = {core_term}")"""
-        #print(H_two_term)
-        #print(f" H_two = {H_two_term}")
-        if include_diagnostic:
-            return(H_one_term + H_two_term, overlap_diagnostic) #TODO the mulliken -> physicist notation conversion is incomplete, and that's why it is not yet antisymmetrised. SUBTRACT THE DIAGONAL TERM (NOT TRUE)
-        return(H_one_term + H_two_term)
+
+                # <ij|kl> -> < c_pair[1], c_pair[0] | a_pair[0], a_pair[1] >
+
+                # alpha (all 4 operators act on hilbert_alpha)
+                H_two_term += 2 * self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * pair_a[0].norm_overlap(pair_b[0], c_pair, a_pair) * beta_overlap
+                # beta (all 4 operators act on hilbert_beta)
+                H_two_term += 2 * self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * pair_a[1].norm_overlap(pair_b[1], c_pair, a_pair) * alpha_overlap
+
+        # Different spin (sigma != theta)
+
+        for p in range(self.mol.nao):
+            for q in range(self.mol.nao):
+                for r in range(self.mol.nao):
+                    for s in range(self.mol.nao):
+                        H_two_term += self.mode_exchange_energy([q, p], [r, s]) * pair_a[0].norm_overlap(pair_b[0], [p], [r]) * pair_a[1].norm_overlap(pair_b[1], [q], [s])"""
+
+        # The "no symmetry" approach
+        """for i in range(self.mol.nao):
+            for j in range(self.mol.nao):
+                for k in range(self.mol.nao):
+                    for l in range(self.mol.nao):
+                        prefactor = 0.5 * self.mode_exchange_energy([i, j], [k, l])
+
+                        # alpha alpha
+                        H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
+
+                        # beta beta
+                        H_two_term += prefactor * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
+
+                        # alpha beta
+                        H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [i], [k]) * pair_a[1].norm_overlap(pair_b[1], [j], [l])
+
+                        # beta alpha
+                        H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])"""
+
+        """c_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
+        a_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
+        for c_pair in c_pairs:
+            for a_pair in a_pairs:
+
+                # <ij|kl> -> < c_pair[1], c_pair[0] | a_pair[0], a_pair[1] >
+
+                i = c_pair[0]
+                j = c_pair[1]
+                k = a_pair[0]
+                l = a_pair[1]
+
+
+
+
+                prefactor_same_spin = 0.5 * (self.mode_exchange_energy([i, j], [k, l]) - self.mode_exchange_energy([j, i], [k, l]) - self.mode_exchange_energy([i, j], [l, k]) + self.mode_exchange_energy([j, i], [l, k]) )
+
+                # alpha alpha
+                H_two_term += prefactor_same_spin * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
+
+                # beta beta
+                H_two_term += prefactor_same_spin * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
+
+                # alpha beta
+                H_two_term += (
+                            0.5 * self.mode_exchange_energy([i, j], [k, l]) * pair_a[0].norm_overlap(pair_b[0], [i], [k]) * pair_a[1].norm_overlap(pair_b[1], [j], [l])
+                            + 0.5 * self.mode_exchange_energy([j, i], [k, l]) * pair_a[0].norm_overlap(pair_b[0], [j], [k]) * pair_a[1].norm_overlap(pair_b[1], [i], [l])
+                            + 0.5 * self.mode_exchange_energy([i, j], [l, k]) * pair_a[0].norm_overlap(pair_b[0], [i], [l]) * pair_a[1].norm_overlap(pair_b[1], [j], [k])
+                            + 0.5 * self.mode_exchange_energy([j, i], [l, k]) * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])
+                            )
+
+                # beta alpha
+                H_two_term += (
+                            0.5 * self.mode_exchange_energy([i, j], [k, l]) * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])
+                            + 0.5 * self.mode_exchange_energy([j, i], [k, l]) * pair_a[0].norm_overlap(pair_b[0], [i], [l]) * pair_a[1].norm_overlap(pair_b[1], [j], [k])
+                            + 0.5 * self.mode_exchange_energy([i, j], [l, k]) * pair_a[0].norm_overlap(pair_b[0], [j], [k]) * pair_a[1].norm_overlap(pair_b[1], [i], [l])
+                            + 0.5 * self.mode_exchange_energy([j, i], [l, k]) * pair_a[0].norm_overlap(pair_b[0], [i], [k]) * pair_a[1].norm_overlap(pair_b[1], [j], [l])
+                            )
+
+        # Now for the cross-terms
+        ...
+        """
+
+        # equal spin
+        c_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
+        a_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
+        for c_pair in c_pairs:
+            for a_pair in a_pairs:
+
+                # <ij|kl> -> < c_pair[1], c_pair[0] | a_pair[0], a_pair[1] >
+
+                i = c_pair[0]
+                j = c_pair[1]
+                k = a_pair[0]
+                l = a_pair[1]
+
+                prefactor_same_spin = 1.0 * (self.mode_exchange_energy([i, j], [k, l]) - self.mode_exchange_energy([i, j], [l, k]))
+
+                # alpha alpha
+                H_two_term += prefactor_same_spin * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
+
+                # beta beta
+                H_two_term += prefactor_same_spin * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
+
+        # opposite spin
+        for i in range(self.mol.nao):
+            for j in range(self.mol.nao):
+                for k in range(self.mol.nao):
+                    for l in range(self.mol.nao):
+                        prefactor = 0.5 * self.mode_exchange_energy([i, j], [k, l])
+
+                        # alpha beta
+                        H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [i], [k]) * pair_a[1].norm_overlap(pair_b[1], [j], [l])
+
+                        # beta alpha
+                        H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])
+
+
+        #print(H_one_term, H_two_term)
+        return(H_one_term + H_two_term + self.mol.energy_nuc())
 
 
 

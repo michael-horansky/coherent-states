@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from pyscf import gto, scf, fci
-from krylov_ground_state import ground_state_solver
+from mol_solver_degenerate import ground_state_solver
 
 import functions
 
@@ -95,7 +95,7 @@ for mol_name, mol in benchmark_molecules.items():
 
     mol_solver = ground_state_solver(f"bench_mol_{mol_name}")
     mol_solver.initialise_molecule(mol)
-    N_vals_t, energy_levels_t = mol_solver.find_ground_state("sampling", N = 10, lamb = None, sampling_method = "highest_orbital", CS = "Thouless")
+    N_vals_t, energy_levels_t = mol_solver.find_ground_state("sampling", N = 2, lamb = None, sampling_method = "highest_orbital", CS = "Thouless")
     #N_vals_q, energy_levels_q = mol_solver.find_ground_state("sampling", N = 2, lamb = None, delta = 1e-2, CS = "Qubit")
 
     # Now for the reference full CI

@@ -307,7 +307,7 @@ class CS_Thouless(CS_Base):
 
         # c and a contain distinct values, otherwise this is trivially zero
         if (len(c) > len(set(c)) or len(a) > len(set(a))):
-            return(0.0)
+            return(1, -np.inf)
         varsigma_a = []
         tau_a = []
         varsigma_b = []

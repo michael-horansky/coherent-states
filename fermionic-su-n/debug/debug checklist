@@ -1,0 +1,18 @@
+Problem: Energy evaluation is wrong
+
+Possible hang-ups:
+    -conversion of electron integrals to second quantisation
+    -incorrect application of second quantisation operators to occupation basis
+    -incorrect transformation from CS to occupation basis (VERY improbable)
+    -ommission of constant/not purely electronic Hamiltonian terms (we DO consider the nuclear term though)
+    -incorrect H.S. doubling to consider both spin configurations
+
+Checklist
+    -Firstly, let's code up a procedure which uses the electron integrals DIRECTLY to find expectation energies of occupation states
+        -This should agree with the second quantisation approach!
+        -This should be tested on the NULL STATE
+    -Also, let's check if H_spin up + H_spin down = H_full
+
+
+
+WE'RE MISSING MIXED-SPIN TWO-ELECTRON INTEGRALS! no wait--aren't those integrals trivially zero?

@@ -253,6 +253,10 @@ class ground_state_solver():
         self.solution_benchmark = self.semaphor.finish_event(new_sem_ID, "    Evaluation")
 
         # H_eff diagonal terms
+        print("------ Debug and diagnostics")
+
+        for i in range(N):
+            print(f"  Z_{i} = [ {repr(CS_sample[i][0].z)}, {repr(CS_sample[i][1].z)} ]")
         for i in range(N):
             print(f"  Z_{i} self-energy: {H_eff[i][i]}")
             if H_eff[i][i] < self.ci_energy:
@@ -449,6 +453,8 @@ class ground_state_solver():
         cisolver = fci.FCI(self.mol, MO_coefs)
         self.ci_energy, self.ci_sol = cisolver.kernel()
 
+        print(f"  Ground state energy as calculated by SCF (full configuration) = {self.ci_energy}")
+
 
         self.user_log += f"initialise_molecule [M = {self.M}, S = {self.S}]"
         mol_structure_bulk = {
@@ -469,10 +475,13 @@ class ground_state_solver():
     def search_for_states(self, state_type, sampling_method, inclusion):
         found_states = 0
         while(True):
-            cur_state = ground_state_solver.coherent_state_types[state_type].random_state(self.M, self.S, sampling_method)
+            cur_state = [
+                ground_state_solver.coherent_state_types[state_type].random_state(self.M, self.S, sampling_method),
+                ground_state_solver.coherent_state_types[state_type].random_state(self.M, self.S, sampling_method)
+                ]
             if inclusion(cur_state):
                 print("Success!")
-                print(f"State found with z = {repr(cur_state.z)}")
+                print(f"State found with z = [ {repr(cur_state[0].z)}, {repr(cur_state[1].z)} ]")
             found_states += 1
             print(f"Tried {found_states} states\r")
 
@@ -666,7 +675,9 @@ class ground_state_solver():
 
 
         #print(H_one_term, H_two_term)
-        return(H_one_term + H_two_term + self.mol.energy_nuc())
+
+        H_nuc = self.mol.energy_nuc() * alpha_overlap * beta_overlap
+        return(H_one_term + H_two_term + H_nuc)
 
 
 

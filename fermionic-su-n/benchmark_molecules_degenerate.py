@@ -77,7 +77,7 @@ no_mol.build(
 )
 
 benchmark_molecules = {
-    "Li2" : li2_mol
+    "N2" : n2_mol
     }
 #benchmark_molecules = {
 #    "Li2" : li2_mol,

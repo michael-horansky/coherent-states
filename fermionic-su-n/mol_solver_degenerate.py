@@ -457,8 +457,10 @@ class ground_state_solver():
 
         null_state_energy = null_state_energy_one + null_state_energy_two + self.mol.energy_nuc()
         print(f"  Energy of the null state = {null_state_energy}")
-        null_state_alpha = CS_Thouless(self.mol.nao, self.S_alpha, np.zeros((self.mol.nao - self.S_alpha, self.S_alpha), dtype=complex))
-        null_state_beta = CS_Thouless(self.mol.nao, self.S_beta, np.zeros((self.mol.nao - self.S_beta, self.S_beta), dtype=complex))
+        #null_state_alpha = CS_Thouless(self.mol.nao, self.S_alpha, np.zeros((self.mol.nao - self.S_alpha, self.S_alpha), dtype=complex))
+        #null_state_beta = CS_Thouless(self.mol.nao, self.S_beta, np.zeros((self.mol.nao - self.S_beta, self.S_beta), dtype=complex))
+        null_state_alpha = CS_Qubit.null_state(self.mol.nao, self.S_alpha)
+        null_state_beta = CS_Qubit.null_state(self.mol.nao, self.S_alpha)
         null_state = [null_state_alpha, null_state_beta]
         null_state_direct_self_energy = self.H_overlap(null_state, null_state)
         print(f"  Energy of the null state with the overlap method = {null_state_direct_self_energy}")

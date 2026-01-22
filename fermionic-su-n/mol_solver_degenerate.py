@@ -167,12 +167,18 @@ class ground_state_solver():
         #     -lamb: None for no conditioning, or positive float for the conditioning parameter
         #     -sampling_method: magic word for how the CS samples its parameter tensor
         #     -CS: Type of coherent state to use
+        #     -assume_spin_symmetry: if true, |z_alpha> = |z_beta> for the entire sample. False by default
 
-        self.user_log += f"find_ground_state_sampling [N = {kwargs["N"]}, lambda = {kwargs["lamb"]}, sampling method = {kwargs["sampling_method"]}]\n"
+        if "assume_spin_symmetry" in kwargs:
+            assume_spin_symmetry = kwargs["assume_spin_symmetry"]
+        else:
+            assume_spin_symmetry = False
+
+        self.user_log += f"find_ground_state_sampling [N = {kwargs["N"]}, lambda = {kwargs["lamb"]}, sampling method = {kwargs["sampling_method"]}, assume spin symmetry = {assume_spin_symmetry}]\n"
         procedure_diagnostic = []
 
 
-        print(f"Obtaining the ground state with the method \"random sampling\" [CS types = {kwargs["CS"]}, N = {kwargs["N"]}, lambda = {kwargs["lamb"]}, sampling method = {kwargs["sampling_method"]}]")
+        print(f"Obtaining the ground state with the method \"random sampling\" [CS types = {kwargs["CS"]}, N = {kwargs["N"]}, lambda = {kwargs["lamb"]}, sampling method = {kwargs["sampling_method"]}, assume spin symmetry = {assume_spin_symmetry}]")
 
         # We sample around the HF null guess, i.e. Z = 0
         # We include one extra basis vector - the null point itself!
@@ -190,10 +196,16 @@ class ground_state_solver():
 
         CS_sample = [[ground_state_solver.coherent_state_types[kwargs["CS"]].null_state(self.mol.nao, self.S_alpha), ground_state_solver.coherent_state_types[kwargs["CS"]].null_state(self.mol.nao, self.S_beta)]]
         for i in range(kwargs["N"]):
-            CS_sample.append([
-                ground_state_solver.coherent_state_types[kwargs["CS"]].random_state(self.mol.nao, self.S_alpha, kwargs["sampling_method"]),
-                ground_state_solver.coherent_state_types[kwargs["CS"]].random_state(self.mol.nao, self.S_beta, kwargs["sampling_method"])
-                ])
+
+            if assume_spin_symmetry:
+                new_sample_state = ground_state_solver.coherent_state_types[kwargs["CS"]].random_state(self.mol.nao, self.S_alpha, kwargs["sampling_method"])
+                CS_sample.append([new_sample_state, new_sample_state])
+
+            else:
+                CS_sample.append([
+                    ground_state_solver.coherent_state_types[kwargs["CS"]].random_state(self.mol.nao, self.S_alpha, kwargs["sampling_method"]),
+                    ground_state_solver.coherent_state_types[kwargs["CS"]].random_state(self.mol.nao, self.S_beta, kwargs["sampling_method"])
+                    ])
 
         basis_samples_bulk = []
         for i in range(N):
@@ -219,6 +231,7 @@ class ground_state_solver():
                 overlap_matrix[i][j] = CS_sample[i][0].norm_overlap(CS_sample[j][0]) * CS_sample[i][1].norm_overlap(CS_sample[j][1])
         print("-- Overlap matrix:")
         print(overlap_matrix)
+        print(f"[Overlap matrix condition number = {np.linalg.cond(overlap_matrix)}]")
 
         # At what trim number is the condition number maximal?
         S_cond_trim_max = 1
@@ -543,14 +556,22 @@ class ground_state_solver():
 
         #print("lolll", alpha_overlap, beta_overlap)
 
+        # To speed up cross-spin two-electron matrix elements, we prepare a matrix of all first-order sequence overlaps
+        W_alpha = np.zeros((self.mol.nao, self.mol.nao), dtype=complex) # [i][j] = < alpha | f\hc_i f_j | alpha >
+        W_beta = np.zeros((self.mol.nao, self.mol.nao), dtype=complex) # [i][j] = < beta | f\hc_i f_j | beta >
+
         H_one_term = 0.0
         # This is a sum over all mode pairs
         for p in range(self.mol.nao):
             for q in range(self.mol.nao):
+
+                W_alpha[p][q] = pair_a[0].norm_overlap(pair_b[0], [p], [q])
+                W_beta[p][q]  = pair_a[1].norm_overlap(pair_b[1], [p], [q])
+
                 # alpha
-                H_one_term += self.mode_exchange_energy([p], [q]) * pair_a[0].norm_overlap(pair_b[0], [p], [q]) * beta_overlap
+                H_one_term += self.mode_exchange_energy([p], [q]) * W_alpha[p][q] * beta_overlap
                 # beta
-                H_one_term += self.mode_exchange_energy([p], [q]) * pair_a[1].norm_overlap(pair_b[1], [p], [q]) * alpha_overlap
+                H_one_term += self.mode_exchange_energy([p], [q]) * W_beta[p][q] * alpha_overlap
 
         H_two_term = 0.0
 
@@ -668,10 +689,12 @@ class ground_state_solver():
                         prefactor = 0.5 * self.mode_exchange_energy([i, j], [k, l])
 
                         # alpha beta
-                        H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [i], [k]) * pair_a[1].norm_overlap(pair_b[1], [j], [l])
+                        #H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [i], [k]) * pair_a[1].norm_overlap(pair_b[1], [j], [l])
+                        H_two_term += prefactor * W_alpha[i][k] * W_beta[j][l]
 
                         # beta alpha
-                        H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])
+                        #H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])
+                        H_two_term += prefactor * W_alpha[j][l] * W_beta[i][k]
 
 
         #print(H_one_term, H_two_term)

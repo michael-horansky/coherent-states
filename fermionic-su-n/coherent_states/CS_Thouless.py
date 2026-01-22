@@ -77,15 +77,27 @@ class CS_Thouless(CS_Base):
         if sampling_method == "uniform":
             random_z = np.random.normal(0.0, 1.0, (M-S, S)) + 1j * np.random.normal(0.0, 1.0, (M-S, S))
             return(cls(M, S, random_z))
-        if sampling_method == "highest_orbital":
+        if sampling_method == "highest_two_orbitals":
             centres = np.zeros((M-S, S))
             widths = np.zeros((M-S, S))
             for i in range(M-S):
                 for j in range(S-2):
                     # stable orbitals
-                    widths[i][j] = 0.1
+                    widths[i][j] = 0.001
                 for j in range(S-2, S):
                     # highest two orbitals
+                    widths[i][j] = 0.1
+            random_z = np.random.normal(centres, widths, (M-S, S)) + 1j * np.random.normal(centres, widths, (M-S, S))
+            return(cls(M, S, random_z))
+        if sampling_method == "highest_orbital":
+            centres = np.zeros((M-S, S))
+            widths = np.zeros((M-S, S))
+            for i in range(M-S):
+                for j in range(S-1):
+                    # stable orbitals
+                    widths[i][j] = 0.1
+                for j in range(S-1, S):
+                    # highest orbital (only one, assuming spin separation)
                     widths[i][j] = 10.0
             random_z = np.random.normal(centres, widths, (M-S, S)) + 1j * np.random.normal(centres, widths, (M-S, S))
             return(cls(M, S, random_z))

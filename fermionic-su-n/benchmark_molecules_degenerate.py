@@ -13,12 +13,14 @@ import functions
 li2_mol = gto.Mole()
 li2_mol.build(
     atom = '''
-    Li   0.0000000000   0.0000000000  -2.5256187838
-    Li   0.0000000000   0.0000000000   2.5256187838
+    Li   0.0000000000   0.0000000000  -2.5
+    Li   0.0000000000   0.0000000000   2.5
     ''',
-    basis = 'sto-3g'
+    basis = '6-31g**',
+    unit = "Bohr"
 )
 
+# Set to +-2.5 Bohr exactly to match Dima's Hamiltonian. The true value is +-2.5256187838
 
 # -------------------------------- BeH
 
@@ -31,6 +33,7 @@ beh_mol.build(
     H    0.0000000000   0.0000000000   2.5360122767
     ''',
     basis = 'sto-3g',
+    unit = "Bohr",
     spin = 1  # BeH is a doublet (5 electrons) -> 1 unpaired electron
 )
 
@@ -46,7 +49,8 @@ n2_mol.build(
     N    0.0000000000   0.0000000000  -1.0374595677
     N    0.0000000000   0.0000000000   1.0374595677
     ''',
-    basis = 'sto-3g'
+    basis = 'sto-3g',
+    unit = "Bohr"
 )
 
 # ---------------------------------- C2
@@ -59,7 +63,8 @@ c2_mol.build(
     C    0.0000000000   0.0000000000  -1.1739922704
     C    0.0000000000   0.0000000000   1.1739922704
     ''',
-    basis = 'sto-3g'
+    basis = 'sto-3g',
+    unit = "Bohr"
 )
 
 # -------------------------------- NO
@@ -73,11 +78,12 @@ no_mol.build(
     O    0.0000000000   0.0000000000   1.0875373064
     ''',
     basis = 'sto-3g',
+    unit = "Bohr",
     spin = 1  # NO is a doublet (15 electrons) -> 1 unpaired electron
 )
 
 benchmark_molecules = {
-    "N2" : n2_mol
+    "Li2" : li2_mol
     }
 #benchmark_molecules = {
 #    "Li2" : li2_mol,
@@ -95,7 +101,7 @@ for mol_name, mol in benchmark_molecules.items():
 
     mol_solver = ground_state_solver(f"bench_mol_{mol_name}_qubit")
     mol_solver.initialise_molecule(mol)
-    N_vals_t, energy_levels_t = mol_solver.find_ground_state("sampling", N = 10, lamb = None, sampling_method = "highest_orbital", CS = "Qubit", assume_spin_symmetry = True)
+    N_vals_t, energy_levels_t = mol_solver.find_ground_state("sampling", N = 30, lamb = None, sampling_method = "highest_orbital", CS = "Qubit", assume_spin_symmetry = False)
     #N_vals_q, energy_levels_q = mol_solver.find_ground_state("sampling", N = 2, lamb = None, delta = 1e-2, CS = "Qubit")
 
     # Now for the reference full CI
@@ -107,7 +113,7 @@ for mol_name, mol in benchmark_molecules.items():
 
     print(mol_solver.print_diagnostic_log())
 
-    plt.plot(N_vals_t, energy_levels_t, "x", label = "Thouless")
+    plt.plot(N_vals_t, energy_levels_t, "x", label = "Qubit")
     #plt.plot(N_vals_q, energy_levels_q, "x", label = "Qubit")
 
     plt.axhline(y = ci_energy, label = "full CI")

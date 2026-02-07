@@ -370,6 +370,7 @@ class ground_state_solver():
         print(f"    The molecule is occupied by {self.mol.tot_electrons()} electrons in total: {self.S_alpha} with spin alpha, {self.S_beta} with spin beta.")
         print(f"    The molecule consists of the following atoms: {self.mol.elements}")
         print(f"    The atomic orbitals are ordered as follows: {self.mol.ao_labels()}")
+        print(f"    The nuclear repulsion energy is {self.mol.energy_nuc()}")
         print(self.element_to_basis)
         print(gto.charge("O"))
 
@@ -665,6 +666,9 @@ class ground_state_solver():
         # equal spin
         c_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
         a_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
+        upup = 0.0
+        downdown = 0.0
+        mixed = 0.0
         for c_pair in c_pairs:
             for a_pair in a_pairs:
 
@@ -683,6 +687,9 @@ class ground_state_solver():
                 # beta beta
                 H_two_term += prefactor_same_spin * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
 
+                upup += prefactor_same_spin * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
+                downdown += prefactor_same_spin * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
+
         # opposite spin
         for i in range(self.mol.nao):
             for j in range(self.mol.nao):
@@ -698,8 +705,13 @@ class ground_state_solver():
                         #H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])
                         H_two_term += prefactor * W_alpha[j][l] * W_beta[i][k]
 
+                        mixed += prefactor * W_alpha[i][k] * W_beta[j][l] + prefactor * W_alpha[j][l] * W_beta[i][k]
+
 
         #print(H_one_term, H_two_term)
+        print("Up-up:", upup)
+        print("Down-down:", downdown)
+        print("Mixed spin:", mixed)
 
         H_nuc = self.mol.energy_nuc() * alpha_overlap * beta_overlap
         return(H_one_term + H_two_term + H_nuc)

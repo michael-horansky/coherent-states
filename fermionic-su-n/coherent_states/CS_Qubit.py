@@ -136,28 +136,54 @@ class CS_Qubit(CS_Base):
         return(cls(M, S, np.concatenate((np.ones(S, dtype = complex), np.zeros(M - S, dtype=complex)))))
 
     @classmethod
-    def random_state(cls, M, S, sampling_method):
-        if sampling_method == "uniform":
-            #random_z = np.random.normal(0.0, 1.0, M) + 1j * np.random.normal(0.0, 1.0, M)
-            random_z = np.concatenate((
-                    np.random.normal(1.0, 1.0, S) * np.exp(1j * np.random.random(S) * 2.0 * np.pi),
-                    np.random.normal(1.0, 1.0, M - S) * np.exp(1j * np.random.random(M - S) * 2.0 * np.pi)
-                ))
-            return(cls(M, S, random_z))
-        if sampling_method == "highest_two_orbitals":
-            random_z = np.concatenate((
-                    np.random.normal(100.0, 100.0, S-2) * np.exp(1j * np.random.random(S - 2) * 2.0 * np.pi),
-                    np.random.normal(1.0, 1.0, 2) * np.exp(1j * np.random.random(2) * 2.0 * np.pi),
-                    np.random.normal(0.0, 0.1, M - S) * np.exp(1j * np.random.random(M - S) * 2.0 * np.pi)
-                ))
-            return(cls(M, S, random_z))
-        if sampling_method == "highest_orbital":
-            random_z = np.concatenate((
-                    np.random.normal(100.0, 100.0, S-1) * np.exp(1j * np.random.random(S - 1) * 2.0 * np.pi),
-                    np.random.normal(1.0, 1.0, 1) * np.exp(1j * np.random.random(1) * 2.0 * np.pi),
-                    np.random.normal(0.0, 0.1, M - S) * np.exp(1j * np.random.random(M - S) * 2.0 * np.pi)
-                ))
-            return(cls(M, S, random_z))
+    def random_state(cls, M, S, sampling_method, assume_real = True):
+
+        if assume_real:
+            if sampling_method == "uniform":
+                #random_z = np.random.normal(0.0, 1.0, M) + 1j * np.random.normal(0.0, 1.0, M)
+                random_z = np.concatenate((
+                        np.random.normal(1.0, 1.0, S),
+                        np.random.normal(1.0, 1.0, M - S)
+                    ))
+                return(cls(M, S, random_z))
+            if sampling_method == "highest_two_orbitals":
+                random_z = np.concatenate((
+                        np.random.normal(100.0, 100.0, S-2),
+                        np.random.normal(1.0, 1.0, 2),
+                        np.random.normal(0.0, 0.1, M - S)
+                    ))
+                return(cls(M, S, random_z))
+            if sampling_method == "highest_orbital":
+                #print(f"Stable MOs: {S-1}; unstable MO: 1; Free MOs: {M-S}")
+                random_z = np.concatenate((
+                        np.random.normal(100.0, 100.0, S-1),
+                        np.random.normal(1.0, 1.0, 1),
+                        np.random.normal(0.0, 0.1, M - S)
+                    ))
+                return(cls(M, S, random_z))
+        else:
+            if sampling_method == "uniform":
+                #random_z = np.random.normal(0.0, 1.0, M) + 1j * np.random.normal(0.0, 1.0, M)
+                random_z = np.concatenate((
+                        np.random.normal(1.0, 1.0, S) * np.exp(1j * np.random.random(S) * 2.0 * np.pi),
+                        np.random.normal(1.0, 1.0, M - S) * np.exp(1j * np.random.random(M - S) * 2.0 * np.pi)
+                    ))
+                return(cls(M, S, random_z))
+            if sampling_method == "highest_two_orbitals":
+                random_z = np.concatenate((
+                        np.random.normal(100.0, 100.0, S-2) * np.exp(1j * np.random.random(S - 2) * 2.0 * np.pi),
+                        np.random.normal(1.0, 1.0, 2) * np.exp(1j * np.random.random(2) * 2.0 * np.pi),
+                        np.random.normal(0.0, 0.1, M - S) * np.exp(1j * np.random.random(M - S) * 2.0 * np.pi)
+                    ))
+                return(cls(M, S, random_z))
+            if sampling_method == "highest_orbital":
+                #print(f"Stable MOs: {S-1}; unstable MO: 1; Free MOs: {M-S}")
+                random_z = np.concatenate((
+                        np.random.normal(100.0, 100.0, S-1) * np.exp(1j * np.random.random(S - 1) * 2.0 * np.pi),
+                        np.random.normal(1.0, 1.0, 1) * np.exp(1j * np.random.random(1) * 2.0 * np.pi),
+                        np.random.normal(0.0, 0.1, M - S) * np.exp(1j * np.random.random(M - S) * 2.0 * np.pi)
+                    ))
+                return(cls(M, S, random_z))
         return(None)
 
     def __init__(self, M, S, z):

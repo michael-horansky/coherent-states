@@ -751,26 +751,6 @@ class ground_state_solver():
         print(f" Null state energy one = {null_state_energy_one}")
         null_state_energy_two = 0.0
 
-        """for p in range(self.S_alpha):
-            for q in range(self.S_alpha):
-                if p != q:
-                    null_state_energy_two += 4 * self.mode_exchange_energy([p, q], [q, p])
-                #null_state_energy_two += 0.5 * (self.MO_H_two[p][q][p][q] - self.MO_H_two[p][q][q][p])"""
-        # we are looking for quadruplets of the type pqqp and pqpq. These are equivalent (and hence double up) when p, q act on the same spin
-        # When p,q act on different spins, only one of the two options is permitted (e.g. p_up q_down q_down p_up contributes, but p_up q_down q_up p_down is trivially zero)
-        # Also, iff p,q act on different spins, then they may act on the same spatial modes -> p_up p_down p_down p_up
-
-        # Equal spin contribution
-        """for p in range(self.S_alpha):
-            for q in range(self.S_alpha):
-                if p != q:
-                    null_state_energy_two += 4 * self.mode_exchange_energy([p, q], [q, p])"""
-
-        # Differing spin contribution
-        """for p in range(self.S_alpha):
-            for q in range(self.S_alpha):
-                null_state_energy_two += 1 * self.mode_exchange_energy([p, q], [q, p])"""
-
         # antisym spin-orbital approach
         for p in range(self.S_alpha):
             for q in range(self.S_alpha):
@@ -899,91 +879,6 @@ class ground_state_solver():
                 H_one_term += self.mode_exchange_energy([p], [q]) * W_beta[p][q] * alpha_overlap
 
         H_two_term = 0.0
-
-        # Same spin (sigma = theta)
-
-        # This is a sum over pairs of strictly ascending mode pairs (for other cases we can use symmetry, which just becomes an extra factor here)
-        """c_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
-        a_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
-        for c_pair in c_pairs:
-            for a_pair in a_pairs:
-
-                # <ij|kl> -> < c_pair[1], c_pair[0] | a_pair[0], a_pair[1] >
-
-                # alpha (all 4 operators act on hilbert_alpha)
-                H_two_term += 2 * self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * pair_a[0].norm_overlap(pair_b[0], c_pair, a_pair) * beta_overlap
-                # beta (all 4 operators act on hilbert_beta)
-                H_two_term += 2 * self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * pair_a[1].norm_overlap(pair_b[1], c_pair, a_pair) * alpha_overlap
-
-        # Different spin (sigma != theta)
-
-        for p in range(self.mol.nao):
-            for q in range(self.mol.nao):
-                for r in range(self.mol.nao):
-                    for s in range(self.mol.nao):
-                        H_two_term += self.mode_exchange_energy([q, p], [r, s]) * pair_a[0].norm_overlap(pair_b[0], [p], [r]) * pair_a[1].norm_overlap(pair_b[1], [q], [s])"""
-
-        # The "no symmetry" approach
-        """for i in range(self.mol.nao):
-            for j in range(self.mol.nao):
-                for k in range(self.mol.nao):
-                    for l in range(self.mol.nao):
-                        prefactor = 0.5 * self.mode_exchange_energy([i, j], [k, l])
-
-                        # alpha alpha
-                        H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
-
-                        # beta beta
-                        H_two_term += prefactor * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
-
-                        # alpha beta
-                        H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [i], [k]) * pair_a[1].norm_overlap(pair_b[1], [j], [l])
-
-                        # beta alpha
-                        H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])"""
-
-        """c_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
-        a_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
-        for c_pair in c_pairs:
-            for a_pair in a_pairs:
-
-                # <ij|kl> -> < c_pair[1], c_pair[0] | a_pair[0], a_pair[1] >
-
-                i = c_pair[0]
-                j = c_pair[1]
-                k = a_pair[0]
-                l = a_pair[1]
-
-
-
-
-                prefactor_same_spin = 0.5 * (self.mode_exchange_energy([i, j], [k, l]) - self.mode_exchange_energy([j, i], [k, l]) - self.mode_exchange_energy([i, j], [l, k]) + self.mode_exchange_energy([j, i], [l, k]) )
-
-                # alpha alpha
-                H_two_term += prefactor_same_spin * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
-
-                # beta beta
-                H_two_term += prefactor_same_spin * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
-
-                # alpha beta
-                H_two_term += (
-                            0.5 * self.mode_exchange_energy([i, j], [k, l]) * pair_a[0].norm_overlap(pair_b[0], [i], [k]) * pair_a[1].norm_overlap(pair_b[1], [j], [l])
-                            + 0.5 * self.mode_exchange_energy([j, i], [k, l]) * pair_a[0].norm_overlap(pair_b[0], [j], [k]) * pair_a[1].norm_overlap(pair_b[1], [i], [l])
-                            + 0.5 * self.mode_exchange_energy([i, j], [l, k]) * pair_a[0].norm_overlap(pair_b[0], [i], [l]) * pair_a[1].norm_overlap(pair_b[1], [j], [k])
-                            + 0.5 * self.mode_exchange_energy([j, i], [l, k]) * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])
-                            )
-
-                # beta alpha
-                H_two_term += (
-                            0.5 * self.mode_exchange_energy([i, j], [k, l]) * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])
-                            + 0.5 * self.mode_exchange_energy([j, i], [k, l]) * pair_a[0].norm_overlap(pair_b[0], [i], [l]) * pair_a[1].norm_overlap(pair_b[1], [j], [k])
-                            + 0.5 * self.mode_exchange_energy([i, j], [l, k]) * pair_a[0].norm_overlap(pair_b[0], [j], [k]) * pair_a[1].norm_overlap(pair_b[1], [i], [l])
-                            + 0.5 * self.mode_exchange_energy([j, i], [l, k]) * pair_a[0].norm_overlap(pair_b[0], [i], [k]) * pair_a[1].norm_overlap(pair_b[1], [j], [l])
-                            )
-
-        # Now for the cross-terms
-        ...
-        """
 
         # equal spin
         c_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)

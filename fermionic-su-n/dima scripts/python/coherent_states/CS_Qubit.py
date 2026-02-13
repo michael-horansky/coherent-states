@@ -161,15 +161,6 @@ class CS_Qubit(CS_Base):
                         np.random.normal(0.0, 0.1, M - S)
                     ))
                 return(cls(M, S, random_z))
-            if sampling_method == "highest_orbital_trim":
-                # for Li2, we set top 5 MOs to zero
-                random_z = np.concatenate((
-                        np.random.normal(100.0, 100.0, S-1),
-                        np.random.normal(1.0, 1.0, 1),
-                        np.random.normal(0.0, 0.1, 2),
-                        np.zeros(M - S - 2)
-                    ))
-                return(cls(M, S, random_z))
         else:
             if sampling_method == "uniform":
                 #random_z = np.random.normal(0.0, 1.0, M) + 1j * np.random.normal(0.0, 1.0, M)
@@ -269,6 +260,8 @@ class CS_Qubit(CS_Base):
         # Let's go for the general overlap
         z_a = []
         z_b = []
+
+        #print("lol", c, a)
 
         prefactor = 1.0
         cur_sign = 1.0

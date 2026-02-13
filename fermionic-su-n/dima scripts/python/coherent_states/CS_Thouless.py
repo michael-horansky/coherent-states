@@ -101,20 +101,6 @@ class CS_Thouless(CS_Base):
                     widths[i][j] = 10.0
             random_z = np.random.normal(centres, widths, (M-S, S)) + 1j * np.random.normal(centres, widths, (M-S, S))
             return(cls(M, S, random_z))
-
-        if sampling_method == "highest_orbital_trim":
-            # for Li2, we set top 5 MOs to zero
-            centres = np.zeros((M-S, S))
-            widths = np.zeros((M-S, S))
-            for i in range(2): # number of lowest-energy free orbitals we consider for excitation
-                for j in range(S-1):
-                    # stable orbitals
-                    widths[i][j] = 0.1
-                for j in range(S-1, S):
-                    # highest orbital (only one, assuming spin separation)
-                    widths[i][j] = 10.0
-            random_z = np.random.normal(centres, widths, (M-S, S)) + 1j * np.random.normal(centres, widths, (M-S, S))
-            return(cls(M, S, random_z))
         return(None)
 
 

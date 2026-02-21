@@ -60,7 +60,7 @@ class Semaphor():
         self.max_msg_len[new_ID] = 0
         self.newline[new_ID] = newline
 
-        print(f"{message} at {time.strftime(self.time_format, time.localtime( self.start_time[new_ID]))}")
+        print(f"{message} begins at {time.strftime(self.time_format, time.localtime( self.start_time[new_ID]))}")
         return(new_ID)
 
     def finish_event(self, event_ID, final_message = None):

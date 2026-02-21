@@ -6,6 +6,7 @@ from pyscf import gto, scf, cc, ao2mo, fci
 
 from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_Qubit import CS_Qubit
+from coherent_states.CS_sample import CS_sample
 
 from class_Semaphor import Semaphor
 from class_DSM import DSM
@@ -89,6 +90,7 @@ class ground_state_solver():
         self.diagnostics_log = []
         # The structure of the diagnostics log is like so: every element is either a list (for multiple same-level subprocedures) or a dict (for a header : content) pair
 
+        self.reference_state_energy = None
         self.ci_energy = None
         self.ci_sol = None # We did not perform full CI
 
@@ -261,6 +263,104 @@ class ground_state_solver():
         #full_basis = []
         #for i in range(len(full_basis
 
+    def get_exchange_integral_on_occupancy(self, occ_a, occ_b, c = [], a = []):
+        # here occ_a, occ_b are restricted to one spin subspace
+
+        # We assume that c, a do not destroy their respective states
+
+        # The Jordan-Wigner string is 1 if total number of occupied modes
+        # lower than the annihilated mode if even; -1 if odd.
+
+        # If we order a to be ascending, the jordan-wigner prefactor
+        # associated with each operator is independent on the other
+        # operators. This introduces the permutation signature.
+
+        reduced_a = occ_a.copy()
+        reduced_b = occ_b.copy()
+
+        total_jordan_wigner_string = functions.permutation_signature(c) * functions.permutation_signature(a)
+        for i in range(len(c)):
+            # we find the jordan-wigner string of c[i]
+            if sum(occ_a[:c[i]]) % 2 == 1:
+                total_jordan_wigner_string *= -1
+            if occ_a[c[i]] == 0:
+                # destroys
+                return(0.0)
+            else:
+                reduced_a[c[i]] = 0
+        for i in range(len(a)):
+            # we find the jordan-wigner string of a[i]
+            if sum(occ_b[:a[i]]) % 2 == 1:
+                total_jordan_wigner_string *= -1
+            if occ_b[a[i]] == 0:
+                # destroys
+                return(0.0)
+            else:
+                reduced_b[a[i]] = 0
+
+        # Now we check orthogonality
+        for i in range(len(reduced_a)):
+            if reduced_a[i] != reduced_b[i]:
+                return(0.0)
+        return(total_jordan_wigner_string)
+
+
+    def get_H_overlap_on_occupancy(self, occ_a, occ_b):
+        # occ_a, occ_b are two-lists containing one element from each spin
+        # basis.
+
+        M = len(occ_a[0]) # we assume this is equal to len(occ_a[1])
+
+        alpha_overlap = self.get_exchange_integral_on_occupancy(occ_a[0], occ_b[0])
+        beta_overlap = self.get_exchange_integral_on_occupancy(occ_a[1], occ_b[1])
+        W_alpha = np.zeros((M, M), dtype=complex)
+        W_beta = np.zeros((M, M), dtype=complex)
+        H_one_term = 0.0
+        # This is a sum over all mode pairs
+        for p in range(M):
+            for q in range(M):
+                W_alpha[p][q] = self.get_exchange_integral_on_occupancy(occ_a[0], occ_b[0], [p], [q])
+                W_beta[p][q]  = self.get_exchange_integral_on_occupancy(occ_a[1], occ_b[1], [p], [q])
+                H_one_term += self.mode_exchange_energy([p], [q]) * W_alpha[p][q] * beta_overlap
+                H_one_term += self.mode_exchange_energy([p], [q]) * W_beta[p][q] * alpha_overlap
+        H_two_term = 0.0
+        # equal spin
+        c_pairs = functions.subset_indices(np.arange(M), 2)
+        a_pairs = functions.subset_indices(np.arange(M), 2)
+        upup = 0.0
+        downdown = 0.0
+        mixed = 0.0
+        for c_pair in c_pairs:
+            for a_pair in a_pairs:
+                i = c_pair[0]
+                j = c_pair[1]
+                k = a_pair[0]
+                l = a_pair[1]
+                prefactor_same_spin = 1.0 * (self.mode_exchange_energy([i, j], [k, l]) - self.mode_exchange_energy([i, j], [l, k]))
+                # alpha alpha
+                H_two_term += prefactor_same_spin * self.get_exchange_integral_on_occupancy(occ_a[0], occ_b[0], [j, i], [l, k]) * beta_overlap
+                # beta beta
+                H_two_term += prefactor_same_spin * self.get_exchange_integral_on_occupancy(occ_a[1], occ_b[1], [j, i], [l, k]) * alpha_overlap
+                upup += prefactor_same_spin * self.get_exchange_integral_on_occupancy(occ_a[0], occ_b[0], [j, i], [l, k]) * beta_overlap
+                downdown += prefactor_same_spin * self.get_exchange_integral_on_occupancy(occ_a[1], occ_b[1], [j, i], [l, k]) * alpha_overlap
+        # opposite spin
+        for i in range(M):
+            for j in range(M):
+                for k in range(M):
+                    for l in range(M):
+                        prefactor = 0.5 * self.mode_exchange_energy([i, j], [k, l])
+                        # alpha beta
+                        H_two_term += prefactor * W_alpha[i][k] * W_beta[j][l]
+                        # beta alpha
+                        H_two_term += prefactor * W_alpha[j][l] * W_beta[i][k]
+                        mixed += prefactor * W_alpha[i][k] * W_beta[j][l] + prefactor * W_alpha[j][l] * W_beta[i][k]
+        #print(H_one_term, H_two_term)
+        #print("Up-up:", upup)
+        #print("Down-down:", downdown)
+        #print("Mixed spin:", mixed)
+        H_nuc = self.mol.energy_nuc() * alpha_overlap * beta_overlap
+        return(H_one_term + H_two_term + H_nuc)
+
     def find_ground_state_on_full_ci(self, trim_M = None):
         if trim_M is None:
             M = self.mol.nao
@@ -275,103 +375,7 @@ class ground_state_solver():
             for j in range(len(fb_B)):
                 fb.append([fb_A[i], fb_B[j]])
 
-        def get_exchange_integral_on_occupancy(occ_a, occ_b, c = [], a = []):
-            # here occ_a, occ_b are restricted to one spin subspace
 
-            # We assume that c, a do not destroy their respective states
-
-            # The Jordan-Wigner string is 1 if total number of occupied modes
-            # lower than the annihilated mode if even; -1 if odd.
-
-            # If we order a to be ascending, the jordan-wigner prefactor
-            # associated with each operator is independent on the other
-            # operators. This introduces the permutation signature.
-
-            reduced_a = occ_a.copy()
-            reduced_b = occ_b.copy()
-
-            total_jordan_wigner_string = functions.permutation_signature(c) * functions.permutation_signature(a)
-            for i in range(len(c)):
-                # we find the jordan-wigner string of c[i]
-                if sum(occ_a[:c[i]]) % 2 == 1:
-                    total_jordan_wigner_string *= -1
-                if occ_a[c[i]] == 0:
-                    # destroys
-                    return(0.0)
-                else:
-                    reduced_a[c[i]] = 0
-            for i in range(len(a)):
-                # we find the jordan-wigner string of a[i]
-                if sum(occ_b[:a[i]]) % 2 == 1:
-                    total_jordan_wigner_string *= -1
-                if occ_b[a[i]] == 0:
-                    # destroys
-                    return(0.0)
-                else:
-                    reduced_b[a[i]] = 0
-
-            # Now we check orthogonality
-            for i in range(len(reduced_a)):
-                if reduced_a[i] != reduced_b[i]:
-                    return(0.0)
-            return(total_jordan_wigner_string)
-
-
-        def get_H_overlap_on_occupancy(occ_a, occ_b):
-            # occ_a, occ_b are two-lists containing one element from each spin
-            # basis.
-
-            M = len(occ_a[0]) # we assume this is equal to len(occ_a[1])
-
-            alpha_overlap = get_exchange_integral_on_occupancy(occ_a[0], occ_b[0])
-            beta_overlap = get_exchange_integral_on_occupancy(occ_a[1], occ_b[1])
-            W_alpha = np.zeros((M, M), dtype=complex)
-            W_beta = np.zeros((M, M), dtype=complex)
-            H_one_term = 0.0
-            # This is a sum over all mode pairs
-            for p in range(M):
-                for q in range(M):
-                    W_alpha[p][q] = get_exchange_integral_on_occupancy(occ_a[0], occ_b[0], [p], [q])
-                    W_beta[p][q]  = get_exchange_integral_on_occupancy(occ_a[1], occ_b[1], [p], [q])
-                    H_one_term += self.mode_exchange_energy([p], [q]) * W_alpha[p][q] * beta_overlap
-                    H_one_term += self.mode_exchange_energy([p], [q]) * W_beta[p][q] * alpha_overlap
-            H_two_term = 0.0
-            # equal spin
-            c_pairs = functions.subset_indices(np.arange(M), 2)
-            a_pairs = functions.subset_indices(np.arange(M), 2)
-            upup = 0.0
-            downdown = 0.0
-            mixed = 0.0
-            for c_pair in c_pairs:
-                for a_pair in a_pairs:
-                    i = c_pair[0]
-                    j = c_pair[1]
-                    k = a_pair[0]
-                    l = a_pair[1]
-                    prefactor_same_spin = 1.0 * (self.mode_exchange_energy([i, j], [k, l]) - self.mode_exchange_energy([i, j], [l, k]))
-                    # alpha alpha
-                    H_two_term += prefactor_same_spin * get_exchange_integral_on_occupancy(occ_a[0], occ_b[0], [j, i], [l, k]) * beta_overlap
-                    # beta beta
-                    H_two_term += prefactor_same_spin * get_exchange_integral_on_occupancy(occ_a[1], occ_b[1], [j, i], [l, k]) * alpha_overlap
-                    upup += prefactor_same_spin * get_exchange_integral_on_occupancy(occ_a[0], occ_b[0], [j, i], [l, k]) * beta_overlap
-                    downdown += prefactor_same_spin * get_exchange_integral_on_occupancy(occ_a[1], occ_b[1], [j, i], [l, k]) * alpha_overlap
-            # opposite spin
-            for i in range(M):
-                for j in range(M):
-                    for k in range(M):
-                        for l in range(M):
-                            prefactor = 0.5 * self.mode_exchange_energy([i, j], [k, l])
-                            # alpha beta
-                            H_two_term += prefactor * W_alpha[i][k] * W_beta[j][l]
-                            # beta alpha
-                            H_two_term += prefactor * W_alpha[j][l] * W_beta[i][k]
-                            mixed += prefactor * W_alpha[i][k] * W_beta[j][l] + prefactor * W_alpha[j][l] * W_beta[i][k]
-            #print(H_one_term, H_two_term)
-            #print("Up-up:", upup)
-            #print("Down-down:", downdown)
-            #print("Mixed spin:", mixed)
-            H_nuc = self.mol.energy_nuc() * alpha_overlap * beta_overlap
-            return(H_one_term + H_two_term + H_nuc)
 
 
         """print("TESTY NA OVERLAP")
@@ -379,18 +383,18 @@ class ground_state_solver():
         cur_occ_b = [1, 1, 0, 1, 0]
         cur_c = [2]
         cur_a = [3]
-        print(f"< {cur_occ_a} | ({cur_c})\\hc {cur_a} | {cur_occ_b} > = {get_exchange_integral_on_occupancy(cur_occ_a, cur_occ_b, cur_c, cur_a)}")"""
+        print(f"< {cur_occ_a} | ({cur_c})\\hc {cur_a} | {cur_occ_b} > = {self.get_exchange_integral_on_occupancy(cur_occ_a, cur_occ_b, cur_c, cur_a)}")"""
 
         H = np.zeros((len(fb), len(fb)), dtype=complex)
 
-        msg = f"  Explicit Hamiltonian evaluation on a trimmed full CI begins"
+        msg = f"  Explicit Hamiltonian evaluation on a trimmed full CI"
         new_sem_ID = self.semaphor.create_event(np.linspace(0, len(fb), 100 + 1), msg)
 
 
         for i in range(len(fb)):
             for j in range(len(fb)):
                 self.semaphor.update(new_sem_ID, i)
-                H[i][j] = get_H_overlap_on_occupancy(fb[i], fb[j])
+                H[i][j] = self.get_H_overlap_on_occupancy(fb[i], fb[j])
 
         self.semaphor.finish_event(new_sem_ID, "    Evaluation")
 
@@ -437,29 +441,29 @@ class ground_state_solver():
         #random_weights = np.concatenate((np.zeros((1,), dtype=complex), np.random.normal(0.0, kwargs["delta"], (kwargs["N"],))))"""
         N = kwargs["N"] + 1
 
-        CS_sample = [[ground_state_solver.coherent_state_types[kwargs["CS"]].null_state(self.mol.nao, self.S_alpha), ground_state_solver.coherent_state_types[kwargs["CS"]].null_state(self.mol.nao, self.S_beta)]]
+        cur_CS_sample = [[ground_state_solver.coherent_state_types[kwargs["CS"]].null_state(self.mol.nao, self.S_alpha), ground_state_solver.coherent_state_types[kwargs["CS"]].null_state(self.mol.nao, self.S_beta)]]
         for i in range(kwargs["N"]):
 
             if assume_spin_symmetry:
                 new_sample_state = ground_state_solver.coherent_state_types[kwargs["CS"]].random_state(self.mol.nao, self.S_alpha, kwargs["sampling_method"])
-                CS_sample.append([new_sample_state, new_sample_state])
+                cur_CS_sample.append([new_sample_state, new_sample_state])
 
             else:
-                CS_sample.append([
+                cur_CS_sample.append([
                     ground_state_solver.coherent_state_types[kwargs["CS"]].random_state(self.mol.nao, self.S_alpha, kwargs["sampling_method"]),
                     ground_state_solver.coherent_state_types[kwargs["CS"]].random_state(self.mol.nao, self.S_beta, kwargs["sampling_method"])
                     ])
 
         basis_samples_bulk = []
         for i in range(N):
-            basis_samples_bulk.append([CS_sample[i][0].z, CS_sample[i][1].z])
+            basis_samples_bulk.append([cur_CS_sample[i][0].z, cur_CS_sample[i][1].z])
         self.disk_jockey.commit_datum_bulk("basis_samples", basis_samples_bulk)
 
         # Firstly we find the normalisation coefficients
         """norm_coefs = np.zeros(N)
         norm_coefs[0] = 1.0
         for i in range(1, N):
-            sig, mag = CS_sample[i].log_norm_coef
+            sig, mag = cur_CS_sample[i].log_norm_coef
             if (sig * np.exp(-mag / 2.0)).imag > 1e-04:
                 procedure_diagnostic.append(f"basis norm not real!!")
             norm_coefs[i] = (sig * np.exp(-mag / 2.0)).real
@@ -471,10 +475,10 @@ class ground_state_solver():
         overlap_matrix = np.zeros((N, N), dtype=complex) # [a][b] = <a|b>
         for i in range(N):
             for j in range(N):
-                overlap_matrix[i][j] = CS_sample[i][0].norm_overlap(CS_sample[j][0]) * CS_sample[i][1].norm_overlap(CS_sample[j][1])
-        print("-- Overlap matrix:")
-        print(overlap_matrix)
-        print(f"[Overlap matrix condition number = {np.linalg.cond(overlap_matrix)}]")
+                overlap_matrix[i][j] = cur_CS_sample[i][0].norm_overlap(cur_CS_sample[j][0]) * cur_CS_sample[i][1].norm_overlap(cur_CS_sample[j][1])
+        #print("-- Overlap matrix:")
+        #print(overlap_matrix)
+        print(f"Overlap matrix condition number = {np.linalg.cond(overlap_matrix)}")
 
         # At what trim number is the condition number maximal?
         S_cond_trim_max = 1
@@ -489,19 +493,19 @@ class ground_state_solver():
         # We now diagonalise on the vector sample
         H_eff = np.zeros((N, N), dtype=complex)
 
-        msg = f"  Explicit Hamiltonian evaluation begins"
+        msg = f"  Explicit Hamiltonian evaluation"
         new_sem_ID = self.semaphor.create_event(np.linspace(0, N * (N + 1) / 2, 100 + 1), msg)
 
         for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
-            cur_H_overlap = self.H_overlap(CS_sample[a], CS_sample[a])
+            cur_H_overlap = self.H_overlap(cur_CS_sample[a], cur_CS_sample[a])
             H_eff[a][a] = cur_H_overlap
             self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
 
             # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
             for b in range(a):
                 # We explicitly calculate <Z_a | H | Z_b>
-                cur_H_overlap = self.H_overlap(CS_sample[a], CS_sample[b])
+                cur_H_overlap = self.H_overlap(cur_CS_sample[a], cur_CS_sample[b])
                 H_eff[a][b] = cur_H_overlap
                 H_eff[b][a] = np.conjugate(H_eff[a][b])
                 self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
@@ -512,7 +516,7 @@ class ground_state_solver():
         print("------ Debug and diagnostics")
 
         for i in range(N):
-            print(f"  Z_{i} = [ {repr(CS_sample[i][0].z)}, {repr(CS_sample[i][1].z)} ]")
+            print(f"  Z_{i} = [ {repr(cur_CS_sample[i][0].z)}, {repr(cur_CS_sample[i][1].z)} ]")
         for i in range(N):
             print(f"  Z_{i} self-energy: {H_eff[i][i]}")
             if H_eff[i][i] < self.ci_energy:
@@ -564,31 +568,27 @@ class ground_state_solver():
 
     def find_ground_state_manual(self, **kwargs):
         # kwargs:
-        #     -N: sample size
-        #     -sample: a list where every element is a 2-list with both elements being instances of some CS class
+        #     -sample: an instance of CS_sample
 
-        self.user_log += f"find_ground_state_manual [N = {kwargs["N"]}]\n"
+        cur_CS_sample = kwargs["sample"].basis
+        N = kwargs["sample"].N
+
+        self.user_log += f"find_ground_state_manual [N = {N}]\n"
         procedure_diagnostic = []
 
 
-        print(f"Obtaining the ground state with the method \"manual sampling\" [N = {kwargs["N"]}]")
+        print(f"Obtaining the ground state with the method \"manual sampling\" [N = {N}]")
 
-        N = kwargs["N"]
 
-        CS_sample = kwargs["sample"]
-
-        basis_samples_bulk = []
-        for i in range(N):
-            basis_samples_bulk.append([CS_sample[i][0].z, CS_sample[i][1].z])
-        self.disk_jockey.commit_datum_bulk("basis_samples", basis_samples_bulk)
+        self.disk_jockey.commit_datum_bulk("basis_samples", kwargs["sample"].get_z_tensor())
 
         overlap_matrix = np.zeros((N, N), dtype=complex) # [a][b] = <a|b>
         for i in range(N):
             for j in range(N):
-                overlap_matrix[i][j] = CS_sample[i][0].norm_overlap(CS_sample[j][0]) * CS_sample[i][1].norm_overlap(CS_sample[j][1])
-        print("-- Overlap matrix:")
-        print(overlap_matrix)
-        print(f"[Overlap matrix condition number = {np.linalg.cond(overlap_matrix)}]")
+                overlap_matrix[i][j] = cur_CS_sample[i][0].norm_overlap(cur_CS_sample[j][0]) * cur_CS_sample[i][1].norm_overlap(cur_CS_sample[j][1])
+        #print("-- Overlap matrix:")
+        #print(overlap_matrix)
+        print(f"Overlap matrix condition number = {np.linalg.cond(overlap_matrix)}")
 
         # At what trim number is the condition number maximal?
         S_cond_trim_max = 1
@@ -603,19 +603,19 @@ class ground_state_solver():
         # We now diagonalise on the vector sample
         H_eff = np.zeros((N, N), dtype=complex)
 
-        msg = f"  Explicit Hamiltonian evaluation begins"
+        msg = f"  Explicit Hamiltonian evaluation"
         new_sem_ID = self.semaphor.create_event(np.linspace(0, N * (N + 1) / 2, 100 + 1), msg)
 
         for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
-            cur_H_overlap = self.H_overlap(CS_sample[a], CS_sample[a])
+            cur_H_overlap = self.H_overlap(cur_CS_sample[a], cur_CS_sample[a])
             H_eff[a][a] = cur_H_overlap
             self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
 
             # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
             for b in range(a):
                 # We explicitly calculate <Z_a | H | Z_b>
-                cur_H_overlap = self.H_overlap(CS_sample[a], CS_sample[b])
+                cur_H_overlap = self.H_overlap(cur_CS_sample[a], cur_CS_sample[b])
                 H_eff[a][b] = cur_H_overlap
                 H_eff[b][a] = np.conjugate(H_eff[a][b])
                 self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
@@ -626,7 +626,7 @@ class ground_state_solver():
         print("------ Debug and diagnostics")
 
         for i in range(N):
-            print(f"  Z_{i} = [ {repr(CS_sample[i][0].z)}, {repr(CS_sample[i][1].z)} ]")
+            print(f"  Z_{i} = [ {repr(cur_CS_sample[i][0].z)}, {repr(cur_CS_sample[i][1].z)} ]")
         for i in range(N):
             print(f"  Z_{i} self-energy: {H_eff[i][i]}")
             if H_eff[i][i] < self.ci_energy:
@@ -674,7 +674,7 @@ class ground_state_solver():
         self.disk_jockey.commit_datum_bulk("result_energy_states", [N_vals, convergence_sols])
         self.diagnostics_log.append({"find_ground_state_sampling" : procedure_diagnostic})
 
-        return(N_vals, convergence_sols, overlap_matrix, H_eff)
+        return(N_vals, convergence_sols)
 
 
     def find_ground_state_krylov(self, **kwargs):
@@ -750,6 +750,7 @@ class ground_state_solver():
         print("  Finding the molecular orbitals using mean-field approximations...")
         mean_field = scf.RHF(mol).run()
         MO_coefs = mean_field.mo_coeff
+        self.reference_state_energy = mean_field.e_tot
 
         print("  Transforming 1e and 2e integrals to MO basis...")
         self.MO_H_one = np.matmul(MO_coefs.T, np.matmul(AO_H_one, MO_coefs))
@@ -1135,6 +1136,64 @@ class ground_state_solver():
                 break
         return(res, res_N)
 
+    def get_prom_label(self, bitlist, trim_M = None, hr = False):
+        # Returns a list [[de-occupied MOs], [promoted MOs]] from ref state
+        # if hr, this is human-readable (i.e. MO labels are +1)
+
+        cur_S = sum(bitlist)
+        hr_cor = 0
+        if hr:
+            hr_cor = 1
+
+        act_M = self.mol.nao
+        if trim_M is not None:
+            if trim_M > cur_S: # We need at least one empty shell
+                act_M = min(trim_M, self.mol.nao)
+
+        res = [[], []]
+        for i in range(cur_S):
+            if bitlist[i] == 0:
+                res[0].append(i + hr_cor)
+        for i in range(cur_S, act_M):
+            if bitlist[i] == 1:
+                res[1].append(i + hr_cor)
+
+        return(res)
+
+
+    def get_top_closed_shells(self, N_cs, trim_M = None):
+        # Returns a list of top N_cs closed-shells and their squared norms
+
+        act_M = self.mol.nao
+        if trim_M is not None:
+            if trim_M > self.S_alpha: # We need at least one empty shell
+                act_M = min(trim_M, self.mol.nao)
+
+        res = [] #[i] = [n_sq, bitlist]; ordered by n_sq desc.
+        for i in range(N_cs):
+            res.append([0, None, None])
+
+        cur_state = [1] * self.S_alpha + [0] * (act_M - self.S_alpha)
+        while(True):
+            cur_c = self.ground_state_component(cur_state, cur_state)
+            cur_n_sq = cur_c * cur_c
+
+            if cur_n_sq > res[-1][0]:
+                # belongs to the list
+                new_i = len(res)
+                while(cur_n_sq > res[new_i - 1][0]):
+                    new_i -= 1
+                    if new_i == 0:
+                        break
+                res.insert(new_i, [cur_n_sq, cur_state.copy()])
+                res.pop()
+
+
+            cur_state = functions.choose_iterator(cur_state)
+            if cur_state is None:
+                break
+        return(res)
+
     def single_excitation_singlets_projection(self, trim_M = None):
         # For every occupancy list in alpha, L_A, we consider all occupancy
         # lists L_B for which exactly one electron is promoted to a
@@ -1173,6 +1232,179 @@ class ground_state_solver():
             if cur_state is None:
                 break
         return(res, number_of_states)
+
+    def single_excitation_closed_shell_heatmap(self, trim_M = None):
+        # For closed-shell states which differ in shell occupancy from the
+        # reference state in only one place, finds heatmap of norms squared as
+        # a function of (de-occupied shell, newly-occupied shell).
+        # Returns a (M - S, S) ndarray
+
+        act_M = self.mol.nao
+        if trim_M is not None:
+            if trim_M > self.S_alpha: # We need at least one empty shell
+                act_M = min(trim_M, self.mol.nao)
+
+        res = np.zeros((act_M - self.S_alpha, self.S_alpha))
+
+        ref_state = [1] * self.S_alpha + [0] * (act_M - self.S_alpha)
+
+        for a in range(act_M - self.S_alpha):
+            for b in range(self.S_alpha):
+                cur_state = ref_state.copy()
+                cur_state[self.S_alpha + a] = 1
+                cur_state[b] = 0
+                cur_c = self.ground_state_component(cur_state, cur_state)
+                res[a][b] = cur_c * cur_c
+
+        return(res)
+
+    def plot_single_excitation_closed_shell_heatmap(self, ax = None, trim_M = None):
+
+        act_M = self.mol.nao
+        if trim_M is not None:
+            if trim_M > self.S_alpha: # We need at least one empty shell
+                act_M = min(trim_M, self.mol.nao)
+
+        one_exc_closed_shell_hm = self.single_excitation_closed_shell_heatmap(trim_M)
+
+        if ax is None:
+            ax = plt.gca()
+
+        # Plot the heatmap
+        heatmap = ax.imshow(one_exc_closed_shell_hm, cmap='Wistia', interpolation='none') # extent = functions.m_ext(one_exc_closed_shell_hm)
+
+
+        row_lab = [f"{i + one_exc_closed_shell_hm.shape[1] + 1}" for i in range(one_exc_closed_shell_hm.shape[0])]
+        col_lab = [f"{i + 1}" for i in range(one_exc_closed_shell_hm.shape[1])]
+
+        # Create colorbar
+        cbar = ax.figure.colorbar(heatmap, ax=ax)
+        cbar.ax.set_ylabel("Norm sq. of sol. component", rotation=-90, va="bottom")
+
+        ax.set_xlabel("MO being promoted from")
+        ax.set_ylabel("MO being promoted into")
+
+        ax.set_xticks(np.arange(one_exc_closed_shell_hm.shape[1]), labels=col_lab)
+        ax.set_yticks(np.arange(one_exc_closed_shell_hm.shape[0]), labels=row_lab)
+
+        # Grid
+        ax.spines[:].set_visible(False)
+        ax.set_xticks(np.arange(one_exc_closed_shell_hm.shape[1]+1)-.5, minor=True)
+        ax.set_yticks(np.arange(one_exc_closed_shell_hm.shape[0]+1)-.5, minor=True)
+        ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
+        ax.tick_params(which="minor", bottom=False, left=False)
+
+        return(heatmap, cbar)
+
+    # ------------------------- Approximation methods -------------------------
+
+    def solve_on_single_excitation_closed_shell(self, trim_M = None):
+        # returns heatmap, SECS energy
+
+        # Takes a basis consisting of ref state and SECSs, finds effective H,
+        # finds solution, and returns norm squared of solution component for
+        # every single-excitation.
+        # The goal is to approximate the true solution heatmap for the purpose
+        # of guiding the CS sampling process.
+
+        assert(self.S_alpha == self.S_beta)
+
+        act_M = self.mol.nao
+        if trim_M is not None:
+            if trim_M > self.S_alpha: # We need at least one empty shell
+                act_M = min(trim_M, self.mol.nao)
+
+        ref_state = [1] * self.S_alpha + [0] * (act_M - self.S_alpha)
+        basis = [[ref_state, ref_state]]
+
+        for a in range(act_M - self.S_alpha):
+            for b in range(self.S_alpha):
+                cur_state = ref_state.copy()
+                cur_state[self.S_alpha + a] = 1
+                cur_state[b] = 0
+                basis.append([cur_state, cur_state])
+
+        H = np.zeros((len(basis), len(basis)))
+        msg = f"  Explicit Hamiltonian evaluation on SECS basis"
+
+
+        new_sem_ID = self.semaphor.create_event(np.linspace(0, len(basis) * (len(basis) + 1) / 2, 100 + 1), msg)
+
+        for a in range(len(basis)):
+            # Here the diagonal <Z_a|H|Z_a>
+            cur_H_overlap = self.get_H_overlap_on_occupancy(basis[a], basis[a])
+            assert cur_H_overlap.imag < 1e-08
+            H[a][a] = cur_H_overlap.real
+            self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
+
+            # Here the off-diagonal, using the fact that H is a Hermitian matrix
+            for b in range(a):
+                # We explicitly calculate <Z_a | H | Z_b>
+                cur_H_overlap = self.get_H_overlap_on_occupancy(basis[a], basis[b])
+                assert cur_H_overlap.imag < 1e-08
+                H[a][b] = cur_H_overlap.real
+                H[b][a] = H[a][b] # np.conjugate(H[a][b])
+                self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
+
+        self.semaphor.finish_event(new_sem_ID, "    Evaluation")
+
+        energy_levels, energy_states = np.linalg.eig(H)
+        ground_state_index = np.argmin(energy_levels)
+        ground_state_energy = energy_levels[ground_state_index]
+        ground_state_vector = energy_states[:,ground_state_index] # note that energy_states consist of column vectors, not row vectors
+
+        print(f"Ground state energy: {ground_state_energy} (compare to full CI: {self.ci_energy})")
+
+        # Now, for the heatmap
+        res = np.zeros((act_M - self.S_alpha, self.S_alpha))
+        i = 1
+        for a in range(act_M - self.S_alpha):
+            for b in range(self.S_alpha):
+                sol_component = ground_state_vector[i]
+                res[a][b] = sol_component * sol_component
+                i += 1
+
+        return(res, ground_state_energy)
+
+
+
+    def plot_SECS_restricted_heatmap(self, ax = None, trim_M = None):
+
+        act_M = self.mol.nao
+        if trim_M is not None:
+            if trim_M > self.S_alpha: # We need at least one empty shell
+                act_M = min(trim_M, self.mol.nao)
+
+        one_exc_closed_shell_hm, _ = self.solve_on_single_excitation_closed_shell(trim_M)
+
+        if ax is None:
+            ax = plt.gca()
+
+        # Plot the heatmap
+        heatmap = ax.imshow(one_exc_closed_shell_hm, cmap='Wistia', interpolation='none') # extent = functions.m_ext(one_exc_closed_shell_hm)
+
+
+        row_lab = [f"{i + one_exc_closed_shell_hm.shape[1] + 1}" for i in range(one_exc_closed_shell_hm.shape[0])]
+        col_lab = [f"{i + 1}" for i in range(one_exc_closed_shell_hm.shape[1])]
+
+        # Create colorbar
+        cbar = ax.figure.colorbar(heatmap, ax=ax)
+        cbar.ax.set_ylabel("Norm sq. of sol. component", rotation=-90, va="bottom")
+
+        ax.set_xlabel("MO being promoted from")
+        ax.set_ylabel("MO being promoted into")
+
+        ax.set_xticks(np.arange(one_exc_closed_shell_hm.shape[1]), labels=col_lab)
+        ax.set_yticks(np.arange(one_exc_closed_shell_hm.shape[0]), labels=row_lab)
+
+        # Grid
+        ax.spines[:].set_visible(False)
+        ax.set_xticks(np.arange(one_exc_closed_shell_hm.shape[1]+1)-.5, minor=True)
+        ax.set_yticks(np.arange(one_exc_closed_shell_hm.shape[0]+1)-.5, minor=True)
+        ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
+        ax.tick_params(which="minor", bottom=False, left=False)
+
+        return(heatmap, cbar)
 
 
 

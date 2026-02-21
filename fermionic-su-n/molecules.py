@@ -79,3 +79,19 @@ no_mol.build(
     unit = "Bohr",
     spin = 1  # NO is a doublet (15 electrons) -> 1 unpaired electron
 )
+
+
+# Some other helpful properties
+
+ref_energy_colors = {
+    "ref state" : "#b3b3ff",
+    "full CI" : "#005ce6",
+    "SECS" : "#80ffff",
+    "trimmed CI" : "#6699ff"
+    }
+
+
+
+
+
+

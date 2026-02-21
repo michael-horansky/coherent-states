@@ -89,6 +89,9 @@ class ground_state_solver():
         self.diagnostics_log = []
         # The structure of the diagnostics log is like so: every element is either a list (for multiple same-level subprocedures) or a dict (for a header : content) pair
 
+        self.ci_energy = None
+        self.ci_sol = None # We did not perform full CI
+
         print("---------------------------- " + str(ID) + " -----------------------------")
 
 
@@ -161,6 +164,36 @@ class ground_state_solver():
 
     # ---------------------------- Full CI methods ----------------------------
 
+    def get_all_slater_determinants_with_fixed_S(self, M, S):
+        res = [ [1] * S + [0] * (M - S) ]
+        while(True):
+            next_state = functions.choose_iterator(res[-1])
+            if next_state is None:
+                break
+            res.append(next_state)
+
+        """is_iteration_running = True
+
+        while(is_iteration_running):
+            number_of_passed_zeros = 0
+            pointer_index = 0
+
+            while(res[-1][pointer_index] == 0):
+                number_of_passed_zeros += 1
+                pointer_index += 1
+
+                if number_of_passed_zeros == M - S:
+                    # We reached the end
+                    is_iteration_running = False
+                    break
+            if is_iteration_running:
+                while(res[-1][pointer_index] == 1):
+                    pointer_index += 1
+                next_basis_state = [1] * (pointer_index - 1 - number_of_passed_zeros) + [0] * (number_of_passed_zeros + 1) + [1] + res[-1][pointer_index+1:]
+                res.append(next_basis_state)"""
+        return(res)
+
+
     def get_full_basis(self, trim_M = None):
         # Returns a list containing all occupancy basis states represented as
         # two-item lists, with each element describing the occupancy in one
@@ -176,7 +209,10 @@ class ground_state_solver():
         S_A = self.S_alpha
         S_B = self.S_beta
 
-        full_basis_A = [ [1] * S_A + [0] * (M - S_A) ]
+        full_basis_A = self.get_all_slater_determinants_with_fixed_S(M, S_A)
+        full_basis_B = self.get_all_slater_determinants_with_fixed_S(M, S_B)
+
+        """full_basis_A = [ [1] * S_A + [0] * (M - S_A) ]
 
         is_iteration_running = True
 
@@ -218,7 +254,7 @@ class ground_state_solver():
                 while(full_basis_B[-1][pointer_index] == 1):
                     pointer_index += 1
                 next_basis_state = [1] * (pointer_index - 1 - number_of_passed_zeros) + [0] * (number_of_passed_zeros + 1) + [1] + full_basis_B[-1][pointer_index+1:]
-                full_basis_B.append(next_basis_state)
+                full_basis_B.append(next_basis_state)"""
 
         # Now we compose the full basis
         return(full_basis_A, full_basis_B)
@@ -751,26 +787,6 @@ class ground_state_solver():
         print(f" Null state energy one = {null_state_energy_one}")
         null_state_energy_two = 0.0
 
-        """for p in range(self.S_alpha):
-            for q in range(self.S_alpha):
-                if p != q:
-                    null_state_energy_two += 4 * self.mode_exchange_energy([p, q], [q, p])
-                #null_state_energy_two += 0.5 * (self.MO_H_two[p][q][p][q] - self.MO_H_two[p][q][q][p])"""
-        # we are looking for quadruplets of the type pqqp and pqpq. These are equivalent (and hence double up) when p, q act on the same spin
-        # When p,q act on different spins, only one of the two options is permitted (e.g. p_up q_down q_down p_up contributes, but p_up q_down q_up p_down is trivially zero)
-        # Also, iff p,q act on different spins, then they may act on the same spatial modes -> p_up p_down p_down p_up
-
-        # Equal spin contribution
-        """for p in range(self.S_alpha):
-            for q in range(self.S_alpha):
-                if p != q:
-                    null_state_energy_two += 4 * self.mode_exchange_energy([p, q], [q, p])"""
-
-        # Differing spin contribution
-        """for p in range(self.S_alpha):
-            for q in range(self.S_alpha):
-                null_state_energy_two += 1 * self.mode_exchange_energy([p, q], [q, p])"""
-
         # antisym spin-orbital approach
         for p in range(self.S_alpha):
             for q in range(self.S_alpha):
@@ -1048,6 +1064,115 @@ class ground_state_solver():
         else:
             print(f"ERROR: Unknown ground state method {method}. Available methods: {self.find_ground_state_methods.keys()}")
             return(None)
+
+
+    # ----- Methods to look at the answer in order to better the approach -----
+
+    def print_ground_state(self):
+        assert self.ci_sol is not None
+
+        print("Printing ground state solution on the full CI...")
+        print(self.ci_sol)
+
+    def occ_list_to_occ_string(self, occ_list):
+        # the string that cistring deals with is exactly like the occ_list, but
+        # reversed and also a string
+        if isinstance(occ_list, str):
+            return(occ_list) # just to regularise user action
+        res = ""
+        for i in range(len(occ_list) - 1, -1, -1):
+            res += str(occ_list[i])
+        return(res)
+
+    def occ_idx_to_occ_list(self, idx_alpha, idx_beta):
+        occ_alpha = fci.cistring.addr2str(self.mol.nao, self.S_alpha, idx_alpha)
+        occ_beta = fci.cistring.addr2str(self.mol.nao, self.S_beta, idx_beta)
+        # These are just integers corresponding to the binary value
+        occ_alpha_bin = "{0:b}".format(occ_alpha)
+        occ_beta_bin = "{0:b}".format(occ_beta)
+        # We're still missing leading zeros. Those are just tailing zeros in the list
+        alpha_list = []
+        for i in range(len(occ_alpha_bin) - 1, -1, -1):
+            alpha_list.append(int(occ_alpha_bin[i]))
+        alpha_list += [0] * (self.mol.nao - len(alpha_list))
+        beta_list = []
+        for i in range(len(occ_beta_bin) - 1, -1, -1):
+            beta_list.append(int(occ_beta_bin[i]))
+        beta_list += [0] * (self.mol.nao - len(beta_list))
+        return(alpha_list, beta_list)
+
+    def ground_state_component(self, alpha_occupancy, beta_occupancy):
+        assert self.ci_sol is not None
+        # alpha/beta_occupancy is an array [occ1, occ2... occ_M] where N is the
+        # number of alpha/beta MOs and occupancies sum up to S_alpha/beta.
+        alpha_idx = fci.cistring.str2addr(self.mol.nao, self.S_alpha, self.occ_list_to_occ_string(alpha_occupancy))
+        beta_idx = fci.cistring.str2addr(self.mol.nao, self.S_beta, self.occ_list_to_occ_string(beta_occupancy))
+
+        # Access coefficient
+        return(self.ci_sol[alpha_idx, beta_idx])
+
+    # CSF projections
+
+    def closed_shell_projection(self, trim_M = None):
+        # Calculates the norm squared of the projection of the ground state
+        # onto the closed-shell-only Hilbert subspace.
+
+        # if trim_M is not None, we trim to the bottom trim_M MOs.
+        # cistring "inserts leading zeros" to bitstrings :)
+        act_M = self.mol.nao
+        if trim_M is not None:
+            act_M = min(trim_M, self.mol.nao)
+
+        cur_state = [1] * self.S_alpha + [0] * (act_M - self.S_alpha)
+        res = 0
+        res_N = 0
+        while(True):
+            cur_c = self.ground_state_component(cur_state, cur_state)
+            res += cur_c * cur_c
+            res_N += 1
+            cur_state = functions.choose_iterator(cur_state)
+            if cur_state is None:
+                break
+        return(res, res_N)
+
+    def single_excitation_singlets_projection(self, trim_M = None):
+        # For every occupancy list in alpha, L_A, we consider all occupancy
+        # lists L_B for which exactly one electron is promoted to a
+        # higher-index unoccupied orbital. Then
+        #   CSF singlet = (L_A x L_B + L_B x L_A) / sqrt(2)
+
+        act_M = self.mol.nao
+        if trim_M is not None:
+            act_M = min(trim_M, self.mol.nao)
+
+        res = 0.0
+        number_of_states = 0
+
+        cur_state = [1] * self.S_alpha + [0] * (act_M - self.S_alpha)
+
+        while(True):
+            for excited_electron_i in range(self.S_alpha):
+                # we find the index of the electron
+                j = -1
+                found_electrons = 0
+                while(found_electrons <= excited_electron_i):
+                    j += 1
+                    found_electrons += cur_state[j]
+                # Now, j points at the n-th electron in cur_state. We can promote to any higher index
+                for k in range(j + 1, act_M):
+                    if cur_state[k] == 1:
+                        # Already occupied
+                        continue
+                    second_state = cur_state.copy()
+                    second_state[j] = 0
+                    second_state[k] = 1
+                    full_ci_coef = (self.ground_state_component(cur_state, second_state) + self.ground_state_component(second_state, cur_state)) / np.sqrt(2)
+                    res += full_ci_coef * full_ci_coef
+                    number_of_states += 1
+            cur_state = functions.choose_iterator(cur_state)
+            if cur_state is None:
+                break
+        return(res, number_of_states)
 
 
 

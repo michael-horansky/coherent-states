@@ -103,7 +103,7 @@ class CS_Thouless(CS_Base):
             return(cls(M, S, random_z))
 
         if sampling_method == "highest_orbital_trim":
-            # for Li2, we set top 5 MOs to zero
+            # We only permit promotion into the bottom 2 unoccupied MOs
             centres = np.zeros((M-S, S))
             widths = np.zeros((M-S, S))
             for i in range(2): # number of lowest-energy free orbitals we consider for excitation

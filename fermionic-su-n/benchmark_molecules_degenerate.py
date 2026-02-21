@@ -2,95 +2,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from pyscf import gto, scf, fci
+from molecules import *
 from mol_solver_degenerate import ground_state_solver
 
 import functions
 
-# -------------------------- Li2
 
-# Li2: bond length ≈ 2.673 Å = 5.0512375675 Bohr
-# placed symmetrically about origin: half-distance ≈ 2.5256187838 Bohr
-li2_mol = gto.Mole()
-li2_mol.build(
-    atom = '''
-    Li   0.0000000000   0.0000000000  -2.5
-    Li   0.0000000000   0.0000000000   2.5
-    ''',
-    basis = 'sto-3g',
-    unit = "Bohr"
-)
-
-# bigger basis: 6-31g**
-
-# Set to +-2.5 Bohr exactly to match Dima's Hamiltonian. The true value is +-2.5256187838
-
-# -------------------------------- BeH
-
-# BeH: bond length ≈ 1.342 Å = 2.5360122767 Bohr
-# place Be at origin and H along +z
-beh_mol = gto.Mole()
-beh_mol.build(
-    atom = '''
-    Be   0.0000000000   0.0000000000   0.0000000000
-    H    0.0000000000   0.0000000000   2.5360122767
-    ''',
-    basis = 'sto-3g',
-    unit = "Bohr",
-    spin = 1  # BeH is a doublet (5 electrons) -> 1 unpaired electron
-)
-
-
-
-# ------------------------------ N2
-
-# N2: bond length ≈ 1.098 Å = 2.0749191355 Bohr
-# placed symmetrically about origin: half-distance ≈ 1.0374595677 Bohr
-n2_mol = gto.Mole()
-n2_mol.build(
-    atom = '''
-    N    0.0000000000   0.0000000000  -1.0374595677
-    N    0.0000000000   0.0000000000   1.0374595677
-    ''',
-    basis = 'sto-3g',
-    unit = "Bohr"
-)
-
-# ---------------------------------- C2
-
-# C2: bond length ≈ 1.2425 Å = 2.3479845408 Bohr
-# placed symmetrically about origin: half-distance ≈ 1.1739922704 Bohr
-c2_mol = gto.Mole()
-c2_mol.build(
-    atom = '''
-    C    0.0000000000   0.0000000000  -1.1739922704
-    C    0.0000000000   0.0000000000   1.1739922704
-    ''',
-    basis = 'sto-3g',
-    unit = "Bohr"
-)
-
-# -------------------------------- NO
-
-# NO: bond length ≈ 1.151 Å = 2.1750746129 Bohr
-# placed symmetrically about origin: half-distance ≈ 1.0875373064 Bohr
-no_mol = gto.Mole()
-no_mol.build(
-    atom = '''
-    N    0.0000000000   0.0000000000  -1.0875373064
-    O    0.0000000000   0.0000000000   1.0875373064
-    ''',
-    basis = 'sto-3g',
-    unit = "Bohr",
-    spin = 1  # NO is a doublet (15 electrons) -> 1 unpaired electron
-)
 
 benchmark_molecules = {
-    "Li2" : li2_mol
+    #"Li2" : li2_mol
+    "C2" : c2_mol
     }
 #benchmark_molecules = {
 #    "Li2" : li2_mol,
 #    "N2" : n2_mol
 #    }
+
+trimmed_ground_state_full_ci = {
+    "Li2" : -14.65464717398042,
+    "C2" : -74.57429774053233
+
+    }
 
 plot_x, plot_y = functions.subplot_dimensions(len(benchmark_molecules))
 
@@ -103,18 +35,25 @@ for mol_name, mol in benchmark_molecules.items():
 
     mol_solver = ground_state_solver(f"bench_mol_{mol_name}_qubit")
     mol_solver.initialise_molecule(mol)
-    N_vals_t, energy_levels_t = mol_solver.find_ground_state("sampling", N = 20, lamb = None, sampling_method = "highest_orbital_trim", CS = "Thouless", assume_spin_symmetry = True)
-    print(mol_solver.print_diagnostic_log())
-    N_vals_q, energy_levels_q = mol_solver.find_ground_state("sampling", N = 20, lamb = None, sampling_method = "highest_orbital_trim", CS = "Qubit", assume_spin_symmetry = True)
+    """N_vals_t, energy_levels_t = mol_solver.find_ground_state("sampling", N = 20, lamb = None, sampling_method = "highest_orbital_trim", CS = "Thouless", assume_spin_symmetry = False)
+    print(mol_solver.print_diagnostic_log())"""
+    N_vals_q, energy_levels_q = mol_solver.find_ground_state("sampling", N = 20, lamb = None, sampling_method = "highest_orbital_trim", CS = "Qubit", assume_spin_symmetry = False)
     print(mol_solver.print_diagnostic_log())
 
     # For Li2, we can just quote the measured trimmed full CI ground state energy
-    trimmed_ground_state_full_ci = -14.65464717398042
+    #trimmed_ground_state_full_ci = -14.65464717398042
 
-    plt.plot(N_vals_t, energy_levels_t, "x", label = "Thouless")
+    # For C2, we can just quote the measured trimmed full CI ground state energy
+    #trimmed_ground_state_full_ci = -74.57429774053233
+
+
+    #plt.plot(N_vals_t, energy_levels_t, "x", label = "Thouless")
     plt.plot(N_vals_q, energy_levels_q, "x", label = "Qubit")
 
-    plt.axhline(y = trimmed_ground_state_full_ci, label = "trimmed full CI")
+    plt.axhline(y = mol_solver.ci_energy, label = "full CI")
+
+    if mol_name in trimmed_ground_state_full_ci:
+        plt.axhline(y = trimmed_ground_state_full_ci[mol_name], label = "trimmed full CI")
 
     plt.legend()
 

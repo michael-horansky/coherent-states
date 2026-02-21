@@ -135,3 +135,23 @@ def subplot_dimensions(number_of_plots):
     if number_of_plots <= 15:
         return(5, 3)
     return(int(np.ceil(np.sqrt(number_of_plots))), int(np.ceil(np.sqrt(number_of_plots))))
+
+def choose_iterator(choice):
+    # For a choice of S elements out of M boxes, this function returns the next
+    # choice or None if the provided choice was the last choice.
+    M = len(choice)
+    S = sum(choice)
+    number_of_passed_zeros = 0
+    pointer_index = 0
+
+    while(choice[pointer_index] == 0):
+        number_of_passed_zeros += 1
+        pointer_index += 1
+
+        if number_of_passed_zeros == M - S:
+            # We reached the end
+            return(None)
+    while(choice[pointer_index] == 1):
+        pointer_index += 1
+    return([1] * (pointer_index - 1 - number_of_passed_zeros) + [0] * (number_of_passed_zeros + 1) + [1] + choice[pointer_index+1:])
+

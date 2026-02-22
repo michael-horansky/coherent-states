@@ -83,7 +83,7 @@ class CS_sample:
 
         if semaphor_ID is not None and semaphor_offset is None:
             # we assume that every step has the same sized subsample
-            semaphor_offset = len(subsample) * ((self.N + 1) * self.N - 1) + 1
+            semaphor_offset = len(subsample) * ((self.N + 1) * self.N / 2.0 - 1) + 1
 
         aug_S = np.zeros((self.N + 1, self.N + 1), dtype=complex)
         aug_H = np.zeros((self.N + 1, self.N + 1), dtype=complex)

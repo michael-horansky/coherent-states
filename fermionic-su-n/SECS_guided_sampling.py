@@ -14,6 +14,7 @@ import functions
 
 
 benchmark_molecules = {
+    "Li2" : li2_mol,
     "N2" : n2_mol
     }
 
@@ -84,14 +85,14 @@ for mol_name, mol in benchmark_molecules.items():
     centres_alpha = np.zeros(shape_alpha)
     centres_beta = np.zeros(shape_beta)
 
-    N = 20
+    N = 50
     N_subsample = 10
 
     N_vals_t = [1]
     energy_levels_t = [mol_solver.reference_state_energy]
 
     msg = f"  Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-    new_sem_ID = mol_solver.semaphor.create_event(np.linspace(0, N_subsample * (N * (N + 1) - 1) + 1, 1000 + 1), msg)
+    new_sem_ID = mol_solver.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
 
     for n in range(N):
         # We add the best out of 10 random states

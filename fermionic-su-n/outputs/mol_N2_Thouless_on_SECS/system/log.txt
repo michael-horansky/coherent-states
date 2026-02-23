@@ -1,0 +1,41 @@
+Initialising molecule solver mol_N2_Thouless_on_SECS at log_verbosity = 5
+| Initialising Data Storage Manager...
+| Initialising self-analysis properties...
+\_
+Initialising molecule...
+| There are 10 atomic orbitals, each able to hold 2 electrons of opposing spin.
+| The molecule is occupied by 14 electrons in total: 7 with spin alpha, 7 with spin beta.
+| The molecule consists of the following atoms: ['N', 'N']
+| The atomic orbitals are ordered as follows: ['0 N 1s    ', '0 N 2s    ', '0 N 2px   ', '0 N 2py   ', '0 N 2pz   ', '1 N 1s    ', '1 N 2s    ', '1 N 2px   ', '1 N 2py   ', '1 N 2pz   ']
+| The nuclear repulsion energy is 23.615378143666234
+| Calculating 1e integrals...
+| Calculating 2e integrals...
+| Finding the molecular orbitals using mean-field approximations...
+| Done! Reference state energy is -107.49598
+| Transforming 1e and 2e integrals to MO basis...
+| Reference state analysis
+| | Occupied orbitals:
+| |   -in the spin-alpha subspace: [0, 1, 2, 3, 4, 5, 6]
+| |   -in the spin-beta subspace:  [0, 1, 2, 3, 4, 5, 6]
+| | Reference state energy with the overlap method = -107.49598
+| \_
+\_
+Solving on a single-excitation closed-shell basis...
+| Mode number for each spin space = 10
+| Obtaining the SECS basis....
+| SECS basis of length 22 obtained.
+| Explicit Hamiltonian evaluation on SECS basis begins at 17:26:42
+| \_ Evaluation finished at 17:26:54 (duration 11 sec 592 ms)                                                  
+| Ground state energy: -107.58155613306836 (compare to full CI: -107.6529998306335)
+| Obtaining the single-excitation prevalence matrix...
+| Success!
+\_
+Obtaining the ground state with the method "SEGS for dist width" [N = 3, N_sub = 1, CS = Thouless]
+| Obtaining SEGS heatmap and reference energy...
+| Solving on a single-excitation closed-shell basis...
+| | Already solved.
+| \_
+| Spin-alpha has shape (3, 7); spin-beta has shape (3, 7)
+|   Conditioned sampling with ground state search on 3 states, each taken from 1 random states begins at 17:27:03
+| \_ Evaluation finished at 17:27:11 (duration 8 sec 629 ms)                                                                                                  
+\_

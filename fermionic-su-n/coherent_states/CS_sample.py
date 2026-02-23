@@ -75,13 +75,13 @@ class CS_sample:
 
     # Some more interesting methods, which may use the solver object and its methods
 
-    def add_best_of_subsample(self, subsample, max_cond = 1e8, semaphor_ID = None, semaphor_offset = None):
+    def add_best_of_subsample(self, subsample, max_cond = 1e8, update_semaphor = False, semaphor_offset = None):
         # Selects one vector from subsample which minimises ground state energy
         # when added to the sample
         # subsample can either be a list of basis vectors or a z tensor ndarray
 
 
-        if semaphor_ID is not None and semaphor_offset is None:
+        if update_semaphor and semaphor_offset is None:
             # we assume that every step has the same sized subsample
             semaphor_offset = len(subsample) * ((self.N + 1) * self.N / 2.0 - 1) + 1
 
@@ -114,14 +114,14 @@ class CS_sample:
             for a in range(self.N):
                 aug_H[a][self.N] = self.solver.H_overlap(self.basis[a], candidate)
 
-                if semaphor_ID is not None:
-                    self.solver.semaphor.update(semaphor_ID, semaphor_offset + i * (self.N + 1) + a + 1)
+                if update_semaphor:
+                    self.solver.log.update_semaphor_event(semaphor_offset + i * (self.N + 1) + a + 1)
 
                 aug_H[self.N][a] = np.conjugate(aug_H[a][self.N])
             aug_H[self.N][self.N] = self.solver.H_overlap(candidate, candidate)
 
-            if semaphor_ID is not None:
-                self.solver.semaphor.update(semaphor_ID, semaphor_offset + (i + 1) * (self.N + 1))
+            if update_semaphor:
+                self.solver.log.update_semaphor_event(semaphor_offset + (i + 1) * (self.N + 1))
 
             # If candidate is (almost) linearly dependent on old basis, the
             # process breaks down. We firstly condition the sampling based

@@ -34,6 +34,9 @@ class CS_Base():
         log_norm_sign, log_norm_mag = self.slog_overlap(self)
         self.log_norm_coef = (log_norm_sign, log_norm_mag)
 
+        # Descriptor properties
+        self.class_name = "base"
+
     def overlap(self, other, c = [], a = []):
         # This method evaluates <self | creation\hc annihilation | other>
         # Note that creation_sequence indices are in inverted order!

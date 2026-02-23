@@ -35,9 +35,9 @@ for mol_name, mol in benchmark_molecules.items():
 
     mol_solver = ground_state_solver(f"bench_mol_{mol_name}_qubit")
     mol_solver.initialise_molecule(mol)
-    """N_vals_t, energy_levels_t = mol_solver.find_ground_state("sampling", N = 20, lamb = None, sampling_method = "highest_orbital_trim", CS = "Thouless", assume_spin_symmetry = False)
+    """N_vals_t, energy_levels_t = mol_solver.find_ground_state("sampling", N = 20, sampling_method = "highest_orbital_trim", CS = "Thouless", assume_spin_symmetry = False)
     print(mol_solver.print_diagnostic_log())"""
-    N_vals_q, energy_levels_q = mol_solver.find_ground_state("sampling", N = 20, lamb = None, sampling_method = "highest_orbital_trim", CS = "Qubit", assume_spin_symmetry = False)
+    N_vals_q, energy_levels_q = mol_solver.find_ground_state("sampling", N = 20, sampling_method = "highest_orbital_trim", CS = "Qubit", assume_spin_symmetry = False)
     print(mol_solver.print_diagnostic_log())
 
     # For Li2, we can just quote the measured trimmed full CI ground state energy

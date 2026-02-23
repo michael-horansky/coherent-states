@@ -26,10 +26,45 @@
 
 import time
 
+def dtstr(seconds, max_depth = 2):
+    # Dynamically chooses the right format
+    # max_depth is the number of different measurements (e.g. max_depth = 2: "2 days 5 hours")
+    if seconds >= 60 * 60 * 24:
+        # Days
+        if max_depth == 1:
+            return(f"{int(round(seconds / (60 * 60 * 24)))} days")
+        remainder = seconds % (60 * 60 * 24)
+        days = int((seconds - remainder) / (60 * 60 * 24))
+        return(f"{days} days {dtstr(remainder, max_depth - 1)}")
+    if seconds >= 60 * 60:
+        # Hours
+        if max_depth == 1:
+            return(f"{int(round(seconds / (60 * 60)))} hours")
+        remainder = seconds % (60 * 60)
+        hours = int((seconds - remainder) / (60 * 60))
+        return(f"{hours} hours {dtstr(remainder, max_depth - 1)}")
+    if seconds >= 60:
+        # Minutes
+        if max_depth == 1:
+            return(f"{int(round(seconds / 60))} min")
+        remainder = seconds % (60)
+        minutes = int((seconds - remainder) / (60))
+        return(f"{minutes} min {dtstr(remainder, max_depth - 1)}")
+    if seconds >= 1:
+        # Seconds
+        if max_depth == 1:
+            return(f"{int(round(seconds))} sec")
+        remainder = seconds % (1)
+        secs = int((seconds - remainder))
+        return(f"{secs} sec {dtstr(remainder, max_depth - 1)}")
+    # Milliseconds
+    return(f"{int(round(seconds / 0.001))} ms")
+
 class Semaphor():
 
-    def __init__(self, time_format = "%H:%M:%S"):
+    def __init__(self, time_format = "%H:%M:%S", print_directly = True):
         self.time_format = time_format
+        self.print_directly = print_directly
         self.N_events = 0
 
         # "Tau" is simulation time, "t" is real time
@@ -47,7 +82,7 @@ class Semaphor():
         # newline should be set to True for nested events, False for the innermost events or non-nested events
 
         # New ID
-        new_ID = f"S_EVEMT_{self.N_events}"
+        new_ID = f"S_EVENT_{self.N_events}"
         self.N_events += 1
 
         self.tau_space[new_ID] = tau_space
@@ -60,8 +95,9 @@ class Semaphor():
         self.max_msg_len[new_ID] = 0
         self.newline[new_ID] = newline
 
-        print(f"{message} begins at {time.strftime(self.time_format, time.localtime( self.start_time[new_ID]))}")
-        return(new_ID)
+        if self.print_directly:
+            print(f"{message} begins at {time.strftime(self.time_format, time.localtime( self.start_time[new_ID]))}")
+        return(new_ID, f"{message} begins at {time.strftime(self.time_format, time.localtime( self.start_time[new_ID]))}")
 
     def finish_event(self, event_ID, final_message = None):
         # Returns the duration in ms
@@ -71,12 +107,12 @@ class Semaphor():
         if final_message is None:
             final_message = self.message[event_ID]
 
-        msg = f"{final_message} finished at {time.strftime(self.time_format, time.localtime( time.time()))}"
+        process_duration = time.time() - self.start_time[event_ID]
+
+        msg = f"{final_message} finished at {time.strftime(self.time_format, time.localtime( time.time()))} (duration {dtstr(process_duration)})"
         if len(msg) < self.max_msg_len[event_ID]:
             # padding
             msg += " " * (self.max_msg_len[event_ID] - len(msg))
-        print(msg)
-        process_duration = time.time() - self.start_time[event_ID]
         del self.tau_space[event_ID]
         del self.start_tau[event_ID]
         del self.start_time[event_ID]
@@ -86,23 +122,38 @@ class Semaphor():
         del self.message[event_ID]
         del self.max_msg_len[event_ID]
         del self.newline[event_ID]
-        return(process_duration)
+        if self.print_directly:
+            print(msg)
+            return(process_duration)
+        else:
+            return(process_duration, msg)
 
     def update(self, event_ID, tau):
         if event_ID not in self.tau_space.keys():
             #print(f"  ERROR: Semaphor {event_ID} does not exist.")
-            return(-1)
+            if self.print_directly:
+                print(f"  ERROR: Semaphor {event_ID} does not exist.")
+                return(-1)
+            else:
+                return(f"  ERROR: Semaphor {event_ID} does not exist.")
         # check if semaphor finished
         if self.next_flag_tau_index[event_ID] >= len(self.tau_space[event_ID]):
             if self.newline[event_ID]:
-                print("  Semaphor reached the final flagged timestamp. No further semaphor update necessary.")
+                if self.print_directly:
+                    print("  Semaphor reached the final flagged timestamp. No further semaphor update necessary.")
+                    return(0)
+                else:
+                    return("  Semaphor reached the final flagged timestamp. No further semaphor update necessary.")
             else:
                 msg = "  Semaphor reached the final flagged timestamp. No further semaphor update necessary."
                 if len(msg) < self.max_msg_len[event_ID]:
                     # padding
                     msg += " " * (self.max_msg_len[event_ID] - len(msg))
-                print(msg, end='\r')
-            return(0)
+                if self.print_directly:
+                    print(msg, end='\r')
+                    return(0)
+                else:
+                    return(msg)
         if tau >= self.tau_space[event_ID][self.next_flag_tau_index[event_ID]]:
             # We find the next smallest unreached semaphor flag
             tau_index_new = self.next_flag_tau_index[event_ID]
@@ -115,14 +166,24 @@ class Semaphor():
             ETA = time.strftime(self.time_format, time.localtime( (time.time()-self.start_time[event_ID]) / progress_fraction + self.start_time[event_ID] ))
 
             if self.newline[event_ID]:
-                print(f"  {self.message[event_ID]}: {str(int(100 * progress_fraction)).zfill(2)}% done; est. time of finish: {ETA} (sim. t = {tau:.2f})")
+                if self.print_directly:
+                    print(f"  {self.message[event_ID]}: {str(int(100 * progress_fraction)).zfill(2)}% done; est. time of finish: {ETA} (sim. t = {tau:.2f})")
+                    return(0)
+                else:
+                    return(f"  {self.message[event_ID]}: {str(int(100 * progress_fraction)).zfill(2)}% done; est. time of finish: {ETA} (sim. t = {tau:.2f})")
             else:
                 msg = f"  {self.message[event_ID]}: {str(int(100 * progress_fraction)).zfill(2)}% done; est. time of finish: {ETA} (sim. t = {tau:.2f})"
                 if len(msg) < self.max_msg_len[event_ID]:
                     # padding
                     msg += " " * (self.max_msg_len[event_ID] - len(msg))
                 self.max_msg_len[event_ID] = len(msg)
-                print(msg, end='\r')
+
+                if self.print_directly:
+                    print(msg, end='\r')
+                    return(0)
+                else:
+                    return(msg)
+        return(None)
 
 
 

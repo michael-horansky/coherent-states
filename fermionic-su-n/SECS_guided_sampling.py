@@ -32,13 +32,13 @@ mol_SECS_restricted_energies = {}
 
 for mol_name, mol in benchmark_molecules.items():
 
-    mol_solver = ground_state_solver(f"bench_mol_{mol_name}_Thouless_on_SECS")
+    mol_solver = ground_state_solver(f"mol_{mol_name}_Thouless_on_SECS")
     mol_solver.initialise_molecule(mol)
     mol_solver.pyscf_full_CI()
 
     mol_solvers[mol_name] = mol_solver
 
-    print(f"\n----------------- Molecule {mol_name} -----------------")
+    """print(f"\n----------------- Molecule {mol_name} -----------------")
     print("----- Closed-shell Slater determinants -----")
     closed_shell_proj, closed_shell_N = mol_solver.closed_shell_projection()
     print(f"Norm squared of projection onto all {closed_shell_N} closed-shell states = {closed_shell_proj}")
@@ -50,7 +50,7 @@ for mol_name, mol in benchmark_molecules.items():
     print("---------------- Other CSFs ----------------")
     single_exc_proj, single_exc_N = mol_solver.single_excitation_singlets_projection()
     print(f"Total square norm of the projection into all {single_exc_N} single-excitation CSF singlets is {single_exc_proj}")
-    print(f"\nFor closed shells U single-excitation CSF singlets, we have a {closed_shell_N + single_exc_N}-dim space with norm square projection {closed_shell_proj + single_exc_proj}")
+    print(f"\nFor closed shells U single-excitation CSF singlets, we have a {closed_shell_N + single_exc_N}-dim space with norm square projection {closed_shell_proj + single_exc_proj}")"""
 
     cur_SECS_heatmap, cur_SECS_restricted_energy = mol_solver.solve_on_single_excitation_closed_shell()
 
@@ -118,6 +118,9 @@ for mol_name, mol in benchmark_molecules.items():
 
     # For C2, we can just quote the measured trimmed full CI ground state energy
     #trimmed_ground_state_full_ci = -74.57429774053233
+
+    # Save the data
+    mol_solver.save_data()
 
 
     #plt.plot(N_vals_width, energy_levels_width, "x", label = "SEGS width")

@@ -198,6 +198,9 @@ class CS_Qubit(CS_Base):
     def __init__(self, M, S, z):
         super().__init__(M, S, z)
 
+        # Descriptor properties
+        self.class_name = "Qubit"
+
     def overlap(self, other, c = [], a = []):
         # We assume that M, S match
 

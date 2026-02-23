@@ -1,0 +1,3 @@
+----------------- mol_Li2_Thouless_on_SECS diagnostic log -----------------
+find_ground_state_SEGS_width (SEGS_width_3_1_Thouless)
+    Full sample condition number = [1.0, np.float64(127.508200229769), np.float64(257.8032199819134), np.float64(357.13197227796627)]

@@ -121,6 +121,9 @@ class CS_Thouless(CS_Base):
     def __init__(self, M, S, z):
         super().__init__(M, S, z)
 
+        # Descriptor properties
+        self.class_name = "Thouless"
+
     def overlap(self, other, c = [], a = []):
         # We assume that M, S match
         if len(c) != len(a):

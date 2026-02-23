@@ -1,0 +1,206 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper, total={7.5in, 8in}]{geometry}
+\usepackage{xargs}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{physics}
+\usepackage{graphicx}
+
+\usepackage{simpler-wick}
+
+\newcommand{\sgn}{\text{sgn}}
+\newcommand{\seq}[1]{\langle #1\rangle}
+\newcommand{\asc}[1]{\upharpoonleft #1 \upharpoonright}
+\newcommand{\hc}{^\dagger}
+\newcommand{\inv}{^{-1}}
+\newcommand{\Sym}{\text{Sym}}
+\newcommand{\normord}[1]{:\mathrel{\mspace{2mu}#1\mspace{2mu}}:}
+
+\newcommand*\chem[1]{\ensuremath{\mathrm{#1}}}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+
+\begin{document}
+
+	\title{Single-excitation guided sampling for particle-preserving fermionic Thouless states as an approach to determining the electronic structure ground state for single-reference molecules}
+	%\author{MH}	
+	\maketitle
+	
+	\abstract{Diagonalisation of a coherent-state sample around the HF reference state is proposed as a post-HF method to estimate the molecular-electronic ground state. The $SU(M)$ fermionic Thouless states are described with regard to the relation between their parameter matrix and their overlap with single-excitation Slater determinants. For a RHF basis, a method which guides the sampling process based on the diagonalisation on zero- and single-excitation Slater determinant subspace is described and demonstrated on spin-zero molecules \chem{Li_2} and \chem{N_2}. Generalisation of the sampling guidance process for an UHF basis is described and demonstrated on spin-one molecules \chem{BeH} and \chem{NO}.}
+	
+	%\newpage
+	
+	\tableofcontents
+	
+	\section{Background}
+	
+	\subsection{Fermionic $SU(M)$ Thouless states in electronic structure}
+	
+	Consider a Hilbert space described by $M$ modes occupied in total by $S$ fermions, where $S < M$. The occupancy basis of this Hilbert space consists of the Slater determinants
+	
+	$$\ket{n_1, n_2 \dots n_M} \qq{where} \sum_{i=1}^M n_i = S \qq{and} n_i \in \{0,1\}$$
+	
+	By defining the reference state as
+	
+	\begin{equation}
+	\ket{\phi_0} = \ket{1, 1 \dots 1, 0, 0 \dots 0}
+	\end{equation}
+	
+	we may label every occupancy basis state as $\ket{\phi_0 + a - b}$, where $a, b$ are equal-sized sets of indices with the constraints
+	\begin{eqnarray*}
+	a_i \in a&\qq{:}& 1 \leq a_i \leq M - S\\
+	b_i \in b&\qq{:}& 1 \leq b_i \leq S
+	\end{eqnarray*}
+	and the state $\ket{\phi_0 + a - b}$ describes the Slater determinant where modes occupied in $\phi_0$ are occupied iff their index is not in $b$, and modes unoccupied in $\phi_0$ are occupied iff their index is in $a$ (with the first unoccupied mode, i.e. the $S+1$-st mode, having index $1$).
+	
+	It will be helpful to define the integer sets
+	\begin{eqnarray*}
+	\pi_1 &=& \{1, 2 \dots S\}\\
+	\pi_0 &=& \{1, 2 \dots M - S\}
+	\end{eqnarray*}
+	which enumerate the occupied and unoccupied modes in $\ket{\phi_0}$, respectively.
+	
+	Then, we can construct the $SU(M)$ Thouless states restricted to the Hilbert space spanned by the aforementioned basis from the reference state like so:
+	
+	\begin{equation}
+	\ket{Z} = N(Z, Z^*) \exp(\sum_{i\in\pi_0}\sum_{j\in\pi_1}\hat{f}_{i+S}\hc \hat{f}_j) \ket{\phi_0} 
+	\end{equation}
+	
+	where $N$ is the normalisation coefficient and $\hat{f}\hc, \hat{f}$ are the fermionic creation and annihilation operators, respectively. Note that $Z$ is therefore a $(M-S) \cross S$ matrix of complex number.
+	
+	These states form a non-orthogonal, overcomplete basis of the full Hilbert space.
+	
+	It is then a known result that the decomposition of this Thouless state into the occupancy basis is
+	
+	\begin{equation}
+	\braket{\phi_0 + a - b}{Z} = (-1)^{\frac{1}{2}|a|(|a| + 1)} \det{Z_{a,b}}
+	\end{equation}
+	where $|a|=|b|$ is the number of excitations from the reference state and $Z_{a,b}$ is the submatrix of $Z$ composed of rows and columns labelled by indices in $a$ and $b$, respectively.
+	
+	In other words, the minors of $Z$ describe the decomposition coefficients of specific occupancy basis states in $\ket{Z}$, with all minors of order $r$ describing all occupancy basis states obtained by promoting exactly $r$ fermions from modes occupied in $\ket{\phi_0}$ into modes unoccupied in $\ket{\phi_0}$.
+	
+	\subsection{Electronic structure described by pairs of Thouless states}
+	
+	Under the Born-Oppenheimer approximation, we can describe the wavefunction of the electrons of a particular molecule by a vector in a Hilbert space spanned by Slater determinants constructed on molecular spin-orbitals:
+	
+	\begin{equation}
+	\ket{\Psi} = \ket{n(\phi_1^\alpha), n(\phi_1^\beta), n(\phi_2^\alpha), n(\phi_2^\beta) \dots}
+	\end{equation}
+	where, for practicality, we terminate the sequence of molecular orbitals at some highest orbital $\phi_M$, where we hope that the behaviour of the molecule in the energy range of interest as described on this finite basis closely matches its true behaviour.
+	
+	As the labelling suggests, it is very natural to decompose this Hilbert space into a direct product of (spatial) molecular orbitals and the two spin states $\ket{\alpha}, \ket{\beta}$, which, assuming the Hamiltonian has full rotatinal symmetry, can be selected arbitrarily as any orthonormal basis of the spin-$\frac{1}{2}$ system (typically, these are associated with spin-up and spin-down states, i.e. eigenstates of $\hat{S}_z$ for the particular selection of the $z$-axis). Then, the occupancy basis vectors may be writ out like so:
+	
+	\begin{equation}
+	\ket{\Psi} = \ket{n_1, n_2 \dots n_M}_\alpha \otimes \ket{\bar{n}_1, \bar{n}_2 \dots \bar{n}_{\bar{M}}}_\beta
+	\end{equation}
+	
+	where $n_i, \bar{n}_j$ are shorthands for the occupancy numbers of modes $\phi_i^\alpha, \phi_j^\beta$, respectively. Note that we do not implicitly assume that $\phi_i^\alpha = \phi_i^\beta$, as is seen by allowing even the total number of the MOs in each spin-subspace to be different. The case where this equivalence is assumed is referred to as a restricted Hartree-Fock (RHF) basis. Otherwise, we are working under the unrestricted Hartree-Fock (UHF) basis.
+	
+	Note that in the non-relativistic case the Hamiltonian preserves the total number of electrons in each spin-subspace:
+	\begin{equation}
+	[\hat{H}, \hat{N}_\alpha] = [\hat{H}, \hat{N}_\beta] = 0 \qq{where} \hat{N}_\alpha \ket{\Psi} = \sum_{i=1}^M n_i = N_\alpha \qq{and} \hat{N}_\beta \ket{\Psi} = \sum_{i=1}^{\bar{M}} \bar{n}_i = N_\beta
+	\end{equation}
+	Equivalently, $\hat{H}$ commutes with the total number operator $\hat{N}=\hat{N}_\alpha + \hat{N}_\beta$ and the total spin $z$-projection operator $\hat{S}_z = \hat{N}_\alpha - \hat{N}_\beta$. As a result, $N_\alpha, N_\beta, S_z$ are good quantum numbers.
+	
+	Consequently, the two spin-subspaces of the full Hilbert space are spanned exactly by the kind of basis which admits the construction of fermionic $SU(M)$ Thouless states. Hence, we can span the Hilbert space by states of the form
+	
+	\begin{equation}
+	\ket{Z\alpha, Z_\beta} = \ket{Z_\alpha}_\alpha \otimes \ket{Z_\beta}_\beta
+	\end{equation}
+	where $\ket{Z_\alpha}, \ket{Z_\beta}$ are Thouless states with mode and total occupancy numbers being $M, N_\alpha$ and $\bar{M}, N_\beta$, respectively.
+	
+	\subsection{Approximating the electronic ground state}
+	
+	For a single-reference molecule, a reasonable assumption (which forms the basis of Hartree-Fock theory) is that its electronic ground state has a significant overlap with its reference state. To go beyond the reference state is to design a post-HF method, which takes the mean-field MOs and the Slater determinants constructed on them as the starting point.
+	
+	A good method to find a state lower in energy than the reference state is to use the fact that the reference state's large overlap with the true ground state can be rephrased as them being in close proximity in the $Z$-parameter space. The ground state, of course, is not necessarily a pure Thouless state, but, utilising the over-completeness of the Thouless state basis, it should be sufficient to sample a small set of states around the reference state in the parameter space (making sure it also contains the reference state itself) and then diagonalise the Hamiltonian matrix formed on them.
+	
+	By Cauchy's interlacing theorem, the lowest eigenvalue of the Hamiltonian matrix on our sample basis must be strictly lower than the reference state energy. The issue is that the improvement may be minuscule compared to $E_{\phi_0} - E_g$. In order to quickly converge to $E_g$ without the need of a sample of a size comparable to the full Hilbert space dimension, we need to design a smart method of sampling the states. The method proposed in this article is called single-excitation guided sampling, or SEGS for short.
+	
+	\subsection{Electronic ground state spin-symmetry}
+	
+	It appears that the number of occupancy basis vector in the $\hat{S}_z$-degenerate Hilbert space is equal to
+	$${M\choose N_\alpha}{\bar{M}\choose N_\beta}$$
+	However, there is one further restriction to be placed on this Hilbert space if our only goal is to find the energy states. Because the non-relativistic Hamiltonian contains no spin coordinates, it commutes not only with $\hat{S}_z$, but also with the total spin operator $\hat{S}^2$.
+	
+	Because of this, total spin $S$ is another good quantum number, and if we know its value for the ground state, we can further restrict ourselves to a subspace of the full Hilbert space which is degenerate in $\hat{S}^2$ with the same eigenvalue as the ground state.
+	
+	In general, Slater determinants are not eigenstates of $\hat{S}^2$, and hence a more suitable basis would be formed of their careful linear combinations which are referred to as configuration state functions (CSFs), or as spin-adapted configurations (SACs).
+	
+	For an RHF basis, some specific Slater determinants are eigenstates of $\hat{S}^2$. These are states where all open shells have the same spin state (i.e. all open shells are in either the $\alpha$ subspace or the $\beta$ subspace). Other $\hat{S}^2$ eigenstates for a specific total spin number are constructed as superpositions of Slater determinants in a hierarchical fashion, which can be characterised by the number of open shells. For example, a singlet CSF with two open shells can be constructed like so:
+	\begin{equation}
+	\ket{\text{state with }S = 0} = \frac{1}{\sqrt{2}} \left(\ket{1, 0}_\alpha \otimes \ket{0, 1}_\beta + \ket{0, 1}_\alpha \otimes \ket{1, 0}_\beta\right)
+	\end{equation}
+	Note that the above construction can be generalised to larger mode and total particle number cases if all other shells are closed. The expressions for CSF singlets with four, six etc. open shells are more complicated.
+	
+	We cannot limit the Thouless states to be pure eigenstates of $\hat{S}^2$ by the nature of their construction, but this is not necessary--an aspect of SEGS is to naturally guide the sampling by considering the CSFs of the same spin as the ground state in the hierarchical order.
+	
+	\section{Results}
+	
+	The main idea of SEGS is to favour the particular excitations which are more strongly present in the ground state. A single excitation characterised by a pair of numbers $(i \rightarrow j)$ does not correspond to a single Slater determinant, but is characteristic of a subset of CSFs which span the subspace which is known to contain the ground state.
+	
+	Even if we do not know the ground state beforehand, we can estimate the prevalence of a particular excitation by taking very small samples from the CSF-subspace, diagonalising them to obtain a ground state estimate, and then projecting it onto states in the sample which are characterised by that excitation. A hierarchy of Hilbert states emerges:
+	
+	\begin{multline*}
+	\{\text{CSFs characterised by } (i \rightarrow j)\} \subset \{\text{Singly-excited CSFs}\} \subset \\
+	\{\text{CSFs with total spin matching the ground state}\} \subset \{N_\alpha, N_\beta\text{-preserving states} \}
+	\end{multline*}
+	
+	We shall start by stating more approximations and assumptions to outline the basic version of SEGS, and then propose how to generalise it in case those approximations and assumptions cease to hold.
+	
+	\subsection{SEGS on RHF}
+	
+	In case of a singlet molecule with restricted MOs, the reference state is
+	\begin{equation*}
+	\ket{\phi_0} = \ket{1, 1 \dots 1, 0, 0 \dots 0}_\alpha \otimes \ket{1, 1 \dots 1, 0, 0 \dots 0}_\beta \qq{with} N_\alpha = N_\beta, M = \bar{M}, \phi_i^\alpha = \phi_i^\beta
+	\end{equation*}
+	Then, the CSF space can be partitioned into singlets with no open shells ($\mathcal{H}_0$), singlets with two open shells ($\mathcal{H}_1$) etc. We shall assume that the ground state has a projection into $\mathcal{H}_0$ with norm nearing one.
+	
+	In $\mathcal{H}_0$, the CSF with the largest overlap with the ground state is expected to be $\ket{\phi_0}$ itself. It is a reasonable assumption that larger number of excitations correlates with higher energy expectation value. Let us then consider the states
+	\begin{equation}
+	\ket{(i\rightarrow j)} = \ket{\phi_0 + \{j\} - \{i\}}_\alpha \otimes \ket{\phi_0 + \{j\} - \{i\}}_\beta
+	\end{equation}
+	Based on our previous assumptions, we would expect these states (referred to as SECSs, short for single-excitation closed shells) to contain most of the ground state sans its $\ket{\phi_0}$ component. Actually, we can get a good first estimate of the ground state energy by taking the basis set $\{\ket{\phi_0}\} + \{\text{SECS}\}$ and diagonalising its Hamiltonian matrix. The ground state $\ket{\text{SECS g.s.}}$ energy estimate on this basis set will be referred to as the SECS ground state energy. The number of SECS states is $(M-S)S$.
+	
+	Now, we shall use the Thouless sampling method to improve further on the SECS ground state energy estimate by considering the overlap
+	\begin{equation}
+	\braket{\text{SECS g.s.}}{(i \rightarrow j)} = \eta_{ij}
+	\end{equation}
+	The magnitude $\eta_{ij}$ is related to the component of the ground state consisting of states that feature excitation $(i \rightarrow j)$. Ergo, it is related to the expected value of the magnitude of $Z_{ji}$ in the decomposition of the ground state into the Thouless state basis. However, just constructing a state $\ket{\eta^T}_\alpha \otimes \ket{\eta^T}_\beta$ does not help, since in this state the excitation $(i\rightarrow j)$ in the $\alpha$ subspace is not correlated with the same excitation in the $\beta$ subspace, and the total state, having zero entanglement between spin subspaces, has a large projection onto states with one or more open shells.
+	
+	However, the magnitude $|\eta_{ij}|$ gives us a good estimate for the expected amplitude of $Z_{ji}$ in the random sample. Therefore, we propose two methods of sampling Thouless states:
+	\begin{itemize}
+	\item from a normal distribution with mean zero and standard deviation on $Z_{ji}$ equal to $\eta_{ij}$.
+	\item Taking $Z_{ij}=\eta_{ji}$ and multiplying every one of its elements by a random number from the complex unit circle.
+	\end{itemize}
+	
+	The two methods both perform well on \chem{Li_2} and \chem{N_2}, see figure below.
+	
+	\subsection{SEGS on UHF}
+	
+	On an UHF basis, no Slater determinant is a true eigenstate of $\hat{S}^2$ in general. However, if we assume that the reference state is still close to the ground state, the method readily generalises for an UHF basis, by simply considering all possible pairs of excitations on each spin subspace, including no excitation:
+	
+	\begin{eqnarray*}
+	\ket{(i\rightarrow j)}_\alpha \otimes \ket{\phi_0}_\beta &=& \ket{\phi_0 + \{j\} - \{i\}}_\alpha \otimes \ket{\phi_0}_\beta\\
+	\ket{\phi_0}_\alpha \otimes \ket{(i\rightarrow j)}_\beta &=& \ket{\phi_0}_\alpha \otimes \ket{\phi_0 + \{j\} - \{i\}}_\beta\\
+	\ket{(p\rightarrow q)}_\alpha \otimes \ket{(r\rightarrow s)}_\beta &=& \ket{\phi_0 + \{q\} - \{p\}}_\alpha \otimes \ket{\phi_0 + \{s\} - \{r\}}_\beta
+	\end{eqnarray*}
+	
+	Once again, we can build a basis out of all possible states of this fashion, plus the reference state. The size of this basis is $(1 + (M-N_\alpha))N_\alpha (1 + (\bar{M} - N_\beta)N_\beta)$, which is a polynome of the fourth order. We can find the ground state on this sample, denoting it $\ket{\text{SE g.g.}}$, since it is formed on a basis where within each spin subspace at most a single excitation is considered.
+	
+	Then, the spin-correlated single excitation weight consists of the decomposition coefficients for every pair of single excitations $(p\rightarrow q), (r\rightarrow s)$ in the decomposition of $\ket{\text{SECS g.g.}}$, including no excitation for either of the two spin subspaces.
+	
+	The basic construction of Thouless states as discussed above has no entanglement between the two spin subspaces, and thus we cannot correlate the excitations between the two spin subspaces. For simplicity's sake, we may obtain the two single-excitation weights like so:
+	\begin{eqnarray}
+	\eta_{ij}^\alpha &=& \bra{\text{SECS g.g.}}\left(\ket{(i\rightarrow j)}_\alpha \otimes \ket{\phi_0}_\beta + \sum_{k\in\pi_1^\beta}\sum_{l\in\pi_0^\beta}\ket{(i\rightarrow j)}_\alpha \otimes \ket{(k\rightarrow l)}_\beta\right)\\
+	\eta_{ij}^\beta &=& \bra{\text{SECS g.g.}}\left(\ket{\phi_0}_\alpha \otimes \ket{(i\rightarrow j)}_\beta + \sum_{k\in\pi_1^\alpha}\sum_{l\in\pi_0^\alpha} \ket{(k\rightarrow l)}_\alpha \otimes \ket{(i\rightarrow j)}_\beta\right)
+	\end{eqnarray}
+	
+	In other words, we are projecting $\ket{\text{SECS g.g.}}$ onto the single-excitation subspace for a particular excitation in either spin-subspace. Although it may seem reasonable to restrict ourselves to one excitation in one spin-subspace and zero excitation in the other to restrict the basis size, this could not be expected to have a big overlap with the ground state because it disregards approximately closed shells. If the basis is too big, it may be helpful to only consider states where the two excitations are from and to modes of similar energy.
+	
+	Once we obtain $\eta^\alpha, \eta^\beta$, we can use the same sampling techniques as for RHF, using each matrix as a guidance for Thouless component in the corresponding spin subspace.
+	
+	
+	
+\end{document}

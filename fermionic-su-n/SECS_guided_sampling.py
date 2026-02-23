@@ -34,6 +34,7 @@ for mol_name, mol in benchmark_molecules.items():
 
     mol_solver = ground_state_solver(f"bench_mol_{mol_name}_Thouless_on_SECS")
     mol_solver.initialise_molecule(mol)
+    mol_solver.pyscf_full_CI()
 
     mol_solvers[mol_name] = mol_solver
 
@@ -78,7 +79,7 @@ for mol_name, mol in benchmark_molecules.items():
     mol_solver = mol_solvers[mol_name]
 
     # We now manually sample Thouless states guided by the SECS heatmap
-    cur_sample = CS_sample(mol_solver, CS_Thouless, add_ref_state = True)
+    """cur_sample = CS_sample(mol_solver, CS_Thouless, add_ref_state = True)
 
     shape_alpha = (mol_solver.mol.nao - mol_solver.S_alpha, mol_solver.S_alpha)
     shape_beta = (mol_solver.mol.nao - mol_solver.S_beta, mol_solver.S_beta)
@@ -106,8 +107,9 @@ for mol_name, mol in benchmark_molecules.items():
         N_vals_t.append(cur_sample.N)
         energy_levels_t.append(cur_sample.E_ground[-1])
 
-    solution_benchmark = mol_solver.semaphor.finish_event(new_sem_ID, "    Evaluation")
-
+    solution_benchmark = mol_solver.semaphor.finish_event(new_sem_ID, "    Evaluation")"""
+    #N_vals_width, energy_levels_width = mol_solver.find_ground_state("SEGS_width", N = 20, N_sub = 5)
+    N_vals_phase, energy_levels_phase = mol_solver.find_ground_state("SEGS_width", N = 3, N_sub = 1)
 
     #N_vals_t, energy_levels_t = mol_solver.find_ground_state("manual", sample = cur_sample)
 
@@ -118,11 +120,16 @@ for mol_name, mol in benchmark_molecules.items():
     #trimmed_ground_state_full_ci = -74.57429774053233
 
 
-    plt.plot(N_vals_t, energy_levels_t, "x", label = "Thouless")
+    #plt.plot(N_vals_width, energy_levels_width, "x", label = "SEGS width")
+    plt.plot(N_vals_phase, energy_levels_phase, "x", label = "SEGS phase")
 
     plt.axhline(y = mol_solver.reference_state_energy, label = "ref state", color = ref_energy_colors["ref state"])
     plt.axhline(y = mol_solver.ci_energy, label = "full CI", color = ref_energy_colors["full CI"])
     plt.axhline(y = mol_SECS_restricted_energies[mol_name], label = "SECS-restricted CI", color = ref_energy_colors["SECS"])
+
+    #heatmap_state = [CS_Thouless(mol_solver.mol.nao, mol_solver.S_alpha, mol_SECS_heatmaps[mol_name]), CS_Thouless(mol_solver.mol.nao, mol_solver.S_alpha, mol_SECS_heatmaps[mol_name]) ]
+    #heatmap_state_energy = mol_solver.H_overlap(heatmap_state, heatmap_state)
+    #plt.axhline(y = heatmap_state_energy, label = "SECS CS-state energy", color = "red")
 
     if mol_name in trimmed_ground_state_full_ci:
         plt.axhline(y = trimmed_ground_state_full_ci[mol_name], label = "trimmed CI", color = ref_energy_colors["trimmed CI"], linestyle="dashed")

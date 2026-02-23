@@ -1,0 +1,44 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper, total={7.5in, 8in}]{geometry}
+\usepackage{xargs}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{physics}
+\usepackage{graphicx}
+
+\usepackage{simpler-wick}
+
+\newcommand{\sgn}{\text{sgn}}
+\newcommand{\seq}[1]{\langle #1\rangle}
+\newcommand{\asc}[1]{\upharpoonleft #1 \upharpoonright}
+\newcommand{\hc}{^\dagger}
+\newcommand{\inv}{^{-1}}
+\newcommand{\Sym}{\text{Sym}}
+\newcommand{\normord}[1]{:\mathrel{\mspace{2mu}#1\mspace{2mu}}:}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+
+\begin{document}
+
+	\title{Spin-correlated $SU(M)$ coherent states}
+	\author{Michal Horanský}	
+	\maketitle
+	
+	We shall generalise the $SU(M)$ fermionic coherent state construction to
+	
+	\begin{equation}
+	\braket{\phi_0^\alpha + A^\alpha - B^\alpha; \phi_0^\beta + A^\beta - B^\beta}{Z} \propto \det_{M_\alpha, M_\beta} Z_{\seq{A^\alpha},\seq{B^\alpha},\seq{A^\beta},\seq{B^\beta}} 
+	\end{equation}
+	where the two-determinant is defined as
+	\begin{equation}
+	\det_{m, n} S = \sum_{P_a \in P^{m}} \sum_{P_b \in P^{n}} \sgn{P_a}\sgn{P_b} \prod_{i=1}^m \prod_{j=1}^n S_{i, P_a(i), j, P_b(j)}
+	\end{equation}
+	where $S$ is a map $U \otimes V \to U \otimes V$ on a pair of vector spaces with $\dim U = m, \dim V = n$ spanned by $\hat{e}_i, \hat{e}_{i'}$, such that
+	\begin{equation}
+	S \hat{e}_i \otimes \hat{e}_{i'} = \sum_{j=1}^m \sum_{j'=1}^n S_{iji'j'} \hat{e}_j \otimes \hat{e}_{j'}
+	\end{equation}
+	
+	
+	
+\end{document}

@@ -90,9 +90,15 @@ class ground_state_solver():
         self.diagnostics_log = []
         # The structure of the diagnostics log is like so: every element is either a list (for multiple same-level subprocedures) or a dict (for a header : content) pair
 
+        # Self-analysis properties
+        self.checklist = [] # List of succesfully performed actions
+
         self.reference_state_energy = None
         self.ci_energy = None
         self.ci_sol = None # We did not perform full CI
+
+        self.SECS_eta = None
+        self.SECS_energy = None
 
         print("---------------------------- " + str(ID) + " -----------------------------")
 
@@ -672,9 +678,153 @@ class ground_state_solver():
             convergence_sols.append(get_partial_sol(N_eff_val))
 
         self.disk_jockey.commit_datum_bulk("result_energy_states", [N_vals, convergence_sols])
-        self.diagnostics_log.append({"find_ground_state_sampling" : procedure_diagnostic})
+        self.diagnostics_log.append({"find_ground_state_manual" : procedure_diagnostic})
 
         return(N_vals, convergence_sols)
+
+    def find_ground_state_SEGS_width(self, **kwargs):
+        # kwargs:
+        #     -N: Sample size
+        #     -N_sub: Subsample size
+        #     -CS: Type of CS to use. Not all CS types support SEGS!
+
+        N = kwargs["N"]
+        N_subsample = 1
+        if "N_sub" in kwargs:
+            N_subsample = kwargs["N_sub"]
+
+        CS_type = "Thouless"
+        if "CS" in kwargs:
+            CS_type = kwargs["CS"]
+
+        print(f"Obtaining the ground state with the method \"SEGS for dist width\" [N = {kwargs["N"]}, N_sub = {N_subsample}, CS = {CS_type}]")
+
+        assert self.S_alpha == self.S_beta # So far only RHF!
+
+        procedure_diagnostic = []
+
+        print("Obtaining SEGS heatmap and reference energy...")
+        cur_SECS_heatmap, cur_SECS_restricted_energy = self.solve_on_single_excitation_closed_shell()
+
+        # We now manually sample Thouless states guided by the SECS heatmap
+        cur_sample = CS_sample(self, ground_state_solver.coherent_state_types[CS_type], add_ref_state = True)
+
+
+        # Here, depending on the CS type, we set up the normal distribution parameters
+        if CS_type == "Thouless":
+            shape_alpha = (self.mol.nao - self.S_alpha, self.S_alpha)
+            shape_beta = (self.mol.nao - self.S_beta, self.S_beta)
+            centres_alpha = np.zeros(shape_alpha)
+            centres_beta = np.zeros(shape_beta)
+            widths_alpha =  np.sqrt(cur_SECS_heatmap)
+            widths_beta =  np.sqrt(cur_SECS_heatmap)
+        elif CS_type == "Qubit":
+            # mu_0 = (ref occupancy); std = sum(eta, axis)
+            shape_alpha = (self.mol.nao,)
+            shape_beta = (self.mol.nao,)
+            centres_alpha = np.concatenate((
+                        np.ones(self.S_alpha),
+                        np.zeros(self.mol.nao - self.S_alpha)
+                    ))
+            centres_beta = np.concatenate((
+                        np.ones(self.S_beta),
+                        np.zeros(self.mol.nao - self.S_beta)
+                    ))
+            widths_alpha = np.concatenate((
+                        np.sqrt(np.sum(cur_SECS_heatmap, axis = 1)),
+                        np.sqrt(np.sum(cur_SECS_heatmap, axis = 0))
+                    ))
+            widths_beta = np.concatenate((
+                        np.sqrt(np.sum(cur_SECS_heatmap, axis = 1)),
+                        np.sqrt(np.sum(cur_SECS_heatmap, axis = 0))
+                    ))
+
+        N_vals = [1]
+        convergence_sols = [self.reference_state_energy]
+
+        msg = f"  Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
+        new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
+
+        for n in range(N):
+            # We add the best out of 10 random states
+            cur_subsample = []
+            for n_sub in range(N_subsample):
+                #rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, np.random.normal(centres_alpha, np.sqrt(cur_SECS_heatmap), shape_alpha))
+                #rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, np.random.normal(centres_beta, np.sqrt(cur_SECS_heatmap), shape_beta))
+                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, np.random.normal(centres_alpha, widths_alpha, shape_alpha))
+                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, np.random.normal(centres_beta, widths_beta, shape_beta))
+                cur_subsample.append([rand_z_alpha, rand_z_beta])
+
+            cur_sample.add_best_of_subsample(cur_subsample, semaphor_ID = new_sem_ID)
+            N_vals.append(cur_sample.N)
+            convergence_sols.append(cur_sample.E_ground[-1])
+
+        procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
+
+        solution_benchmark = self.semaphor.finish_event(new_sem_ID, "    Evaluation")
+
+        self.disk_jockey.commit_datum_bulk("result_energy_states", [N_vals, convergence_sols])
+        self.diagnostics_log.append({"find_ground_state_SEGS_width" : procedure_diagnostic})
+
+        return(N_vals, convergence_sols)
+
+    def find_ground_state_SEGS_phase(self, **kwargs):
+        # kwargs:
+        #     -N: Sample size
+        #     -N_sub: Subsample size
+
+        print(f"Obtaining the ground state with the method \"SEGS with random phase\" [N = {kwargs["N"]}, N_sub = {kwargs["N_sub"]}]")
+
+        assert self.S_alpha == self.S_beta
+
+
+        procedure_diagnostic = []
+
+        print("---------------- Sampling ")
+
+        print("Obtaining SEGS heatmap and reference energy...")
+        cur_SECS_heatmap, cur_SECS_restricted_energy = self.solve_on_single_excitation_closed_shell()
+
+        # We now manually sample Thouless states guided by the SECS heatmap
+        cur_sample = CS_sample(self, CS_Thouless, add_ref_state = True)
+
+        shape_alpha = (self.mol.nao - self.S_alpha, self.S_alpha)
+        shape_beta = (self.mol.nao - self.S_beta, self.S_beta)
+        centres_alpha = np.zeros(shape_alpha)
+        centres_beta = np.zeros(shape_beta)
+
+        N = kwargs["N"]
+        N_subsample = kwargs["N_sub"]
+
+        N_vals = [1]
+        convergence_sols = [self.reference_state_energy]
+
+        msg = f"  Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
+        new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
+
+        for n in range(N):
+            # We add the best out of 10 random states
+            cur_subsample = []
+            for n_sub in range(N_subsample):
+                #rand_z_alpha = CS_Thouless(self.mol.nao, self.S_alpha, np.random.normal(centres_alpha, np.sqrt(cur_SECS_heatmap), shape_alpha))
+                #rand_z_beta = CS_Thouless(self.mol.nao, self.S_beta, np.random.normal(centres_beta, np.sqrt(cur_SECS_heatmap), shape_beta))
+                rand_z_alpha = CS_Thouless(self.mol.nao, self.S_alpha, np.sqrt(cur_SECS_heatmap) * np.exp(1j * np.random.random(shape_alpha) * 2.0 * np.pi))
+                rand_z_beta = CS_Thouless(self.mol.nao, self.S_beta, np.sqrt(cur_SECS_heatmap) * np.exp(1j * np.random.random(shape_beta) * 2.0 * np.pi))
+                cur_subsample.append([rand_z_alpha, rand_z_beta])
+
+            cur_sample.add_best_of_subsample(cur_subsample, semaphor_ID = new_sem_ID)
+            N_vals.append(cur_sample.N)
+            convergence_sols.append(cur_sample.E_ground[-1])
+
+        procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
+
+        solution_benchmark = self.semaphor.finish_event(new_sem_ID, "    Evaluation")
+
+        self.disk_jockey.commit_datum_bulk("result_energy_states", [N_vals, convergence_sols])
+        self.diagnostics_log.append({"find_ground_state_SEGS_phase" : procedure_diagnostic})
+
+        return(N_vals, convergence_sols)
+
 
 
     def find_ground_state_krylov(self, **kwargs):
@@ -697,6 +847,8 @@ class ground_state_solver():
     find_ground_state_methods = {
             "sampling" : find_ground_state_sampling,
             "manual" : find_ground_state_manual, # manual sample
+            "SEGS_width" : find_ground_state_SEGS_width, # uses SEGS for width of sample, correlated for UHF
+            "SEGS_phase" : find_ground_state_SEGS_phase, # restricts the magnitudes by SEGS, only randomises phases of components
             "krylov" : find_ground_state_krylov,
             "imag_timeprop" : find_ground_state_imaginary_timeprop
         }
@@ -708,6 +860,10 @@ class ground_state_solver():
 
     def initialise_molecule(self, mol):
         # mol is an instance of pyscf.gto.Mole
+
+        if "mol_init" in self.checklist:
+            print("Molecule already initialised.")
+            return(None)
 
         print("Initialising molecule...")
         self.mol = mol
@@ -749,13 +905,13 @@ class ground_state_solver():
 
         print("  Finding the molecular orbitals using mean-field approximations...")
         mean_field = scf.RHF(mol).run()
-        MO_coefs = mean_field.mo_coeff
+        self.MO_coefs = mean_field.mo_coeff
         self.reference_state_energy = mean_field.e_tot
 
         print("  Transforming 1e and 2e integrals to MO basis...")
-        self.MO_H_one = np.matmul(MO_coefs.T, np.matmul(AO_H_one, MO_coefs))
-        MO_H_two_packed = ao2mo.kernel(self.mol, MO_coefs)
-        MO_H_two_chemist = ao2mo.restore(1, MO_H_two_packed, MO_coefs.shape[1]) # In mulliken notation: MO_H_two[p][q][r][s] = (pq|rs)
+        self.MO_H_one = np.matmul(self.MO_coefs.T, np.matmul(AO_H_one, self.MO_coefs))
+        MO_H_two_packed = ao2mo.kernel(self.mol, self.MO_coefs)
+        MO_H_two_chemist = ao2mo.restore(1, MO_H_two_packed, self.MO_coefs.shape[1]) # In mulliken notation: MO_H_two[p][q][r][s] = (pq|rs)
 
         self.MO_H_two = MO_H_two_chemist.transpose(0, 2, 1, 3)# - MO_H_two_chemist.transpose(0, 3, 1, 2)
 
@@ -805,12 +961,6 @@ class ground_state_solver():
         null_state_direct_self_energy = self.H_overlap(null_state, null_state)
         print(f"  Energy of the null state with the overlap method = {null_state_direct_self_energy}")
 
-        cisolver = fci.FCI(self.mol, MO_coefs)
-        self.ci_energy, self.ci_sol = cisolver.kernel()
-
-        print(f"  Ground state energy as calculated by SCF (full configuration) = {self.ci_energy}")
-
-
         self.user_log += f"initialise_molecule [M = {self.M}, S = {self.S}]"
         mol_structure_bulk = {
             "atom" : self.mol.atom,
@@ -826,6 +976,24 @@ class ground_state_solver():
             }
         self.disk_jockey.commit_datum_bulk("mol_structure", mol_structure_bulk)
         self.disk_jockey.commit_datum_bulk("mode_structure", mode_structure_bulk)
+
+        self.checklist.append("mol_init")
+
+    def pyscf_full_CI(self):
+        if "pyscf_full_CI" in self.checklist:
+            print("Full CI by PySCF already performed.")
+            return(self.ci_energy)
+
+        print("Performing SCF on full CI...")
+
+        cisolver = fci.FCI(self.mol, self.MO_coefs)
+        self.ci_energy, self.ci_sol = cisolver.kernel()
+
+        print(f"  Ground state energy as calculated by SCF (full configuration) = {self.ci_energy}")
+        return(self.ci_energy)
+
+
+
 
     def search_for_states(self, state_type, sampling_method, inclusion):
         found_states = 0
@@ -1307,6 +1475,11 @@ class ground_state_solver():
         # The goal is to approximate the true solution heatmap for the purpose
         # of guiding the CS sampling process.
 
+        if "SECS_sol" in self.checklist:
+            # Already solved
+            return(self.SECS_eta, self.SECS_energy)
+
+
         assert(self.S_alpha == self.S_beta)
 
         act_M = self.mol.nao
@@ -1363,6 +1536,12 @@ class ground_state_solver():
                 sol_component = ground_state_vector[i]
                 res[a][b] = sol_component * sol_component
                 i += 1
+
+        # Mark as solved
+        self.checklist.append("SECS_sol")
+
+        self.SECS_eta = res
+        self.SECS_energy = ground_state_energy
 
         return(res, ground_state_energy)
 

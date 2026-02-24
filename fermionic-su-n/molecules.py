@@ -81,16 +81,6 @@ no_mol.build(
 )
 
 
-# Some other helpful properties
-
-ref_energy_colors = {
-    "ref state" : "#b3b3ff",
-    "full CI" : "#005ce6",
-    "SECS" : "#80ffff",
-    "trimmed CI" : "#6699ff"
-    }
-
-
 
 
 

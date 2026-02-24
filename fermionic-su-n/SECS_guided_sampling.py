@@ -32,9 +32,10 @@ mol_SECS_restricted_energies = {}
 
 for mol_name, mol in benchmark_molecules.items():
 
-    mol_solver = ground_state_solver(f"mol_{mol_name}_Thouless_on_SECS")
+    mol_solver = ground_state_solver(f"Saving_Test_{mol_name}")
     mol_solver.initialise_molecule(mol)
-    mol_solver.pyscf_full_CI()
+    mol_solver.load_data(["self_analysis", "measured_datasets"])
+    #mol_solver.pyscf_full_CI()
 
     mol_solvers[mol_name] = mol_solver
 
@@ -52,10 +53,10 @@ for mol_name, mol in benchmark_molecules.items():
     print(f"Total square norm of the projection into all {single_exc_N} single-excitation CSF singlets is {single_exc_proj}")
     print(f"\nFor closed shells U single-excitation CSF singlets, we have a {closed_shell_N + single_exc_N}-dim space with norm square projection {closed_shell_proj + single_exc_proj}")"""
 
-    cur_SECS_heatmap, cur_SECS_restricted_energy = mol_solver.solve_on_single_excitation_closed_shell()
+    #cur_SECS_heatmap, cur_SECS_restricted_energy = mol_solver.solve_on_single_excitation_closed_shell()
 
-    mol_SECS_heatmaps[mol_name] = cur_SECS_heatmap
-    mol_SECS_restricted_energies[mol_name] = cur_SECS_restricted_energy
+    #mol_SECS_heatmaps[mol_name] = cur_SECS_heatmap
+    #mol_SECS_restricted_energies[mol_name] = cur_SECS_restricted_energy
 
 
 
@@ -71,10 +72,10 @@ plot_x, plot_y = functions.subplot_dimensions(len(benchmark_molecules))
 
 i = 0
 for mol_name, mol in benchmark_molecules.items():
-    plt.subplot(plot_y, plot_x, i+1)
+    """plt.subplot(plot_y, plot_x, i+1)
     plt.title(f"Molecule {mol_name}")
     plt.xlabel("No. configs")
-    plt.ylabel("E [Hartree]")
+    plt.ylabel("E [Hartree]")"""
 
     mol_solver = mol_solvers[mol_name]
 
@@ -109,7 +110,7 @@ for mol_name, mol in benchmark_molecules.items():
 
     solution_benchmark = mol_solver.semaphor.finish_event(new_sem_ID, "    Evaluation")"""
     #N_vals_width, energy_levels_width = mol_solver.find_ground_state("SEGS_width", N = 20, N_sub = 5)
-    N_vals_phase, energy_levels_phase = mol_solver.find_ground_state("SEGS_width", N = 3, N_sub = 1)
+    #N_vals_phase, energy_levels_phase = mol_solver.find_ground_state("SEGS_phase", N = 3, N_sub = 1, dataset_label = "SEGS phase")
 
     #N_vals_t, energy_levels_t = mol_solver.find_ground_state("manual", sample = cur_sample)
 
@@ -119,12 +120,19 @@ for mol_name, mol in benchmark_molecules.items():
     # For C2, we can just quote the measured trimmed full CI ground state energy
     #trimmed_ground_state_full_ci = -74.57429774053233
 
+
+    ref_energies = []
+    if mol_name in trimmed_ground_state_full_ci:
+        ref_energies.append({"E" : trimmed_ground_state_full_ci[mol_name], "label" : "trimmed CI", "color" : functions.ref_energy_colors["trimmed CI"], "linestyle" : "dashed"})
+
+    mol_solver.plot_datasets(ref_energies)
+
     # Save the data
     mol_solver.save_data()
 
 
     #plt.plot(N_vals_width, energy_levels_width, "x", label = "SEGS width")
-    plt.plot(N_vals_phase, energy_levels_phase, "x", label = "SEGS phase")
+    """plt.plot(N_vals_phase, energy_levels_phase, "x", label = "SEGS phase")
 
     plt.axhline(y = mol_solver.reference_state_energy, label = "ref state", color = ref_energy_colors["ref state"])
     plt.axhline(y = mol_solver.ci_energy, label = "full CI", color = ref_energy_colors["full CI"])
@@ -139,8 +147,8 @@ for mol_name, mol in benchmark_molecules.items():
 
     plt.legend()
 
-    i += 1
+    i += 1"""
 
-plt.tight_layout()
-plt.show()
+#plt.tight_layout()
+#plt.show()
 

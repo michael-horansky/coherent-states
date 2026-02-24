@@ -132,20 +132,20 @@ class Semaphor():
         if event_ID not in self.tau_space.keys():
             #print(f"  ERROR: Semaphor {event_ID} does not exist.")
             if self.print_directly:
-                print(f"  ERROR: Semaphor {event_ID} does not exist.")
+                print(f"ERROR: Semaphor {event_ID} does not exist.")
                 return(-1)
             else:
-                return(f"  ERROR: Semaphor {event_ID} does not exist.")
+                return(f"ERROR: Semaphor {event_ID} does not exist.")
         # check if semaphor finished
         if self.next_flag_tau_index[event_ID] >= len(self.tau_space[event_ID]):
             if self.newline[event_ID]:
                 if self.print_directly:
-                    print("  Semaphor reached the final flagged timestamp. No further semaphor update necessary.")
+                    print("Semaphor reached the final flagged timestamp. No further semaphor update necessary.")
                     return(0)
                 else:
-                    return("  Semaphor reached the final flagged timestamp. No further semaphor update necessary.")
+                    return("Semaphor reached the final flagged timestamp. No further semaphor update necessary.")
             else:
-                msg = "  Semaphor reached the final flagged timestamp. No further semaphor update necessary."
+                msg = "Semaphor reached the final flagged timestamp. No further semaphor update necessary."
                 if len(msg) < self.max_msg_len[event_ID]:
                     # padding
                     msg += " " * (self.max_msg_len[event_ID] - len(msg))
@@ -167,12 +167,12 @@ class Semaphor():
 
             if self.newline[event_ID]:
                 if self.print_directly:
-                    print(f"  {self.message[event_ID]}: {str(int(100 * progress_fraction)).zfill(2)}% done; est. time of finish: {ETA} (sim. t = {tau:.2f})")
+                    print(f"{self.message[event_ID]}: {str(int(100 * progress_fraction)).zfill(2)}% done; est. time of finish: {ETA} (sim. t = {tau:.2f})")
                     return(0)
                 else:
-                    return(f"  {self.message[event_ID]}: {str(int(100 * progress_fraction)).zfill(2)}% done; est. time of finish: {ETA} (sim. t = {tau:.2f})")
+                    return(f"{self.message[event_ID]}: {str(int(100 * progress_fraction)).zfill(2)}% done; est. time of finish: {ETA} (sim. t = {tau:.2f})")
             else:
-                msg = f"  {self.message[event_ID]}: {str(int(100 * progress_fraction)).zfill(2)}% done; est. time of finish: {ETA} (sim. t = {tau:.2f})"
+                msg = f"{self.message[event_ID]}: {str(int(100 * progress_fraction)).zfill(2)}% done; est. time of finish: {ETA} (sim. t = {tau:.2f})"
                 if len(msg) < self.max_msg_len[event_ID]:
                     # padding
                     msg += " " * (self.max_msg_len[event_ID] - len(msg))

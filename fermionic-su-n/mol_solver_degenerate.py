@@ -56,6 +56,8 @@ all_indices = get_nonascending_pairs(ao_pairs)
 # The all_indices list is used as a translation between the s8-symmetrised flat array of int2e and the indices pqrs
 
 
+
+
 class ground_state_solver():
 
     ###########################################################################
@@ -70,6 +72,7 @@ class ground_state_solver():
     data_nodes = {
         "system" : {"user_actions" : "txt", "log" : "txt"}, # User actions summary, Journal style log
         "molecule" : {"mol_structure" : "pkl", "mode_structure" : "pkl"}, # molecule properties
+        "self_analysis" : {"physical_properties" : "json"}, # things which are deterministic but costly to calculate
         #"samples" : {"basis_samples" : "pkl"}, # The specific samples, useful to reconstruct the ground state
         #"results" : {"result_energy_states" : "pkl"}, # The solution as found by the CS method
         "diagnostics" : {"diagnostic_log" : "txt"} # Condition numbers, eigenvalue min-max ratios, norms etc
@@ -90,7 +93,7 @@ class ground_state_solver():
 
         # Data Storage Manager
         self.log.write("Initialising Data Storage Manager...", 1)
-        self.disk_jockey = DSM(f"outputs/{self.ID}")
+        self.disk_jockey = DSM(f"outputs/{self.ID}", self.log)
         self.disk_jockey.create_data_nodes(ground_state_solver.data_nodes) # Each solver call adds a new node dynamically
 
         self.user_actions = f"initialised solver {self.ID}\n"
@@ -100,6 +103,7 @@ class ground_state_solver():
         # Self-analysis properties
         self.log.write("Initialising self-analysis properties...", 1)
         self.checklist = [] # List of succesfully performed actions
+        self.measured_datasets = [] # list of dataset labels
 
         self.reference_state_energy = None
         self.ci_energy = None
@@ -114,6 +118,10 @@ class ground_state_solver():
     ###########################################################################
     # --------------------------- Internal methods ----------------------------
     ###########################################################################
+
+    def check_off(self, checklist_element):
+        if checklist_element not in self.checklist:
+            self.checklist.append(checklist_element)
 
 
     # -------------------------------------------------------------------------
@@ -396,7 +404,7 @@ class ground_state_solver():
 
         H = np.zeros((len(fb), len(fb)), dtype=complex)
 
-        msg = f"  Explicit Hamiltonian evaluation on a trimmed full CI"
+        msg = f"Explicit Hamiltonian evaluation on a trimmed full CI"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, len(fb), 100 + 1), msg)
         self.log.enter(msg, 1, True, tau_space = np.linspace(0, len(fb), 100 + 1))
 
@@ -408,7 +416,7 @@ class ground_state_solver():
                 self.log.update_semaphor_event(i)
                 H[i][j] = self.get_H_overlap_on_occupancy(fb[i], fb[j])
 
-        #self.semaphor.finish_event(new_sem_ID, "    Evaluation")
+        #self.semaphor.finish_event(new_sem_ID, "Evaluation")
         self.log.exit("Evaluation")
 
 
@@ -462,7 +470,7 @@ class ground_state_solver():
 
 
         # Disk jockey node creation and metadata storage
-        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "pkl"}})
+        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
         self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {"CS" : CS_type, "N" : N - 1, "sampling_method" : sampling_method, "assume_spin_symmetry" : assume_spin_symmetry})
         self.user_actions += f"find_ground_state_sampling [N = {N - 1}, sampling method = {sampling_method}, assume spin symmetry = {assume_spin_symmetry}]\n"
         procedure_diagnostic = []
@@ -513,7 +521,7 @@ class ground_state_solver():
         # We now diagonalise on the vector sample
         H_eff = np.zeros((N, N), dtype=complex)
 
-        msg = f"  Explicit Hamiltonian evaluation"
+        msg = f"Explicit Hamiltonian evaluation"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N * (N + 1) / 2, 100 + 1), msg)
         self.log.enter(msg, 1, True, tau_space = np.linspace(0, N * (N + 1) / 2, 100 + 1))
 
@@ -533,7 +541,7 @@ class ground_state_solver():
                 #self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
                 self.log.update_semaphor_event(a * (a + 1) / 2 + b + 1)
 
-        #self.solution_benchmark = self.semaphor.finish_event(new_sem_ID, "    Evaluation")
+        #self.solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
         self.log.exit("Evaluation")
 
         # H_eff diagonal terms
@@ -581,13 +589,16 @@ class ground_state_solver():
 
         convergence_sols = []
         N_vals = []
+        csv_sol = [] # list of rows, first one being header
         for N_eff_val in range(1, N + 1):
             N_vals.append(N_eff_val)
             convergence_sols.append(get_partial_sol(N_eff_val))
+            csv_sol.append({"N" : N_vals[-1], "E [H]" : float(convergence_sols[-1])})
 
-        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", [N_vals, convergence_sols])
+        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
         self.diagnostics_log.append({f"find_ground_state_sampling ({dataset_name})" : procedure_diagnostic})
 
+        self.measured_datasets.append(dataset_label)
 
         self.log.exit()
 
@@ -613,7 +624,7 @@ class ground_state_solver():
             dataset_label = f"manual_{N}_{CS_type}"
 
         # Disk jockey node creation and metadata storage
-        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "pkl"}})
+        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
         self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {"CS" : CS_type, "N" : N, "sampling_method" : "manual"})
         self.user_actions += f"find_ground_state_manual [N = {N}, CS type = {CS_type}]\n"
         procedure_diagnostic = []
@@ -645,7 +656,7 @@ class ground_state_solver():
         # We now diagonalise on the vector sample
         H_eff = np.zeros((N, N), dtype=complex)
 
-        msg = f"  Explicit Hamiltonian evaluation"
+        msg = f"Explicit Hamiltonian evaluation"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N * (N + 1) / 2, 100 + 1), msg)
         self.log.enter(msg, 1, True, tau_space = np.linspace(0, N * (N + 1) / 2, 100 + 1))
 
@@ -713,12 +724,16 @@ class ground_state_solver():
 
         convergence_sols = []
         N_vals = []
+        csv_sol = [] # list of rows
         for N_eff_val in range(1, N + 1):
             N_vals.append(N_eff_val)
             convergence_sols.append(get_partial_sol(N_eff_val))
+            csv_sol.append({"N" : N_vals[-1], "E [H]" : float(convergence_sols[-1])})
 
-        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", [N_vals, convergence_sols])
+        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
         self.diagnostics_log.append({f"find_ground_state_manual ({dataset_name})" : procedure_diagnostic})
+
+        self.measured_datasets.append(dataset_label)
 
         return(N_vals, convergence_sols)
 
@@ -755,7 +770,7 @@ class ground_state_solver():
 
 
         # Disk jockey node creation and metadata storage
-        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "pkl"}})
+        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
         self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {"CS" : CS_type, "N" : N, "N_sub" : N_subsample})
         self.user_actions += f"find_ground_state_SEGS_width [N = {N}, N_sub = {N_subsample}, CS type = {CS_type}]\n"
         procedure_diagnostic = []
@@ -803,7 +818,7 @@ class ground_state_solver():
         N_vals = [1]
         convergence_sols = [self.reference_state_energy]
 
-        msg = f"  Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
+        msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
         self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
@@ -823,12 +838,19 @@ class ground_state_solver():
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "    Evaluation")
+        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
         self.log.exit("Evaluation")
 
+        csv_sol = [] # list of rows
+        for i in range(len(N_vals)):
+            csv_sol.append({"N" : N_vals[i], "E [H]" : float(convergence_sols[i])})
+
+
         self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
-        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", [N_vals, convergence_sols])
+        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
         self.diagnostics_log.append({f"find_ground_state_SEGS_width ({dataset_label})" : procedure_diagnostic})
+
+        self.measured_datasets.append(dataset_label)
 
         self.log.exit()
         return(N_vals, convergence_sols)
@@ -868,7 +890,7 @@ class ground_state_solver():
 
 
         # Disk jockey node creation and metadata storage
-        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "pkl"}})
+        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
         self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {"CS" : CS_type, "N" : N, "N_sub" : N_subsample})
         self.user_actions += f"find_ground_state_SEGS_phase [N = {N}, N_sub = {N_subsample}, CS type = {CS_type}]\n"
         procedure_diagnostic = []
@@ -896,7 +918,7 @@ class ground_state_solver():
         N_vals = [1]
         convergence_sols = [self.reference_state_energy]
 
-        msg = f"  Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
+        msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
         self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
@@ -914,11 +936,18 @@ class ground_state_solver():
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "    Evaluation")
+        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
         self.log.exit("Evaluation")
 
-        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", [N_vals, convergence_sols])
+        csv_sol = [] # list of rows
+        for i in range(len(N_vals)):
+            #csv_sol.append([N_vals[i], convergence_sols[i]])
+            csv_sol.append({"N" : N_vals[i], "E [H]" : float(convergence_sols[i])})
+
+        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
         self.diagnostics_log.append({f"find_ground_state_SEGS_phase ({dataset_label})" : procedure_diagnostic})
+
+        self.measured_datasets.append(dataset_label)
 
         self.log.exit()
 
@@ -1007,7 +1036,7 @@ class ground_state_solver():
         # Hence O_ijkl = O_ljki = O_ikjl = O_lkji
 
         self.log.write("Finding the molecular orbitals using mean-field approximations...", 1)
-        mean_field = scf.RHF(mol).run()
+        mean_field = scf.RHF(mol).run(verbose = 0)
         self.MO_coefs = mean_field.mo_coeff
         self.reference_state_energy = mean_field.e_tot
         self.log.write(f"Done! Reference state energy is {self.reference_state_energy:0.5f}", 1)
@@ -1083,23 +1112,44 @@ class ground_state_solver():
         self.disk_jockey.commit_datum_bulk("molecule", "mol_structure", mol_structure_bulk)
         self.disk_jockey.commit_datum_bulk("molecule", "mode_structure", mode_structure_bulk)
 
-        self.checklist.append("mol_init")
+        self.check_off("mol_init")
 
         self.log.exit()
 
     def pyscf_full_CI(self):
         self.user_actions += f"pyscf_full_CI\n"
 
+        self.log.enter("Performing SCF on full CI...", 0)
+
         if "pyscf_full_CI" in self.checklist:
             print("Full CI by PySCF already performed.")
             return(self.ci_energy)
 
-        print("Performing SCF on full CI...")
-
         cisolver = fci.FCI(self.mol, self.MO_coefs)
-        self.ci_energy, self.ci_sol = cisolver.kernel()
+        self.log.write("FCI solver initialised...", 0)
+        self.ci_energy, raw_ci_sol = cisolver.kernel()
 
-        print(f"  Ground state energy as calculated by SCF (full configuration) = {self.ci_energy}")
+        # We convert the raw_ci_sol object (which is an FCIvector) into a dict
+        # with tuples as keys (tuples represent occupancy strings)
+
+        self.ci_sol = {}
+        norb = cisolver.norb
+        n_alpha, n_beta = cisolver.nelec
+
+        self.log.write("Regularising solution as a dict of tuples...", 3)
+        for a in range(raw_ci_sol.shape[0]):
+            for b in range(raw_ci_sol.shape[1]):
+                alpha_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(norb, n_alpha, a)))
+                beta_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(norb, n_beta, b)))
+                key = (alpha_occ, beta_occ)
+                self.ci_sol[key] = float(raw_ci_sol[a, b])
+
+        self.log.write(f"Type of solution vector is {type(self.ci_sol)}")
+
+        self.check_off("pyscf_full_CI")
+
+        self.log.write(f"Ground state energy as calculated by SCF (full configuration) = {self.ci_energy}", 0)
+        self.log.exit()
         return(self.ci_energy)
 
 
@@ -1146,6 +1196,22 @@ class ground_state_solver():
         # Save user log
         self.disk_jockey.commit_datum_bulk("system", "user_actions", self.user_actions)
         self.disk_jockey.commit_datum_bulk("system", "log", self.log.dump())
+        self.disk_jockey.commit_metadatum("system", "log", {
+            "checklist" : self.checklist,
+            "measured_datasets" : self.measured_datasets
+            })
+
+        # Save self-analysis results which were performed
+        physical_properties_bulk = {}
+        if "mol_init" in self.checklist:
+            physical_properties_bulk["reference_state_energy"] = self.reference_state_energy
+        if "pyscf_full_CI" in self.checklist:
+            physical_properties_bulk["ci_energy"] = self.ci_energy
+            physical_properties_bulk["ci_sol"] = {str(k): v for k, v in self.ci_sol.items()} # each key is a tuple of tuples
+        if "SECS_sol" in self.checklist:
+            physical_properties_bulk["SECS_eta"] = self.SECS_eta.tolist()
+            physical_properties_bulk["SECS_energy"] = self.SECS_energy
+        self.disk_jockey.commit_datum_bulk("self_analysis", "physical_properties", physical_properties_bulk)
 
         # save diagnostic
         self.disk_jockey.commit_datum_bulk("diagnostics", "diagnostic_log", self.print_diagnostic_log())
@@ -1153,10 +1219,64 @@ class ground_state_solver():
         # Save to disk
         self.disk_jockey.save_data()
 
-    def load_data(self):
-        self.user_actions += f"load_data\n"
-        # loads data using disk jockey
-        pass
+        self.log.close_journal()
+
+    def load_data(self, what_to_load = None):
+        # what_to_load is a list of magic strings
+        if what_to_load is None:
+            # Default option
+            self.load_data(["system", "self_analysis", "measured_datasets"])
+        else:
+            self.log.enter("Loading data from the disk...", 0)
+            self.user_actions += f"load_data\n"
+            # loads data using disk jockey
+
+            # Firstly, let's see what we can load!
+            self.log.write("Reading files on disk...", 5)
+            self.disk_jockey.load_data(["system", "diagnostics"]) # Always by default
+            loaded_checklist = self.disk_jockey.metadata["system"]["log"]["checklist"]
+
+            if "self_analysis" in what_to_load and "mol_init" in loaded_checklist:
+                self.log.enter("Restoring self-analysis values...", 3)
+                if "mol_init" not in self.checklist:
+                    self.disk_jockey.load_data(["molecule"])
+                self.disk_jockey.load_data(["self_analysis"])
+
+                loaded_phys_properties = self.disk_jockey.data_bulks["self_analysis"]["physical_properties"]
+
+                self.reference_state_energy = loaded_phys_properties["reference_state_energy"]
+                self.check_off("mol_init")
+                if "pyscf_full_CI" in loaded_checklist:
+                    self.ci_energy = loaded_phys_properties["ci_energy"]
+                    self.ci_sol = {tuple([tuple([int(x) for x in occ.split(", ")]) for occ in k.strip("()").split("), (")]): v for k, v in loaded_phys_properties["ci_sol"].items()} # evil oneliner
+                    self.check_off("pyscf_full_CI")
+                    self.log.write("Results from SCF performed on the full CI loaded...", 4)
+
+                if "SECS_sol" in loaded_checklist:
+                    self.SECS_eta = np.array(loaded_phys_properties["SECS_eta"])
+                    self.SECS_energy = loaded_phys_properties["SECS_energy"]
+                    self.check_off("SECS_sol")
+                    self.log.write("Results from diagonalisation on the SECS basis loaded...", 4)
+
+                self.log.exit()
+
+            if "measured_datasets" in what_to_load:
+                self.log.enter("Restoring measured datasets...", 3)
+                for loaded_dataset in self.disk_jockey.metadata["system"]["log"]["measured_datasets"]:
+                    if loaded_dataset not in self.measured_datasets:
+                        self.log.write(f"Restoring dataset '{loaded_dataset}'...", 4)
+                        for dataset_datum in self.disk_jockey.data_nodes[loaded_dataset]:
+                            self.disk_jockey.load_datum(loaded_dataset, dataset_datum)
+                        self.measured_datasets.append(loaded_dataset)
+                    else:
+                        self.log.write("WARNING: Attempted to load a dataset which exists in internal checklist. Data from the disk was ignored.", 0)
+                self.log.exit()
+
+            self.log.exit()
+
+
+
+
 
     def get_H_two_element(self, p, q, r, s):
         return(self.H_two[p][q][r][s])
@@ -1370,6 +1490,17 @@ class ground_state_solver():
             res += str(occ_list[i])
         return(res)
 
+    def occ_str_to_occ_tuple(self, occ_str):
+        # the string is just a binary rep of the address in the FCI vector
+        if isinstance(occ_str, tuple):
+            return(occ_str) # just to regularise user action
+        res = []
+        for i in range(len(occ_str) - 1, -1, -1):
+            res.append(int(occ_str[i]))
+        # we regularise the tuple lengths
+        #for j in range() or not
+        return(tuple(res))
+
     def occ_idx_to_occ_list(self, idx_alpha, idx_beta):
         occ_alpha = fci.cistring.addr2str(self.mol.nao, self.S_alpha, idx_alpha)
         occ_beta = fci.cistring.addr2str(self.mol.nao, self.S_beta, idx_beta)
@@ -1389,13 +1520,17 @@ class ground_state_solver():
 
     def ground_state_component(self, alpha_occupancy, beta_occupancy):
         assert self.ci_sol is not None
-        # alpha/beta_occupancy is an array [occ1, occ2... occ_M] where N is the
+        # alpha/beta_occupancy is a tuple (occ1, occ2... occ_M) where N is the
         # number of alpha/beta MOs and occupancies sum up to S_alpha/beta.
-        alpha_idx = fci.cistring.str2addr(self.mol.nao, self.S_alpha, self.occ_list_to_occ_string(alpha_occupancy))
-        beta_idx = fci.cistring.str2addr(self.mol.nao, self.S_beta, self.occ_list_to_occ_string(beta_occupancy))
+        #alpha_idx = fci.cistring.str2addr(self.mol.nao, self.S_alpha, self.occ_list_to_occ_string(alpha_occupancy))
+        #beta_idx = fci.cistring.str2addr(self.mol.nao, self.S_beta, self.occ_list_to_occ_string(beta_occupancy))
 
         # Access coefficient
-        return(self.ci_sol[alpha_idx, beta_idx])
+        if isinstance(alpha_occupancy, tuple):
+            return(self.ci_sol[(alpha_occupancy, beta_occupancy)])
+        elif isinstance(alpha_occupancy, list):
+            return(self.ci_sol[(tuple(alpha_occupancy), tuple(beta_occupancy))])
+        #return(self.ci_sol[alpha_idx, beta_idx])
 
     # CSF projections
 
@@ -1678,7 +1813,7 @@ class ground_state_solver():
                 i += 1
 
         # Mark as solved
-        self.checklist.append("SECS_sol")
+        self.check_off("SECS_sol")
 
         self.SECS_eta = res
         self.SECS_energy = ground_state_energy
@@ -1729,6 +1864,52 @@ class ground_state_solver():
         ax.tick_params(which="minor", bottom=False, left=False)
 
         return(heatmap, cbar)
+
+    def plot_datasets(self, reference_energies = None):
+        # Plots energy against configuration size
+        self.log.enter("Plotting obtained measurements...", 1)
+
+        plt.title(f"{self.ID}")
+        plt.xlabel("Basis size")
+        plt.ylabel("E [Hartree]")
+
+        for i in range(len(self.measured_datasets)):
+            self.log.write(f"Collecting data from dataset '{self.measured_datasets[i]}'...", 5)
+            ds_val = self.disk_jockey.data_bulks[self.measured_datasets[i]]["result_energy_states"]
+            # ds_val is a list of dicts - here we cast it into plottable arrays
+            N_space = []
+            E_space = []
+            for row in ds_val:
+                N_space.append(row["N"])
+                E_space.append(row["E [H]"])
+            plt.plot(N_space, E_space, "x", label = self.measured_datasets[i])
+
+        if "mol_init" in self.checklist:
+            plt.axhline(y = self.reference_state_energy, label = "ref state", color = functions.ref_energy_colors["ref state"])
+        if "pyscf_full_CI" in self.checklist:
+            plt.axhline(y = self.ci_energy, label = "full CI", color = functions.ref_energy_colors["full CI"])
+        if "SECS_sol" in self.checklist:
+            plt.axhline(y = self.SECS_energy, label = "SECS-restricted CI", color = functions.ref_energy_colors["SECS"])
+
+        if reference_energies is not None:
+            for ref_energy in reference_energies:
+                ref_e = ref_energy["E"]
+                ref_label = ref_energy["label"]
+                ref_color = "blue"
+                if "color" in ref_energy:
+                    ref_color = ref_energy["color"]
+                ref_linestyle = "solid"
+                if "linestyle" in ref_energy:
+                    ref_linestyle = ref_energy["linestyle"]
+                plt.axhline(y = ref_e, label = ref_label, color = ref_color, linestyle = ref_linestyle)
+
+        self.log.write(f"Displaying plot...", 5)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+        self.log.exit()
+
 
 
 

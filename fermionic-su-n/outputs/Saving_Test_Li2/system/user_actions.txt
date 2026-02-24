@@ -1,0 +1,4 @@
+initialised solver Saving_Test_Li2
+initialise_molecule [M = 20, S = 6]
+load_data
+save_data

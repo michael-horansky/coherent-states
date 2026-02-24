@@ -1,0 +1,10 @@
+{
+  "checklist": [
+    "mol_init",
+    "pyscf_full_CI",
+    "SECS_sol"
+  ],
+  "measured_datasets": [
+    "SEGS phase"
+  ]
+}

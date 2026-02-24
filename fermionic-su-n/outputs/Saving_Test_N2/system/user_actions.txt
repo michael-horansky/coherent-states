@@ -1,4 +1,0 @@
-initialised solver Saving_Test_N2
-initialise_molecule [M = 20, S = 14]
-load_data
-save_data

@@ -9,7 +9,7 @@ from coherent_states.CS_Qubit import CS_Qubit
 from coherent_states.CS_sample import CS_sample
 
 from class_Journal import Journal
-from class_DSM import DSM
+from class_Disk_Jockey import Disk_Jockey
 import functions
 
 
@@ -93,7 +93,7 @@ class ground_state_solver():
 
         # Data Storage Manager
         self.log.write("Initialising Data Storage Manager...", 1)
-        self.disk_jockey = DSM(f"outputs/{self.ID}", self.log)
+        self.disk_jockey = Disk_Jockey(f"outputs/{self.ID}", self.log)
         self.disk_jockey.create_data_nodes(ground_state_solver.data_nodes) # Each solver call adds a new node dynamically
 
         self.user_actions = f"initialised solver {self.ID}\n"
@@ -944,6 +944,7 @@ class ground_state_solver():
             #csv_sol.append([N_vals[i], convergence_sols[i]])
             csv_sol.append({"N" : N_vals[i], "E [H]" : float(convergence_sols[i])})
 
+        self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
         self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
         self.diagnostics_log.append({f"find_ground_state_SEGS_phase ({dataset_label})" : procedure_diagnostic})
 

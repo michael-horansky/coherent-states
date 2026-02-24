@@ -14,7 +14,7 @@ import functions
 
 
 benchmark_molecules = {
-    "Li2" : li2_mol,
+#    "Li2" : li2_mol,
     "N2" : n2_mol
     }
 
@@ -32,9 +32,9 @@ mol_SECS_restricted_energies = {}
 
 for mol_name, mol in benchmark_molecules.items():
 
-    mol_solver = ground_state_solver(f"Saving_Test_{mol_name}")
+    mol_solver = ground_state_solver(f"{mol_name}_SECS_80_configs_10_reps")
     mol_solver.initialise_molecule(mol)
-    mol_solver.load_data(["self_analysis", "measured_datasets"])
+    #mol_solver.load_data(["self_analysis"])
     #mol_solver.pyscf_full_CI()
 
     mol_solvers[mol_name] = mol_solver
@@ -109,8 +109,8 @@ for mol_name, mol in benchmark_molecules.items():
         energy_levels_t.append(cur_sample.E_ground[-1])
 
     solution_benchmark = mol_solver.semaphor.finish_event(new_sem_ID, "    Evaluation")"""
-    #N_vals_width, energy_levels_width = mol_solver.find_ground_state("SEGS_width", N = 20, N_sub = 5)
-    #N_vals_phase, energy_levels_phase = mol_solver.find_ground_state("SEGS_phase", N = 3, N_sub = 1, dataset_label = "SEGS phase")
+    N_vals_width, energy_levels_width = mol_solver.find_ground_state("SEGS_width", N = 80, N_sub = 10)
+    #N_vals_phase, energy_levels_phase = mol_solver.find_ground_state("SEGS_width", N = 3, N_sub = 1, dataset_label = "SEGS width")
 
     #N_vals_t, energy_levels_t = mol_solver.find_ground_state("manual", sample = cur_sample)
 

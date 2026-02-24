@@ -1,6 +1,0 @@
-initialised solver mol_N2_Thouless_on_SECS
-initialise_molecule [M = 20, S = 14]
-load_data
-find_ground_state_SEGS_width [N = 3, N_sub = 1, CS type = Thouless]
-solve_on_single_excitation_closed_shell [trim_M = None]
-save_data

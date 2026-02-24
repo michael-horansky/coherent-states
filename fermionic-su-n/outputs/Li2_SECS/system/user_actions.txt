@@ -1,0 +1,4 @@
+initialised solver Li2_SECS
+initialise_molecule [M = 20, S = 6]
+load_data
+save_data

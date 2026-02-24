@@ -1,0 +1,9 @@
+{
+  "checklist": [
+    "mol_init",
+    "SECS_sol"
+  ],
+  "measured_datasets": [
+    "SEGS_width_80_10_Thouless"
+  ]
+}

@@ -1,3 +1,0 @@
------------------ mol_N2_Thouless_on_SECS diagnostic log -----------------
-find_ground_state_SEGS_width (SEGS phase)
-    Full sample condition number = [1.0, np.float64(20.718269482851138), np.float64(221.8584928395082), np.float64(559.4933223037009)]

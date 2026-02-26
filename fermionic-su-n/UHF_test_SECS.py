@@ -14,8 +14,8 @@ import functions
 
 
 benchmark_molecules = {
-#    "Li2" : li2_mol,
-    "N2" : n2_mol
+    "NO" : no_mol
+#    "N2" : n2_mol
     }
 
 trimmed_ground_state_full_ci = {
@@ -27,14 +27,23 @@ trimmed_ground_state_full_ci = {
 
 for mol_name, mol in benchmark_molecules.items():
 
-    mol_solver = ground_state_solver(f"{mol_name}_SECS_80_configs_10_reps")
-    mol_solver.initialise_molecule(mol)
-    mol_solver.load_data(["self_analysis", "measured_datasets"])
-    mol_solver.print_singlet_info()
+    mol_solver = ground_state_solver(f"{mol_name}_UHF_SECS")
+    mol_solver.initialise_molecule(mol, HF_method = "UHF")
+    #mol_solver.load_data(["self_analysis", "measured_datasets"])
 
     # Self-analysis methods
-    #mol_solver.pyscf_full_CI()
+    mol_solver.pyscf_full_CI()
     #cur_SECS_heatmap, cur_SECS_restricted_energy = mol_solver.solve_on_single_excitation_closed_shell()
+
+    mol_solver.print_UHF_low_excitation_info()
+    #top_sim_exc_states = mol_solver.get_top_simultaneously_excited_states(10)
+    #mol_solver.log.enter(f"Displaying top {len(top_sim_exc_states)} simultaneously-excited states...")
+    #for i in range(len(top_sim_exc_states)):
+    #    mol_solver.log.write(f"  {i+1}) Coef = {top_sim_exc_states[i][0]:0.4f}; occ. = {top_sim_exc_states[i][1]} (prom {top_sim_exc_states[i][2]})")
+    #mol_solver.log.exit()
+
+
+
 
 
     # Sampling methods
@@ -43,11 +52,13 @@ for mol_name, mol in benchmark_molecules.items():
 
 
     # Plotting and saving
+    #mol_solver.print_singlet_info()
 
     ref_energies = []
     if mol_name in trimmed_ground_state_full_ci:
         ref_energies.append({"E" : trimmed_ground_state_full_ci[mol_name], "label" : "trimmed CI", "color" : functions.ref_energy_colors["trimmed CI"], "linestyle" : "dashed"})
 
-    mol_solver.plot_datasets(ref_energies)
-    mol_solver.save_data()
+    #mol_solver.plot_datasets(ref_energies)
+    #mol_solver.save_data()
+    mol_solver.log.close_journal()
 

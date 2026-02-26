@@ -1,5 +1,6 @@
 initialised solver N2_SECS_80_configs_10_reps
 initialise_molecule [M = 20, S = 14]
-find_ground_state_SEGS_width [N = 80, N_sub = 10, CS type = Thouless]
-solve_on_single_excitation_closed_shell [trim_M = None]
+load_data
+get_top_closed_shells [N_cs = 5, trim_M = None]
+single_excitation_singlets_projection [trim_M = None]
 save_data

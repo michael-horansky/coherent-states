@@ -1,0 +1,314 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper, total={7.5in, 8in}]{geometry}
+\usepackage{xargs}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{physics}
+\usepackage{graphicx}
+
+\usepackage{simpler-wick}
+
+% signature
+\newcommand{\sgn}{\text{sgn}}
+% index sequence
+\newcommand{\seq}[1]{\langle #1\rangle}
+% ascending sequence
+\newcommand{\asc}[1]{\upharpoonleft #1 \upharpoonright}
+% hermitian conjugate
+\newcommand{\hc}{^\dagger}
+% inverse
+\newcommand{\inv}{^{-1}}
+\newcommand{\Sym}{\text{Sym}}
+% normal ordering
+\newcommand{\normord}[1]{:\mathrel{\mspace{2mu}#1\mspace{2mu}}:}
+% Expectation value
+\newcommand{\exval}[1]{\mathbb{E}\left[ #1 \right]}
+% low-excitation projection
+\newcommand{\lep}{_{\text{LE}}}
+% diagonalisation of vector
+\newcommand{\diag}[1]{\text{diag}\left(#1\right)}
+
+\newcommand*\chem[1]{\ensuremath{\mathrm{#1}}}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+
+\begin{document}
+
+	\title{Low-excitation guided sampling for particle-preserving fermionic Thouless states as an approach to determining the electronic structure ground state for single-reference molecules}
+	\author{Michal Horanský}	
+	\maketitle
+	
+	\abstract{Diagonalisation of a coherent-state sample around the HF reference state is proposed as a post-HF method to estimate the molecular-electronic ground state. The $SU(M)$ fermionic Thouless states are described with regard to the relation between their parameter matrix and their overlap with single-excitation Slater determinants. For a RHF basis, a method which guides the sampling process based on the diagonalisation on zero- and single-excitation Slater determinant subspace is described and demonstrated on spin-zero molecules \chem{Li_2} and \chem{N_2}. Generalisation of the sampling guidance process for an UHF basis is described and demonstrated on spin-one molecules \chem{BeH} and \chem{NO}.}
+	
+	%\newpage
+	
+	\tableofcontents
+	
+	\section{Background}
+	
+	\subsection{Fermionic $SU(M)$ Thouless states in electronic structure}
+	
+	Consider a Hilbert space described by $M$ modes occupied in total by $S$ fermions, where $S < M$. The occupancy basis of this Hilbert space consists of the Slater determinants
+	
+	$$\ket{n_1, n_2 \dots n_M} \qq{where} \sum_{i=1}^M n_i = S \qq{and} n_i \in \{0,1\}$$
+	
+	By defining the reference state as
+	
+	\begin{equation}
+	\ket{\phi_0} = \ket{1, 1 \dots 1, 0, 0 \dots 0}
+	\end{equation}
+	
+	we may label every occupancy basis state as $\ket{\phi_0 + a - b}$, where $a, b$ are equal-sized sets of indices with the constraints
+	\begin{eqnarray*}
+	a_i \in a&\qq{:}& 1 \leq a_i \leq M - S\\
+	b_i \in b&\qq{:}& 1 \leq b_i \leq S
+	\end{eqnarray*}
+	and the state $\ket{\phi_0 + a - b}$ describes the Slater determinant where modes occupied in $\phi_0$ are occupied iff their index is not in $b$, and modes unoccupied in $\phi_0$ are occupied iff their index is in $a$ (with the first unoccupied mode, i.e. the $S+1$-st mode, having index $1$).
+	
+	It will be helpful to define the integer sets
+	\begin{eqnarray*}
+	\pi_1 &=& \{1, 2 \dots S\}\\
+	\pi_0 &=& \{1, 2 \dots M - S\}
+	\end{eqnarray*}
+	which enumerate the occupied and unoccupied modes in $\ket{\phi_0}$, respectively.
+	
+	Then, we can construct the $SU(M)$ Thouless states restricted to the Hilbert space spanned by the aforementioned basis from the reference state like so:
+	
+	\begin{equation}
+	\ket{Z} = N(Z, Z^*) \exp(\sum_{i\in\pi_0}\sum_{j\in\pi_1}\hat{f}_{i+S}\hc \hat{f}_j) \ket{\phi_0} 
+	\end{equation}
+	
+	where $N$ is the normalisation factor and $\hat{f}\hc, \hat{f}$ are the fermionic creation and annihilation operators, respectively. Note that $Z$ is therefore a $(M-S) \cross S$ matrix of complex number.
+	
+	These states form a non-orthogonal, overcomplete basis of the full Hilbert space.
+	
+	It is then a known result that the decomposition of this Thouless state into the occupancy basis is
+	
+	\begin{equation} \label{eq:decomposition}
+	\braket{\phi_0 + a - b}{Z} = N(Z, Z^*) (-1)^{\frac{1}{2}|a|(|a| + 1)} \det(Z_{a,b})
+	\end{equation}
+	where $|a|=|b|$ is the number of excitations from the reference state and $Z_{a,b}$ is the submatrix of $Z$ composed of rows and columns labelled by indices in $a$ and $b$, respectively.
+	
+	In other words, the minors of $Z$ describe the decomposition coefficients of specific occupancy basis states in $\ket{Z}$, with all minors of order $r$ describing all occupancy basis states obtained by promoting exactly $r$ fermions from modes occupied in $\ket{\phi_0}$ into modes unoccupied in $\ket{\phi_0}$.
+	
+	It is also known that the overlap between two states is
+	
+	\begin{equation}
+	\braket{Z_a}{Z_b} = N(Z_a, Z_a^*)N(Z_b, Z_b^*) \det(I + Z_a\hc Z_b)
+	\end{equation}
+	
+	which also determines the normalisation factor
+	\begin{equation}
+	N(Z, Z^*) = \frac{1}{\sqrt{\det(I + Z\hc Z)}}
+	\end{equation}
+	
+	\subsection{Electronic structure described by pairs of Thouless states}
+	
+	Under the Born-Oppenheimer approximation, we can describe the wavefunction of the electrons of a particular molecule by a vector in a Hilbert space spanned by Slater determinants constructed on molecular spin-orbitals:
+	
+	\begin{equation}
+	\ket{\Psi} = \ket{n(\phi_1^\alpha), n(\phi_1^\beta), n(\phi_2^\alpha), n(\phi_2^\beta) \dots}
+	\end{equation}
+	where, for practicality, we terminate the sequence of molecular orbitals at some highest orbital $\phi_M$, where we hope that the behaviour of the molecule in the energy range of interest as described on this finite basis closely matches its true behaviour.
+	
+	As the labelling suggests, it is very natural to decompose this Hilbert space into a direct product of (spatial) molecular orbitals and the two spin states $\ket{\alpha}, \ket{\beta}$, which, assuming the Hamiltonian has full rotatinal symmetry, can be selected arbitrarily as any orthonormal basis of the spin-$\frac{1}{2}$ system (typically, these are associated with spin-up and spin-down states, i.e. eigenstates of $\hat{S}_z$ for the particular selection of the $z$-axis). Then, the occupancy basis vectors may be writ out like so:
+	
+	\begin{equation}
+	\ket{\Psi} = \ket{n_1, n_2 \dots n_M}_\alpha \otimes \ket{\bar{n}_1, \bar{n}_2 \dots \bar{n}_{\bar{M}}}_\beta
+	\end{equation}
+	
+	where $n_i, \bar{n}_j$ are shorthands for the occupancy numbers of modes $\phi_i^\alpha, \phi_j^\beta$, respectively. Note that we do not implicitly assume that $\phi_i^\alpha = \phi_i^\beta$, as is seen by allowing even the total number of the MOs in each spin-subspace to be different. The case where this equivalence is assumed is referred to as a restricted Hartree-Fock (RHF) basis. Otherwise, we are working under the unrestricted Hartree-Fock (UHF) basis.
+	
+	Note that in the non-relativistic case the Hamiltonian preserves the total number of electrons in each spin-subspace:
+	\begin{equation}
+	[\hat{H}, \hat{N}_\alpha] = [\hat{H}, \hat{N}_\beta] = 0 \qq{where} \hat{N}_\alpha \ket{\Psi} = \sum_{i=1}^M n_i = N_\alpha \qq{and} \hat{N}_\beta \ket{\Psi} = \sum_{i=1}^{\bar{M}} \bar{n}_i = N_\beta
+	\end{equation}
+	Equivalently, $\hat{H}$ commutes with the total number operator $\hat{N}=\hat{N}_\alpha + \hat{N}_\beta$ and the total spin $z$-projection operator $\hat{S}_z = \hat{N}_\alpha - \hat{N}_\beta$. As a result, $N_\alpha, N_\beta, S_z$ are good quantum numbers.
+	
+	Consequently, the two spin-subspaces of the full Hilbert space are spanned exactly by the kind of basis which admits the construction of fermionic $SU(M)$ Thouless states. Hence, we can span the Hilbert space by states of the form
+	
+	\begin{equation}
+	\ket{Z^\alpha, Z^\beta} = \ket{Z^\alpha}_\alpha \otimes \ket{Z^\beta}_\beta
+	\end{equation}
+	where $\ket{Z^\alpha}, \ket{Z^\beta}$ are Thouless states with mode and total occupancy numbers being $M, N_\alpha$ and $\bar{M}, N_\beta$, respectively.
+	
+	\textit{Note.} It will be helpful to denote
+	\begin{equation}
+	\ket{(B \rightarrow A), (B' \rightarrow A')}
+	\end{equation}
+	to be the occupancy basis state obtained by promoting electrons from modes $B$ to modes $A$ in the spin-alpha subspace and electrons from modes $B'$ to modes $A'$ in the spin-beta subspace. For a single promotion, the indices of particular modes replace the index sets.
+	
+	\section{Approximating the electronic ground state: LEGS} \label{sec:general treatment of LEGS}
+	
+	Let us denote the ground state as $\ket{G}$. We wish to sample a small number of coherent states $\ket{Z^\alpha, Z^\beta}$ around $\ket{G}$, so that, by the virtue of the CS overcompleteness, the sample will span a subspace containing $\ket{G}$--in which case to find it, we just need to diagonalise $\mel{Z^\alpha, Z^\beta}{\hat{H}}{{Z^\alpha}', {Z^\beta}'}$ and decompose the lowest-energy eigenstate back into the occupancy basis. This sampling process is random, but we can infer information about expectation values and correlations between parameter elements $Z^\alpha_{ij}, Z^\beta_{kl}$.
+	
+	\subsection{Guiding the sampling with the ground state}
+	
+	If $\ket{G}$ was equal to some pure coherent state $\ket{Z^\alpha_G, Z^\beta_G}$, we do not need to sample a probability distribution at all--indeed, the only thing we needed would be $\exval{Z^\alpha_{ij}}, \exval{Z^\beta_{ij}}$, since this uniquely specifies $Z^\alpha_G, Z^\beta_G$.
+	
+	However, $\ket{G}$ cannot be assumed to be a pure coherent state, and as such, it possesses a decomposition into the coherent-state basis. By the virtue of the coherent-state basis being overcomplete, this decomposition is not unique; this actually gives us an advantage, since we if we sample a probability distribution of the same statistical properties as the average decomposition of $\ket{G}$, we expect to be able to construct the true ground state almost completely with a finite, even small basis of coherent states.
+	
+	To make this rigorous: suppose $\ket{G}$ can be expressed as a superposition described by $c(Z^\alpha, Z^\beta) = \braket{Z^\alpha, Z^\beta}{G}$ such that
+	\begin{equation}
+	\ket{G} = \int_{\mathbb{C}^{N_\alpha(M - N_\alpha)}} \dd Z^\alpha \int_{\mathbb{C}^{N_\beta(M - N_\beta)}} \dd Z^\beta c(Z^\alpha, Z^\beta) \ket{Z^\alpha, Z^\beta}
+	\end{equation}
+	then sampling a probability distribution
+	\begin{equation}
+	p(Z^\alpha, Z^\beta) = |c(Z^\alpha, Z^\beta)|
+	\end{equation}
+	would converge to the ground state when diagonalising the Hamiltonian matrix on the sampled basis. By the full basis overcompleteness, sampling multiple states around a high-coefficient state in the decomposition allows us to reconstruct that state's contribution; the complex phase of $c$ is reconstructed explicitly during the diagonalisation.
+	
+	\subsubsection{Probability distribution constraints from Slater determinants}
+	
+	For the probability distribution $p\left(Z^\alpha_{ij}, Z^\beta_{kl}\right)$, the decomposition of the ground state into the full occupancy basis (which is unique) gives the following constraint:
+	\begin{equation}
+	\braket{n, \bar{n}}{G} = \mathbb{E}\left[\braket{n, \bar{n}}{Z^\alpha, Z^\beta}\right]
+	\end{equation}
+	for all occupancy basis states.
+	
+	We can use Eq. \ref{eq:decomposition} and group these equations by the number of excitations like so:
+	\begin{enumerate}
+	\item For no excitation, we have
+	\begin{equation}
+	\braket{\phi_0^\alpha, \phi_0^\beta}{G} = \exval{N(Z^\alpha)N(Z^\beta)}
+	\end{equation}
+	\item For a single excitation, we have
+	\begin{eqnarray}
+	\braket{(j \rightarrow i), \phi_0^\beta}{G} &=& -\exval{N(Z^\alpha)N(Z^\beta)Z^\alpha_{ij}}\\
+	\braket{\phi_0^\alpha, (j \rightarrow i)}{G} &=& -\exval{N(Z^\alpha)N(Z^\beta)Z^\beta_{ij}}
+	\end{eqnarray}
+	\item For a mixed-spin double excitation, we have
+	\begin{equation}
+	\braket{(j \rightarrow i), (l \rightarrow k)}{G} = \exval{N(Z^\alpha)N(Z^\beta)Z^\alpha_{ij}Z^\beta_{kl}}
+	\end{equation}
+	\item In general, we have
+	\begin{equation} \label{eq:genereal ground-state guided constraint}
+	\braket{(B \rightarrow A), (D \rightarrow C)}{G} = (-1)^{\frac{1}{2}\left(|A|(|A| + 1) + |C|(|C| + 1)\right)} \exval{N(Z^\alpha)N(Z^\beta)\det(Z^\alpha_{A,B})\det(Z^\beta_{C,D})}
+	\end{equation}
+	\end{enumerate}
+	Eq. \ref{eq:genereal ground-state guided constraint} gives us the following information about the probability distribution $p(Z^\alpha_{ij}, Z^\beta_{ij})$ we sample from:
+	\begin{itemize}
+	\item Same-spin excitations of order $k$ constrain the expectation values on the $k$-th compound matrix on $Z^{\alpha}_{ij}$ and $Z^{\beta}_{ij}$.
+	\item Mixed-spin excitations constrain the expectation values of the products of elements of compound matrices on $Z^{\alpha}_{ij}$ and $Z^{\beta}_{ij}$ corresponding to the excitations on each spin-subspace; together with the expectation value of each compound matric element from above, this tells us the covariance.
+	\end{itemize}
+	
+	\subsubsection{Sampling distribution width}
+	Eq. \ref{eq:genereal ground-state guided constraint} gives us a lot of information about the properties of the probability distribution we sample from; however, we can gain even more information by considering the properties of the actual decomposition function $c$.
+	
+	By well-known properties of coherent states constructed via the displacement operator, as cited in e.g. de Aguiar et al, we know the identity operator can be expressed as
+	
+	\begin{equation}
+	\int_{\mathbb{C}^{N_\alpha(M - N_\alpha)}} \dd Z^\alpha \int_{\mathbb{C}^{N_\beta(M - N_\beta)}} \dd Z^\beta  \ket{Z^\alpha, Z^\beta}\bra{Z^\alpha, Z^\beta}
+	\end{equation}
+	
+	
+	\subsection{Low-excitation guided sampling} \label{sec:LEGS general}
+	
+	Of course, we do not know the ground state beforehand. However, if we consider the \textit{low-excitation} Hilbert subspace $\mathcal{H}\lep$ spanned by occupancy basis vectors characterised by some small number of excitations, we can project both $\ket{G}$ and $\ket{Z^\alpha, Z^\beta}$ into this subspace:
+	\begin{eqnarray}
+	\ket{G}\lep = \frac{\hat{P}\lep \ket{G}}{\sqrt{\mel{G}{\hat{P}\lep}{G}}}\\
+	\ket{Z^\alpha, Z^\beta}\lep = \frac{\hat{P}\lep \ket{Z^\alpha, Z^\beta}}{\sqrt{\mel{Z^\alpha, Z^\beta}{\hat{P}\lep}{Z^\alpha, Z^\beta}}}
+	\end{eqnarray}
+	We can absorb the projection renormalisation factor for the coherent state into its total normalisation factor like so:
+	\begin{equation}
+	N_{\text{tot.}} = \frac{N(Z^\alpha)N(Z^\beta)}{\sqrt{\mel{Z^\alpha, Z^\beta}{\hat{P}\lep}{Z^\alpha, Z^\beta}}}
+	\end{equation}
+	
+	Then, we obtain the same expectation value relations for the trimmed number of excitations possible in $\mathcal{H}\lep$, simply augmented with the new renormalisation factors:
+	
+	\begin{equation} \label{eq:LEGS constraints}
+	\frac{\braket{(B \rightarrow A), (D \rightarrow C)}{G}\lep}{\sqrt{\mel{G}{\hat{P}\lep}{G}}} = (-1)^{\frac{1}{2}\left(|A|(|A| + 1) + |C|(|C| + 1)\right)} \exval{ N_{\text{tot.}} \det(Z^\alpha_{A,B})\det(Z^\beta_{C,D}) }
+	\end{equation}
+	
+	This is very helpful, because obtaining $\ket{G}\lep$ is rather easy for a reasonably-sized $\mathcal{H}\lep$, simply by obtaining the ground state directly on this smaller configuration basis--for example with the CISD method when restricting ourselves to two excitations at most. In that sense, the LEGS method is not simply a post-HF method, but a post-post-HF method in the sense that it requires a post-HF method to obtain the ground state as a superposition of multiple Slater determinants.
+	
+	We can obtain a rather good estimate of $N_{\text{tot.}}$ when $\braket{\phi_0}{G}$ is on the order of magnitude of $1$, a by-design feature of the HF method for single-reference molecules. In this regime, we have
+	\begin{eqnarray}
+	\frac{1}{N(Z)^2} &=& \det(I+Z\hc Z) = 1 + \Tr{Z\hc Z} + \dots = 1 + \sum_{ij} Z_{ij}^* Z_{ij} + O(|Z_{ij}|^4)\\
+	\mel{Z}{\hat{P}^{\alpha\text{ or }\beta}\lep}{Z} &=& \left(1 + \sum_{ij}|Z^\alpha_{ij}|^2 + O\left(|Z^{\alpha}_{ij}|^4\right)\right)\left(1 + \sum_{ij}|Z^\beta_{ij}|^2 + O\left(|Z^{\beta}_{ij}|^4\right)\right)\\
+	&=& 1 + \sum_{ij}|Z^\alpha_{ij}|^2 + \sum_{ij}|Z^\beta_{ij}|^2 + O\left(|Z^{\alpha, \beta}_{ij}|^4\right)\\
+	N_{\text{tot.}} &\approx & \frac{1}{1 + \sum_{ij}\left(Z^\alpha_{ij}\right)^2 + \sum_{ij}\left(Z^\beta_{ij}\right)^2}
+	\end{eqnarray}
+	where the regime used justifies a second-order expansion. Note that this requires allowing every excitation for each spin-subspace in $\mathcal{H}\lep$; if, by an empirical argument, we forbid excitations e.g. from the bottom shell or into the top shell, the sum over $i,j$ is restricted--but so would be $Z_{ij}$, since that is equivalent to setting certain elements of $Z$ to zero, and the formalism holds.
+	
+	Note that the renormalisation factor $N_G$ for $\ket{G}$ is unknown. It can be treated as a tunable parameter, or, once again invoking the HF Slater determinant as the first approximation of $\ket{G}$, it can be approximated as $1$ and dropped from the equations.
+	
+	Further simplification occurs when we restrict ourselves to two excitations per spin-subspace or fewer, with the assumption $|Z^{\alpha,\beta}_{ij}|^3 \approx 0$. This allows us to cancel the total normalisation factor by expansion with the Neumann series like so:
+	
+	\begin{equation}
+	\frac{\exval{N_{\text{tot.}} X}}{\exval{N_{\text{tot.}}}} = \exval{X} + O\left(\exval{X |Z_{ij}^{\alpha,\beta}|^2}\right) + O\left(\exval{X}\exval{|Z_{ij}^{\alpha,\beta}|^2} \right) \approx \exval{X}
+	\end{equation}
+	where $X$ is either a parameter $Z_{ij}^{\alpha,\beta}$ or a product of two such parameters. This allows us to write the second-order approximation of Eq. \ref{eq:LEGS constraints} like so:
+	\begin{equation} \label{eq:denormalised LEGS constraint}
+	\frac{\braket{(B \rightarrow A), (D \rightarrow C)}{G}\lep}{\braket{\phi_0^\alpha, \phi_0^\beta}{G}\lep} = (-1)^{\frac{1}{2}\left(|A|(|A| + 1) + |C|(|C| + 1)\right)} \exval{\det(Z^\alpha_{A,B})\det(Z^\beta_{C,D}) }
+	\end{equation}
+	This form is particularly helpful, since it cancels out the ground state renormalisation factor as well as the total coherent state normalisation factor. As mentioned, it only works in approximations up to second order in parameter space; for higher-order analysis, such as for triply-excited LE state basis, higher-order terms of the Neumann series have to be considered. In the rest of this article, we shall only concern ourselves with regimes where Eq. \ref{eq:denormalised LEGS constraint} holds.
+	
+	\section{Implementing LEGS at different scopes}
+	
+	Section \ref{sec:general treatment of LEGS} establishes the general formalism for LEGS methods. These form an entire category of methods depending on how $\mathcal{H}\lep$ is constructed--below, we outline the particular constructions for the simplest LEGS methods.
+	
+	\subsection{LEGS algorithm for single-excitation states (SEGS)}
+	This method works with both RHF and UHF, as it does not assume that $\phi^\alpha_i = \phi^\beta_i$. Here, we restrict ourselves to states which differ from $\ket{\phi_0}$ by up to on occupied spin-orbital. $\ket{G}\lep$ may be obtained by a CIS algorithm, or explicit diagonalisation, since such bases are of small sizes (basis size is $1 + N_\alpha(M - N_\alpha) + N_\beta(M - N_\beta)$). Using Eq. \ref{eq:denormalised LEGS constraint}, we obtain
+	\begin{eqnarray}
+	\mu_{ij}^\alpha &=& -\frac{\braket{(j \rightarrow i), \phi_0^\beta}{G}\lep}{\braket{\phi_0^\alpha, \phi_0^\beta}{G}\lep} = \exval{Z^\alpha_{ij} }\\
+	\mu_{ij}^\beta &=& -\frac{\braket{\phi_0^\alpha, (j \rightarrow i)}{G}\lep}{\braket{\phi_0^\alpha, \phi_0^\beta}{G}\lep} = \exval{Z^\beta_{ij} }
+	\end{eqnarray}
+	
+	
+	\subsection{LEGS algorithm for single-excitation closed-shell states (SECSGS)}
+	This is a form of SEGS fine-tuned for singlet molecules on an RHF basis, for which $\phi^\alpha_i = \phi^\beta_i$.
+	
+	\subsection{LEGS algorithm for mixed-spin double-excitation only (MSDEGS)}
+	This method works with both RHF and UHF, as it does not assume that $\phi^\alpha_i = \phi^\beta_i$. Here, we restrict ourselves to states which differ from $\ket{\phi_0}$ by up to two occupied spin-orbitals. $\ket{G}\lep$ may be obtained by a CISD algorithm. We then construct the following matrix:
+	
+	\begin{equation}
+	\Theta = \begin{pmatrix}
+	\Theta^{\alpha\alpha} & \Theta^{\alpha\beta} \\
+	\left(\Theta^{\alpha\beta}\right)^T & \Theta^{\beta\beta}
+	\end{pmatrix}
+	\end{equation}
+	such that
+	\begin{eqnarray}
+	\Theta^{\alpha\alpha}_{ij,i'j'} &=& \begin{cases}
+	\braket{(j\rightarrow i), \phi_0^\beta}{G}\lep & ij = i'j'\\
+	\braket{(\{j, j'\}\rightarrow \{i, i'\}), \phi_0^\beta}{G}\lep & \text{otherwise}
+	\end{cases}\\
+	\Theta^{\beta\beta}_{ij,i'j'} &=& \begin{cases}
+	\braket{\phi_0^\alpha, (j\rightarrow i)}{G}\lep & ij = i'j'\\
+	\braket{\phi_0^\alpha, (\{j, j'\}\rightarrow \{i, i'\})}{G}\lep & \text{otherwise}
+	\end{cases}\\
+	\Theta^{\alpha\beta}_{ij,i'j'} &=& \braket{(j \rightarrow i), (j' \rightarrow i')}{G}\lep
+	\end{eqnarray}
+	Note that these sub-matrices are not of the same dimensions if the number of allowed single excitations differs between spin-subspaces; the total matrix, however, is square and symmetric with respect to index $ij$ and index $i'j'$, each labelling one possible excitation.
+	
+	By invoking Eq. \ref{eq:LEGS constraints}, we obtain
+	
+	\begin{eqnarray}
+	-N_G\Theta^{\alpha\alpha}_{ij,ij} &=& \exval{N_{\text{tot.}} Z^\alpha_{ij}}\\
+	-N_G\Theta^{\alpha\alpha}_{ij,i'j'} &=&\exval{N_{\text{tot.}} Z^\alpha_{ij}Z^\alpha_{i'j'}} - \exval{N_{\text{tot.}} Z^\alpha_{ij'}Z^\alpha_{i'j}}\\	
+	-N_G\Theta^{\beta\beta}_{ij,ij} &=& \exval{N_{\text{tot.}} Z^\beta_{ij}}\\
+	-N_G\Theta^{\beta\beta}_{ij,i'j'} &=&\exval{N_{\text{tot.}} Z^\beta_{ij}Z^\beta_{i'j'}} - \exval{N_{\text{tot.}} Z^\beta_{ij'}Z^\beta_{i'j}}\\
+	N_G\Theta^{\alpha\beta}_{ij,i'j'} &=& \exval{N_{\text{tot.}} Z^\alpha_{ij}Z^\alpha_{i'j'}}
+	\end{eqnarray}
+	
+	where $ij, i'j'$ implicitly label excitations on different pairs of spin-orbitals in the expressions above.
+	
+	Now: observe that we do not know the expectation values $\exval{Z^\alpha_{ij}Z^\alpha_{i'j'}}$ (or sim. for $\beta$), only their antisymmetrisation. This makes the full second-moment expectation matrix unknown, as any arbitrary symmetrised component added to the known antisymmetrised component changes the second-moment expectation matrix. Further generalisations of this method may incorporate the same-spin second-moment expectation value constraint, but, for simplicity, we choose to remain agnostic. Hence, we will discard the off-diagonal terms of $\Theta^{\alpha\alpha}, \Theta^{\beta\beta}$, constructing the following matrix:
+	
+	\begin{equation}
+	\Sigma = \begin{pmatrix}
+	\diag{\Sigma^{\alpha\alpha}} & \Sigma^{\alpha\beta} \\
+	\left(\Sigma^{\alpha\beta}\right)^T & \diag{\Sigma^{\beta\beta}}
+	\end{pmatrix}
+	\end{equation}
+	such that
+	\begin{eqnarray}
+	\Sigma^{\alpha\alpha}_{ij} &=& \text{var}(Z_{ij}^\alpha)\\
+	\Sigma^{\beta\beta}_{ij} &=& \text{var}(Z_{ij}^\beta)\\
+	\Sigma^{\alpha\beta}_{ij,i'j'} &=& \braket{(j \rightarrow i), (j' \rightarrow i')}{G}\lep
+	\end{eqnarray}
+	
+	
+\end{document}

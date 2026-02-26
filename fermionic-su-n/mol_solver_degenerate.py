@@ -67,15 +67,63 @@ class ground_state_solver():
     coherent_state_types = {
         "Thouless" : CS_Thouless,
         "Qubit" : CS_Qubit
-        }
+    }
 
     data_nodes = {
         "system" : {"user_actions" : "txt", "log" : "txt"}, # User actions summary, Journal style log
         "molecule" : {"mol_structure" : "pkl", "mode_structure" : "pkl"}, # molecule properties
-        "self_analysis" : {"physical_properties" : "json"}, # things which are deterministic but costly to calculate
-        #"samples" : {"basis_samples" : "pkl"}, # The specific samples, useful to reconstruct the ground state
-        #"results" : {"result_energy_states" : "pkl"}, # The solution as found by the CS method
+
+        # self_analysis contains solutions performed on configuration bases,
+        # such as full CI (performed with SCF) or various low-excitation ("LE")
+        # bases used to guide the sampling process.
+        # Solutions are always stored as dicts in the form
+        #     sol[((occ_alpha, occ_beta))] = coef of that state in ground state
+        # Metadata for low-excitation solutions specifies what kind of LE basis
+        # was used (e.g. singlet CAS with up to 2 open shells for RHF, etc...).
+        "self_analysis" : {
+            "physical_properties" : "json", # Short properties: energies of solutions below
+            "full_CI_sol" : "json",
+            "LE_sol" : "json"
+            }, # things which are deterministic but costly to calculate
         "diagnostics" : {"diagnostic_log" : "txt"} # Condition numbers, eigenvalue min-max ratios, norms etc
+    }
+
+    mean_field_methods = {
+        "RHF" : scf.RHF,
+        "UHF" : scf.UHF
+    }
+
+
+    find_ground_state_methods = {
+        "sampling" : find_ground_state_sampling,
+        "manual" : find_ground_state_manual, # manual sample
+        "LE_width" : find_ground_state_SEGS_width, # uses SEGS for width of sample, correlated for UHF
+        "LE_phase" : find_ground_state_SEGS_phase, # restricts the magnitudes by SEGS, only randomises phases of components
+        "krylov" : find_ground_state_krylov,
+        "imag_timeprop" : find_ground_state_imaginary_timeprop
+    }
+
+    low_excitation_methods = { # ["RHF"/"UHF"][spec] = {"method" : solver method, "desc" : human-readable description}
+        "RHF" : {
+            "SECS" : { # "Single excitation closed-shell states"
+                "method" : find_LE_solution_SECS,
+                "desc" : "Includes only closed-shell states with one excitation in each subspace"
+            },
+            "SEO1" : { # "Single excitation openness-1 states"
+                "method" : find_LE_solution_SEO1,
+                "desc" : "Includes singlet SACs with up to two open shells (openness = 1)"
+            }
+        },
+        "UHF" : {
+            "SE" : { # "Single excitation states"
+                "method" : find_LE_solution_SE,
+                "desc" : "Includes only states with up to one excitation in total"
+            },
+            "MSDE" : { # "Mixed-spin double excitation states"
+                "method" : find_LE_solution_MSDE,
+                "desc" : "Includes states with up to one excitation per spin-subspace."
+            }
+        }
     }
 
     def __init__(self, ID, log_verbosity = 5):
@@ -100,17 +148,28 @@ class ground_state_solver():
         self.diagnostics_log = []
         # The structure of the diagnostics log is like so: every element is either a list (for multiple same-level subprocedures) or a dict (for a header : content) pair
 
-        # Self-analysis properties
+        # ----------- Self-analysis properties
         self.log.write("Initialising self-analysis properties...", 1)
         self.checklist = [] # List of succesfully performed actions
         self.measured_datasets = [] # list of dataset labels
 
+        # mol_init properties
+        self.HF_method = None
         self.reference_state_energy = None
+        # Full CI properties
         self.ci_energy = None
         self.ci_sol = None # We did not perform full CI
-
-        self.SECS_eta = None
-        self.SECS_energy = None
+        # Low-excitation solution properties
+        self.LE_sol = {
+            "E" : None # Energy of solution
+            "sol" : None # dict[occ tuple] = coefficient
+            "exp" : None # expectation value constraint object, context-sensitive form
+            }
+        self.LE_description = {
+            "env" : None, # RHF or UHF, just for verbosity
+            "spec" : None # magic word uniquely specifying process
+            "params" : None # parameters used during the solving
+            }
 
         self.log.exit()
 
@@ -123,10 +182,26 @@ class ground_state_solver():
         if checklist_element not in self.checklist:
             self.checklist.append(checklist_element)
 
+    def spin_label(self):
+        # Human-readable label for the molecule spin value
+        if "mol_init" in self.checklist:
+            if self.mol.spin == 0:
+                return("singlet")
+            elif self.mol.spin == 1:
+                return("doublet")
+            elif self.mol.spin == 2:
+                return("triplet")
+            else:
+                return(f"(2S+1)={self.mol.spin}")
+        return("[mol not initialised]")
+
 
     # -------------------------------------------------------------------------
     # ---------------------------- Solver methods -----------------------------
     # -------------------------------------------------------------------------
+
+    """
+    TODO adapt this for differing S_alpha, S_beta
 
     def std_i(self, i, j, n = 0, N = 1):
         # |i| = M - S labels the row, |j| = S labels the column, |n| = N labels the basis vector
@@ -161,7 +236,7 @@ class ground_state_solver():
             for j in range(self.M):
                 for n in range(N):
                     Z[n][i][j] = res[N + self.std_i(i, j, n, N)]
-        return(A, Z)
+        return(A, Z)"""
 
     """def Q_dot(self, t, Q, reg_timescale = -1):
 
@@ -225,55 +300,8 @@ class ground_state_solver():
         full_basis_A = self.get_all_slater_determinants_with_fixed_S(M, S_A)
         full_basis_B = self.get_all_slater_determinants_with_fixed_S(M, S_B)
 
-        """full_basis_A = [ [1] * S_A + [0] * (M - S_A) ]
-
-        is_iteration_running = True
-
-        while(is_iteration_running):
-            number_of_passed_zeros = 0
-            pointer_index = 0
-
-            while(full_basis_A[-1][pointer_index] == 0):
-                number_of_passed_zeros += 1
-                pointer_index += 1
-
-                if number_of_passed_zeros == M - S_A:
-                    # We reached the end
-                    is_iteration_running = False
-                    break
-            if is_iteration_running:
-                while(full_basis_A[-1][pointer_index] == 1):
-                    pointer_index += 1
-                next_basis_state = [1] * (pointer_index - 1 - number_of_passed_zeros) + [0] * (number_of_passed_zeros + 1) + [1] + full_basis_A[-1][pointer_index+1:]
-                full_basis_A.append(next_basis_state)
-
-        full_basis_B = [ [1] * S_B + [0] * (M - S_B) ]
-
-        is_iteration_running = True
-
-        while(is_iteration_running):
-            number_of_passed_zeros = 0
-            pointer_index = 0
-
-            while(full_basis_B[-1][pointer_index] == 0):
-                number_of_passed_zeros += 1
-                pointer_index += 1
-
-                if number_of_passed_zeros == M - S_B:
-                    # We reached the end
-                    is_iteration_running = False
-                    break
-            if is_iteration_running:
-                while(full_basis_B[-1][pointer_index] == 1):
-                    pointer_index += 1
-                next_basis_state = [1] * (pointer_index - 1 - number_of_passed_zeros) + [0] * (number_of_passed_zeros + 1) + [1] + full_basis_B[-1][pointer_index+1:]
-                full_basis_B.append(next_basis_state)"""
-
-        # Now we compose the full basis
         self.log.exit()
         return(full_basis_A, full_basis_B)
-        #full_basis = []
-        #for i in range(len(full_basis
 
     def get_exchange_integral_on_occupancy(self, occ_a, occ_b, c = [], a = []):
         # here occ_a, occ_b are restricted to one spin subspace
@@ -333,8 +361,8 @@ class ground_state_solver():
             for q in range(M):
                 W_alpha[p][q] = self.get_exchange_integral_on_occupancy(occ_a[0], occ_b[0], [p], [q])
                 W_beta[p][q]  = self.get_exchange_integral_on_occupancy(occ_a[1], occ_b[1], [p], [q])
-                H_one_term += self.mode_exchange_energy([p], [q]) * W_alpha[p][q] * beta_overlap
-                H_one_term += self.mode_exchange_energy([p], [q]) * W_beta[p][q] * alpha_overlap
+                H_one_term += self.mode_exchange_energy([p], [q], "a") * W_alpha[p][q] * beta_overlap
+                H_one_term += self.mode_exchange_energy([p], [q], "b") * W_beta[p][q] * alpha_overlap
         H_two_term = 0.0
         # equal spin
         c_pairs = functions.subset_indices(np.arange(M), 2)
@@ -348,24 +376,26 @@ class ground_state_solver():
                 j = c_pair[1]
                 k = a_pair[0]
                 l = a_pair[1]
-                prefactor_same_spin = 1.0 * (self.mode_exchange_energy([i, j], [k, l]) - self.mode_exchange_energy([i, j], [l, k]))
+                prefactor_aa = 1.0 * (self.mode_exchange_energy([i, j], [k, l], "a") - self.mode_exchange_energy([i, j], [l, k], "a"))
+                prefactor_bb = 1.0 * (self.mode_exchange_energy([i, j], [k, l], "b") - self.mode_exchange_energy([i, j], [l, k], "b"))
                 # alpha alpha
-                H_two_term += prefactor_same_spin * self.get_exchange_integral_on_occupancy(occ_a[0], occ_b[0], [j, i], [l, k]) * beta_overlap
+                H_two_term += prefactor_aa * self.get_exchange_integral_on_occupancy(occ_a[0], occ_b[0], [j, i], [l, k]) * beta_overlap
                 # beta beta
-                H_two_term += prefactor_same_spin * self.get_exchange_integral_on_occupancy(occ_a[1], occ_b[1], [j, i], [l, k]) * alpha_overlap
-                upup += prefactor_same_spin * self.get_exchange_integral_on_occupancy(occ_a[0], occ_b[0], [j, i], [l, k]) * beta_overlap
-                downdown += prefactor_same_spin * self.get_exchange_integral_on_occupancy(occ_a[1], occ_b[1], [j, i], [l, k]) * alpha_overlap
+                H_two_term += prefactor_bb * self.get_exchange_integral_on_occupancy(occ_a[1], occ_b[1], [j, i], [l, k]) * alpha_overlap
+                upup += prefactor_aa * self.get_exchange_integral_on_occupancy(occ_a[0], occ_b[0], [j, i], [l, k]) * beta_overlap
+                downdown += prefactor_bb * self.get_exchange_integral_on_occupancy(occ_a[1], occ_b[1], [j, i], [l, k]) * alpha_overlap
         # opposite spin
         for i in range(M):
             for j in range(M):
                 for k in range(M):
                     for l in range(M):
-                        prefactor = 0.5 * self.mode_exchange_energy([i, j], [k, l])
+                        prefactor_ab = 0.5 * self.mode_exchange_energy([i, j], [k, l], "ab")
+                        prefactor_ba = 0.5 * self.mode_exchange_energy([j, i], [l, k], "ab")
                         # alpha beta
-                        H_two_term += prefactor * W_alpha[i][k] * W_beta[j][l]
+                        H_two_term += prefactor_ab * W_alpha[i][k] * W_beta[j][l]
                         # beta alpha
-                        H_two_term += prefactor * W_alpha[j][l] * W_beta[i][k]
-                        mixed += prefactor * W_alpha[i][k] * W_beta[j][l] + prefactor * W_alpha[j][l] * W_beta[i][k]
+                        H_two_term += prefactor_ba * W_alpha[j][l] * W_beta[i][k]
+                        mixed += prefactor_ab * W_alpha[i][k] * W_beta[j][l] + prefactor_ba * W_alpha[j][l] * W_beta[i][k]
         #print(H_one_term, H_two_term)
         #print("Up-up:", upup)
         #print("Down-down:", downdown)
@@ -392,44 +422,29 @@ class ground_state_solver():
             for j in range(len(fb_B)):
                 fb.append([fb_A[i], fb_B[j]])
 
-
-
-
-        """print("TESTY NA OVERLAP")
-        cur_occ_a = [1, 1, 1, 0, 0]
-        cur_occ_b = [1, 1, 0, 1, 0]
-        cur_c = [2]
-        cur_a = [3]
-        print(f"< {cur_occ_a} | ({cur_c})\\hc {cur_a} | {cur_occ_b} > = {self.get_exchange_integral_on_occupancy(cur_occ_a, cur_occ_b, cur_c, cur_a)}")"""
-
         H = np.zeros((len(fb), len(fb)), dtype=complex)
 
         msg = f"Explicit Hamiltonian evaluation on a trimmed full CI"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, len(fb), 100 + 1), msg)
         self.log.enter(msg, 1, True, tau_space = np.linspace(0, len(fb), 100 + 1))
 
 
         self.log.write(f"Evaluating the Hamiltonian on full occupancy basis...", 3)
         for i in range(len(fb)):
             for j in range(len(fb)):
-                #self.semaphor.update(new_sem_ID, i)
                 self.log.update_semaphor_event(i)
                 H[i][j] = self.get_H_overlap_on_occupancy(fb[i], fb[j])
 
-        #self.semaphor.finish_event(new_sem_ID, "Evaluation")
         self.log.exit("Evaluation")
-
 
         self.log.enter(f"Diagonalising Hamiltonian matrix...", 3)
         energy_levels, energy_states = np.linalg.eig(H)
         ground_state_index = np.argmin(energy_levels)
-        ground_state_energy = energy_levels[ground_state_index]
+        ground_state_energy = energy_levels[ground_state_index].real
 
         self.log.enter(f"Obtained ground state energy = {ground_state_energy}", 3)
 
         self.log.exit()
-
-        return(ground_state_energy.real)
+        return(ground_state_energy)
 
 
 
@@ -456,6 +471,9 @@ class ground_state_solver():
         if "assume_spin_symmetry" in kwargs:
             assume_spin_symmetry = kwargs["assume_spin_symmetry"]
         else:
+            assume_spin_symmetry = False
+        if self.HF_method != "RHF":
+            # States cannot be the same in the two subspaces anyway
             assume_spin_symmetry = False
 
         if "dataset_label" in kwargs:
@@ -504,8 +522,6 @@ class ground_state_solver():
         for i in range(N):
             for j in range(N):
                 overlap_matrix[i][j] = cur_CS_sample[i][0].norm_overlap(cur_CS_sample[j][0]) * cur_CS_sample[i][1].norm_overlap(cur_CS_sample[j][1])
-        #print("-- Overlap matrix:")
-        #print(overlap_matrix)
         self.log.write(f"Overlap matrix condition number = {np.linalg.cond(overlap_matrix)}", 1)
 
         # At what trim number is the condition number maximal?
@@ -657,14 +673,12 @@ class ground_state_solver():
         H_eff = np.zeros((N, N), dtype=complex)
 
         msg = f"Explicit Hamiltonian evaluation"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N * (N + 1) / 2, 100 + 1), msg)
         self.log.enter(msg, 1, True, tau_space = np.linspace(0, N * (N + 1) / 2, 100 + 1))
 
         for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
             cur_H_overlap = self.H_overlap(cur_CS_sample[a], cur_CS_sample[a])
             H_eff[a][a] = cur_H_overlap
-            #self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
             self.log.update_semaphor_event(a * (a + 1) / 2)
 
             # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
@@ -673,10 +687,8 @@ class ground_state_solver():
                 cur_H_overlap = self.H_overlap(cur_CS_sample[a], cur_CS_sample[b])
                 H_eff[a][b] = cur_H_overlap
                 H_eff[b][a] = np.conjugate(H_eff[a][b])
-                #self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
                 self.log.update_semaphor_event(a * (a + 1) / 2 + b + 1)
 
-        #self.solution_benchmark = self.semaphor.finish_event(new_sem_ID, "    Evaluation")
         self.log.exit("Evaluation")
 
         # H_eff diagonal terms
@@ -777,8 +789,12 @@ class ground_state_solver():
 
         assert self.S_alpha == self.S_beta # So far only RHF!
 
-        self.log.write(f"Obtaining SEGS heatmap and reference energy...", 1)
-        cur_SECS_heatmap, cur_SECS_restricted_energy = self.solve_on_single_excitation_closed_shell()
+        if "LE_sol" not in self.checklist:
+            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            self.log.exit()
+            return(None)
+
+        cur_SECS_heatmap = self.LE_sol["exp"]
 
         # We now manually sample Thouless states guided by the SECS heatmap
         cur_sample = CS_sample(self, ground_state_solver.coherent_state_types[CS_type], add_ref_state = True)
@@ -826,8 +842,6 @@ class ground_state_solver():
             # We add the best out of 10 random states
             cur_subsample = []
             for n_sub in range(N_subsample):
-                #rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, np.random.normal(centres_alpha, np.sqrt(cur_SECS_heatmap), shape_alpha))
-                #rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, np.random.normal(centres_beta, np.sqrt(cur_SECS_heatmap), shape_beta))
                 rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, np.random.normal(centres_alpha, widths_alpha, shape_alpha))
                 rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, np.random.normal(centres_beta, widths_beta, shape_beta))
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
@@ -897,9 +911,12 @@ class ground_state_solver():
 
         assert self.S_alpha == self.S_beta
 
-        self.log.write(f"Obtaining SEGS heatmap and reference energy...", 1)
+        if "LE_sol" not in self.checklist:
+            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            self.log.exit()
+            return(None)
 
-        cur_SECS_heatmap, cur_SECS_restricted_energy = self.solve_on_single_excitation_closed_shell()
+        cur_SECS_heatmap = self.LE_sol["exp"]
 
         # We now manually sample Thouless states guided by the SECS heatmap
         cur_sample = CS_sample(self, CS_Thouless, add_ref_state = True)
@@ -977,28 +994,26 @@ class ground_state_solver():
         print("placeholder", kwargs["tol"])
 
 
-    find_ground_state_methods = {
-            "sampling" : find_ground_state_sampling,
-            "manual" : find_ground_state_manual, # manual sample
-            "SEGS_width" : find_ground_state_SEGS_width, # uses SEGS for width of sample, correlated for UHF
-            "SEGS_phase" : find_ground_state_SEGS_phase, # restricts the magnitudes by SEGS, only randomises phases of components
-            "krylov" : find_ground_state_krylov,
-            "imag_timeprop" : find_ground_state_imaginary_timeprop
-        }
-
-
     ###########################################################################
     # ----------------------------- User methods ------------------------------
     ###########################################################################
 
-    def initialise_molecule(self, mol):
+    def initialise_molecule(self, mol, HF_method = "default"):
         # mol is an instance of pyscf.gto.Mole
+        # HF_method is a magic word which determines how we calculate MOs:
+        #   -"RHF": Restricted Hartree-Fock
+        #   -"UHF": Unrestricted Hartree-Fock
+        #   -"default": RHF if singlet mol, UHF otherwise
 
         self.log.enter("Initialising molecule...", 0)
 
         if "mol_init" in self.checklist:
             self.log.write("Molecule already initialised.", 1)
             return(None)
+
+        self.log.enter("Building molecule...", 1)
+
+        # TODO move constructing molecule here so we can store just the parameters!
 
         self.mol = mol
         self.M = self.mol.nao * 2
@@ -1026,8 +1041,28 @@ class ground_state_solver():
 
         self.log.write("Calculating 2e integrals...", 1)
         #self.H_two = self.mol.intor('int2e', aosym = "s1")
-        AO_H_two_chemist = self.mol.intor('int2e', aosym = "s1")
+        AO_H_two_chemist = self.mol.intor('int2e')
         # <ij|kl> = (ik|jl)
+
+        self.log.exit()
+
+        self.log.enter("Performing mean-field calculations to determine the molecular orbitals...", 1)
+
+        if HF_method == "RHF":
+            self.HF_method = HF_method
+            self.log.write("Mean field method: Restricted Hartree-Fock (selected by user)")
+            if self.mol.spin != 0:
+                self.log.write("WARNING: The molecule is not a singlet, RHF is unsuitable.")
+        elif HF_method == "UHF":
+            self.HF_method = HF_method
+            self.log.write("Mean field method: Unrestricted Hartree-Fock (selected by user)")
+        elif HF_method == "default":
+            if self.mol.spin == 0:
+                self.HF_method = "RHF"
+                self.log.write("Mean field method: Restricted Hartree-Fock (determined automatically for a singlet molecule)")
+            else:
+                self.HF_method = "UHF"
+                self.log.write(f"Mean field method: Unrestricted Hartree-Fock (determined automatically for a {self.spin_label()} molecule)")
 
         # We now construct AO_H_two as the coefficient tensor in second quantisation according to Szabo & Ostlund: Modern Quantum Chemistry p. 95, Eq. 2.232
         # O_2 = 0.5 * sum_ijkl <ij|kl> f\hc_i f\hc_j f_l f_k
@@ -1036,64 +1071,106 @@ class ground_state_solver():
         # By symmetry: (ij|kl) = (ji|kl) = (ij|lk) = (ji|lk)
         # Hence O_ijkl = O_ljki = O_ikjl = O_lkji
 
-        self.log.write("Finding the molecular orbitals using mean-field approximations...", 1)
-        mean_field = scf.RHF(mol).run(verbose = 0)
-        self.MO_coefs = mean_field.mo_coeff
-        self.reference_state_energy = mean_field.e_tot
-        self.log.write(f"Done! Reference state energy is {self.reference_state_energy:0.5f}", 1)
 
-        self.log.write("Transforming 1e and 2e integrals to MO basis...", 3)
-        self.MO_H_one = np.matmul(self.MO_coefs.T, np.matmul(AO_H_one, self.MO_coefs))
-        MO_H_two_packed = ao2mo.kernel(self.mol, self.MO_coefs)
-        MO_H_two_chemist = ao2mo.restore(1, MO_H_two_packed, self.MO_coefs.shape[1]) # In mulliken notation: MO_H_two[p][q][r][s] = (pq|rs)
+        # We initialise self.MO_coefs alpha/beta, self.MO_H_one,two a/b/ab as dicts with spin in key
+        self.MO_coefs = {}
+        self.MO_H_one = {}
+        self.MO_H_two = {}
 
-        self.MO_H_two = MO_H_two_chemist.transpose(0, 2, 1, 3)# - MO_H_two_chemist.transpose(0, 3, 1, 2)
+        # MO_H_two has three elements:
+        #   ["a"]_ijkl = <i,a j,a | k,a l,a>
+        #   ["b"]_ijkl = <i,b j,b | k,b l,b>
+        #   ["ab"]_ijkl = <i,a j,b | k,a l,b>
+        #   The second spin-mixed term is obtained by a double transpose; ["ba"]_ijkl = ["ab"]_jilk
 
-        # We construct the second quantised space as occupied \oplus unoccupied orbitals
-        occ_orbs = [i for i, o in enumerate(mean_field.mo_occ) if o > 0]
+        if self.HF_method == "RHF":
+            # Everything is the same in both subspaces
+            self.log.write("Finding the molecular orbitals using mean-field approximations...", 1)
+            mean_field = scf.RHF(self.mol).run(verbose = 0)
+
+            self.MO_coefs["a"] = mean_field.mo_coeff
+            self.MO_coefs["b"] = self.MO_coefs["a"]
+            self.reference_state_energy = mean_field.e_tot
+            self.log.write(f"Done! Reference state energy is {self.reference_state_energy:0.5f}", 1)
+
+            self.log.write("Transforming 1e and 2e integrals to MO basis...", 3)
+            self.MO_H_one["a"] = np.matmul(self.MO_coefs["a"].T, np.matmul(AO_H_one, self.MO_coefs["a"]))
+            self.MO_H_one["b"] = self.MO_H_one["a"]
+            MO_H_two_packed = ao2mo.kernel(AO_H_two_chemist, self.MO_coefs["a"])
+            MO_H_two_chemist = ao2mo.restore(1, MO_H_two_packed, self.MO_coefs["a"].shape[1]) # In mulliken notation: MO_H_two[p][q][r][s] = (pq|rs)
+
+            self.MO_H_two["a"] = MO_H_two_chemist.transpose(0, 2, 1, 3)# - MO_H_two_chemist.transpose(0, 3, 1, 2)
+            self.MO_H_two["b"] = self.MO_H_two["a"]
+            self.MO_H_two["ab"] = self.MO_H_two["a"]
+
+            # We construct the second quantised space as occupied \oplus unoccupied orbitals
+            occ_orbs_alpha = [i for i, o in enumerate(mean_field.mo_occ) if o > 0]
+            occ_orbs_beta = occ_orbs_alpha
+
+        elif self.HF_method == "UHF":
+            # Coefs and exchange intergrals differ for the two subspaces
+            self.log.write("Finding the molecular orbitals using mean-field approximations...", 1)
+            mf_object = scf.UHF(self.mol)
+
+            mf_object.init_guess = 'atom'  # Atomic initial guess. If doesn't work, run RHF first and then use its result as the initial guess
+            #mf_rhf = scf.RHF(self.mol).run(verbose=0)
+            #mf_uhf = scf.UHF(self.mol)
+            #mf_uhf.init_guess = 'atom'
+            #dm0 = mf_rhf.make_rdm1()
+            #mean_field = mf_uhf.kernel(dm0=dm0, verbose=0)
+            mf_object.conv_tol = 1e-10 # Tighter convergence
+
+            mean_field = mf_object.run(verbose = 0)
+            self.MO_coefs["a"] = mean_field.mo_coeff[0]
+            self.MO_coefs["b"] = mean_field.mo_coeff[1]
+
+            assert self.MO_coefs["a"].shape[1] == self.MO_coefs["b"].shape[1]
+            # This is not required but if we remove the constraint we need to
+            # firstly restore symmetry, making the mixed H_two["ab"] non-square
+
+            self.reference_state_energy = mean_field.e_tot
+            self.log.write(f"Done! Reference state energy is {self.reference_state_energy:0.5f}", 1)
+
+            self.log.write("Transforming 1e and 2e integrals to MO basis...", 3)
+            self.MO_H_one["a"] = np.matmul(self.MO_coefs["a"].T, np.matmul(AO_H_one, self.MO_coefs["a"]))
+            self.MO_H_one["b"] = np.matmul(self.MO_coefs["b"].T, np.matmul(AO_H_one, self.MO_coefs["b"]))
+            MO_H_two_packed_alpha = ao2mo.kernel(AO_H_two_chemist, self.MO_coefs["a"])
+            MO_H_two_packed_beta = ao2mo.kernel(AO_H_two_chemist, self.MO_coefs["b"])
+            MO_H_two_packed_ab = ao2mo.kernel(AO_H_two_chemist, (self.MO_coefs["a"], self.MO_coefs["a"], self.MO_coefs["b"], self.MO_coefs["b"])) # in chemist's the spins are (aa|bb)
+            # Removes symmetry to make number access fast
+            MO_H_two_chemist_alpha = ao2mo.restore(1, MO_H_two_packed_alpha, self.MO_coefs["a"].shape[1])
+            MO_H_two_chemist_beta = ao2mo.restore(1, MO_H_two_packed_beta, self.MO_coefs["b"].shape[1])
+            MO_H_two_chemist_ab = ao2mo.restore(1, MO_H_two_packed_ab, self.MO_coefs["a"].shape[1])
+
+            self.MO_H_two["a"] = MO_H_two_chemist_alpha.transpose(0, 2, 1, 3)
+            self.MO_H_two["b"] = MO_H_two_chemist_beta.transpose(0, 2, 1, 3)
+            self.MO_H_two["ab"] = MO_H_two_chemist_ab.transpose(0, 2, 1, 3)
+
+            # We construct the second quantised space as occupied \oplus unoccupied orbitals
+            occ_orbs_alpha = [i for i, o in enumerate(mean_field.mo_occ[0]) if o > 0]
+            occ_orbs_beta = [i for i, o in enumerate(mean_field.mo_occ[1]) if o > 0]
+
         # TODO note that by using RHF, we assume N_alpha = N_beta. We can generalise the process by using UHF,
         # but this would mean using separate MO coeffs for alpha and beta subspaces
 
-        self.modes = occ_orbs.copy()
-        for i in range(self.mol.nao):
-            if i not in occ_orbs:
-                self.modes.append(i) # already ordered by mol.mo_energy
+        self.log.exit()
 
         self.log.enter("Reference state analysis", 4)
         self.log.write(f"Occupied orbitals:", 4)
-        self.log.write(f"  -in the spin-alpha subspace: {occ_orbs}", 4)
-        self.log.write(f"  -in the spin-beta subspace:  {occ_orbs}", 4)
+        self.log.write(f"  -in the spin-alpha subspace: {occ_orbs_alpha}", 4)
+        self.log.write(f"  -in the spin-beta subspace:  {occ_orbs_beta}", 4)
 
-
-
-        #print("    Antisym tests")
-        #print("      Sym 0 <-> 3?", (np.round(self.MO_H_two - self.MO_H_two.transpose(3, 1, 2, 0), 2) == 0).all())
-        #print("      Sym 1 <-> 2", (np.round(self.MO_H_two - self.MO_H_two.transpose(0, 2, 1, 3), 2) == 0).all())
-
-        """null_state_energy = 0.0
-        null_state_energy_one = 0.0
-        for p in range(self.S_alpha):
-            # Only occupied states contribute
-            null_state_energy_one += 2 *  self.mode_exchange_energy([p], [p])
-        print(f" Null state energy one = {null_state_energy_one}")
-        null_state_energy_two = 0.0
-
-        # antisym spin-orbital approach
-        for p in range(self.S_alpha):
-            for q in range(self.S_alpha):
-                null_state_energy_two += 2 * MO_H_two_chemist[p][p][q][q] - MO_H_two_chemist[p][q][q][p]
-
-        print(f" Null state energy two = {null_state_energy_two}")
-
-        null_state_energy = null_state_energy_one + null_state_energy_two + self.mol.energy_nuc()
-        print(f"  Energy of the null state = {null_state_energy}")"""
-        #null_state_alpha = CS_Thouless(self.mol.nao, self.S_alpha, np.zeros((self.mol.nao - self.S_alpha, self.S_alpha), dtype=complex))
-        #null_state_beta = CS_Thouless(self.mol.nao, self.S_beta, np.zeros((self.mol.nao - self.S_beta, self.S_beta), dtype=complex))
-        null_state_alpha = CS_Qubit.null_state(self.mol.nao, self.S_alpha)
-        null_state_beta = CS_Qubit.null_state(self.mol.nao, self.S_alpha)
-        null_state = [null_state_alpha, null_state_beta]
-        null_state_direct_self_energy = self.H_overlap(null_state, null_state).real
-        self.log.write(f"Reference state energy with the overlap method = {null_state_direct_self_energy:0.5f}", 4)
+        self.log.write("Testing each CS type Hamiltonian overlap evaluation against the reference state...")
+        for CS_type in self.coherent_state_types.keys():
+            null_state_alpha = self.coherent_state_types[CS_type].null_state(self.mol.nao, self.S_alpha)
+            null_state_beta = self.coherent_state_types[CS_type].null_state(self.mol.nao, self.S_beta)
+            null_state = [null_state_alpha, null_state_beta]
+            null_state_direct_self_energy = self.H_overlap(null_state, null_state).real
+            if np.round(null_state_direct_self_energy, 5) == np.round(self.reference_state_energy, 5):
+                nse_comment = "agrees"
+            else:
+                nse_comment = "disagrees"
+            self.log.write(f"  -For {CS_type}: E_ref = {null_state_direct_self_energy:0.5f}, which {nse_comment} with the true value", 4)
         self.log.exit() # exits reference state analysis
 
         self.user_actions += f"initialise_molecule [M = {self.M}, S = {self.S}]\n"
@@ -1106,7 +1183,6 @@ class ground_state_solver():
             "M" : self.M,
             "S" : self.S,
             "MO_coefs" : self.MO_coefs,
-            "modes" : self.modes,
             "MO_H_one" : self.MO_H_one,
             "MO_H_two" : self.MO_H_two
             }
@@ -1117,16 +1193,23 @@ class ground_state_solver():
 
         self.log.exit()
 
-    def pyscf_full_CI(self):
-        self.user_actions += f"pyscf_full_CI\n"
+    def full_CI_sol(self):
+        self.user_actions += f"full_CI_sol\n"
 
         self.log.enter("Performing SCF on full CI...", 0)
 
-        if "pyscf_full_CI" in self.checklist:
+        if "full_CI_sol" in self.checklist:
             print("Full CI by PySCF already performed.")
             return(self.ci_energy)
 
-        cisolver = fci.FCI(self.mol, self.MO_coefs)
+        if self.HF_method == "RHF":
+            cisolver = fci.FCI(self.mol, self.MO_coefs)
+        elif self.HF_method == "UHF":
+            cisolver = fci.FCI(self.mol, (self.MO_coefs["a"], self.MO_coefs["b"]))
+        else:
+            self.log.write("WARNING: Unknown HF method, cannot run full CI calculation.")
+            return(None)
+
         self.log.write("FCI solver initialised...", 0)
         self.ci_energy, raw_ci_sol = cisolver.kernel()
 
@@ -1145,11 +1228,9 @@ class ground_state_solver():
                 key = (alpha_occ, beta_occ)
                 self.ci_sol[key] = float(raw_ci_sol[a, b])
 
-        self.log.write(f"Type of solution vector is {type(self.ci_sol)}")
+        self.check_off("full_CI_sol")
 
-        self.check_off("pyscf_full_CI")
-
-        self.log.write(f"Ground state energy as calculated by SCF (full configuration) = {self.ci_energy}", 0)
+        self.log.write(f"Ground state energy as calculated by SCF (full configuration) = {self.ci_energy:0.5f}", 0)
         self.log.exit()
         return(self.ci_energy)
 
@@ -1192,89 +1273,6 @@ class ground_state_solver():
         enter_node(self.diagnostics_log)
         return(output)
 
-    def save_data(self):
-        self.user_actions += f"save_data\n"
-        # Save user log
-        self.disk_jockey.commit_datum_bulk("system", "user_actions", self.user_actions)
-        self.disk_jockey.commit_datum_bulk("system", "log", self.log.dump())
-        self.disk_jockey.commit_metadatum("system", "log", {
-            "checklist" : self.checklist,
-            "measured_datasets" : self.measured_datasets
-            })
-
-        # Save self-analysis results which were performed
-        physical_properties_bulk = {}
-        if "mol_init" in self.checklist:
-            physical_properties_bulk["reference_state_energy"] = self.reference_state_energy
-        if "pyscf_full_CI" in self.checklist:
-            physical_properties_bulk["ci_energy"] = self.ci_energy
-            physical_properties_bulk["ci_sol"] = {str(k): v for k, v in self.ci_sol.items()} # each key is a tuple of tuples
-        if "SECS_sol" in self.checklist:
-            physical_properties_bulk["SECS_eta"] = self.SECS_eta.tolist()
-            physical_properties_bulk["SECS_energy"] = self.SECS_energy
-        self.disk_jockey.commit_datum_bulk("self_analysis", "physical_properties", physical_properties_bulk)
-
-        # save diagnostic
-        self.disk_jockey.commit_datum_bulk("diagnostics", "diagnostic_log", self.print_diagnostic_log())
-
-        # Save to disk
-        self.disk_jockey.save_data()
-
-        self.log.close_journal()
-
-    def load_data(self, what_to_load = None):
-        # what_to_load is a list of magic strings
-        if what_to_load is None:
-            # Default option
-            self.load_data(["system", "self_analysis", "measured_datasets"])
-        else:
-            self.log.enter("Loading data from the disk...", 0)
-            self.user_actions += f"load_data\n"
-            # loads data using disk jockey
-
-            # Firstly, let's see what we can load!
-            self.log.write("Reading files on disk...", 5)
-            self.disk_jockey.load_data(["system", "diagnostics"]) # Always by default
-            loaded_checklist = self.disk_jockey.metadata["system"]["log"]["checklist"]
-
-            if "self_analysis" in what_to_load and "mol_init" in loaded_checklist:
-                self.log.enter("Restoring self-analysis values...", 3)
-                if "mol_init" not in self.checklist:
-                    self.disk_jockey.load_data(["molecule"])
-                self.disk_jockey.load_data(["self_analysis"])
-
-                loaded_phys_properties = self.disk_jockey.data_bulks["self_analysis"]["physical_properties"]
-
-                self.reference_state_energy = loaded_phys_properties["reference_state_energy"]
-                self.check_off("mol_init")
-                if "pyscf_full_CI" in loaded_checklist:
-                    self.ci_energy = loaded_phys_properties["ci_energy"]
-                    self.ci_sol = {tuple([tuple([int(x) for x in occ.split(", ")]) for occ in k.strip("()").split("), (")]): v for k, v in loaded_phys_properties["ci_sol"].items()} # evil oneliner
-                    self.check_off("pyscf_full_CI")
-                    self.log.write("Results from SCF performed on the full CI loaded...", 4)
-
-                if "SECS_sol" in loaded_checklist:
-                    self.SECS_eta = np.array(loaded_phys_properties["SECS_eta"])
-                    self.SECS_energy = loaded_phys_properties["SECS_energy"]
-                    self.check_off("SECS_sol")
-                    self.log.write("Results from diagonalisation on the SECS basis loaded...", 4)
-
-                self.log.exit()
-
-            if "measured_datasets" in what_to_load:
-                self.log.enter("Restoring measured datasets...", 3)
-                for loaded_dataset in self.disk_jockey.metadata["system"]["log"]["measured_datasets"]:
-                    if loaded_dataset not in self.measured_datasets:
-                        self.log.write(f"Restoring dataset '{loaded_dataset}'...", 4)
-                        for dataset_datum in self.disk_jockey.data_nodes[loaded_dataset]:
-                            self.disk_jockey.load_datum(loaded_dataset, dataset_datum)
-                        self.measured_datasets.append(loaded_dataset)
-                    else:
-                        self.log.write("WARNING: Attempted to load a dataset which exists in internal checklist. Data from the disk was ignored.", 0)
-                self.log.exit()
-
-            self.log.exit()
-
 
 
 
@@ -1283,16 +1281,26 @@ class ground_state_solver():
         return(self.H_two[p][q][r][s])
         #return(self.H_two[int(p * (p * p * p + 2 * p * p + 3 * p + 2) / 8 + p * q * (p + 1) / 2 + q * (q + 1) / 2   + r * (r + 1) / 2 + s )])
 
-    def mode_exchange_energy(self, m_i, m_f, debug = False):
+    def mode_exchange_energy(self, m_i, m_f, spin = None, debug = False):
         # This function translates mode indices to spatial MO indices and returns the coefficient tensor element
+
+        # If Hilbert space is spin-symmetrical, the spin argument is not necessary
+        # Otherwise, spin is either "a", "b", or "ab" (to access "ba", do double transpose on "ab")
+
+        if spin is None:
+            if self.HF_method == "RHF":
+                spin = "a" # doesn't matter
+            else:
+                self.log.write("WARNING: Called mode_exchange_energy without specifying spin when Hilbert space is not assumed to be spin-symmetrical. Returning None...", 0)
+                return(None)
 
         # m_i/f are lists of either one mode index (single electron exchange) or two mode indices (two electron exchange)
         # the indices in m_i/f are SPATIAL, and are interpreted as acting on one spin state only.
         if len(m_i) == 1:
-            return(self.MO_H_one[self.modes[m_i[0]]][self.modes[m_f[0]]])
+            return(self.MO_H_one[spin][m_i[0]][m_f[0]])
         elif len(m_i) == 2:
-            #if self.modes[m_i[0]][1] == self.modes[m_f[1]][1] and self.modes[m_i[1]][1] == self.modes[m_f[0]][1]:
-            return(self.MO_H_two[self.modes[m_i[0]]][self.modes[m_i[1]]][self.modes[m_f[0]]][self.modes[m_f[1]]])
+            #if m_i[0][1] == m_f[1][1] and m_i[1][1] == m_f[0][1]:
+            return(self.MO_H_two[spin][m_i[0]][m_i[1]][m_f[0]][m_f[1]])
         return(0.0)
 
     def H_overlap(self, pair_a, pair_b):
@@ -1301,8 +1309,6 @@ class ground_state_solver():
 
         alpha_overlap = pair_a[0].norm_overlap(pair_b[0])
         beta_overlap = pair_a[1].norm_overlap(pair_b[1])
-
-        #print("lolll", alpha_overlap, beta_overlap)
 
         # To speed up cross-spin two-electron matrix elements, we prepare a matrix of all first-order sequence overlaps
         W_alpha = np.zeros((self.mol.nao, self.mol.nao), dtype=complex) # [i][j] = < alpha | f\hc_i f_j | alpha >
@@ -1317,96 +1323,11 @@ class ground_state_solver():
                 W_beta[p][q]  = pair_a[1].norm_overlap(pair_b[1], [p], [q])
 
                 # alpha
-                H_one_term += self.mode_exchange_energy([p], [q]) * W_alpha[p][q] * beta_overlap
+                H_one_term += self.mode_exchange_energy([p], [q], "a") * W_alpha[p][q] * beta_overlap
                 # beta
-                H_one_term += self.mode_exchange_energy([p], [q]) * W_beta[p][q] * alpha_overlap
+                H_one_term += self.mode_exchange_energy([p], [q], "b") * W_beta[p][q] * alpha_overlap
 
         H_two_term = 0.0
-
-        # Same spin (sigma = theta)
-
-        # This is a sum over pairs of strictly ascending mode pairs (for other cases we can use symmetry, which just becomes an extra factor here)
-        """c_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
-        a_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
-        for c_pair in c_pairs:
-            for a_pair in a_pairs:
-
-                # <ij|kl> -> < c_pair[1], c_pair[0] | a_pair[0], a_pair[1] >
-
-                # alpha (all 4 operators act on hilbert_alpha)
-                H_two_term += 2 * self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * pair_a[0].norm_overlap(pair_b[0], c_pair, a_pair) * beta_overlap
-                # beta (all 4 operators act on hilbert_beta)
-                H_two_term += 2 * self.mode_exchange_energy([c_pair[1], c_pair[0]], a_pair) * pair_a[1].norm_overlap(pair_b[1], c_pair, a_pair) * alpha_overlap
-
-        # Different spin (sigma != theta)
-
-        for p in range(self.mol.nao):
-            for q in range(self.mol.nao):
-                for r in range(self.mol.nao):
-                    for s in range(self.mol.nao):
-                        H_two_term += self.mode_exchange_energy([q, p], [r, s]) * pair_a[0].norm_overlap(pair_b[0], [p], [r]) * pair_a[1].norm_overlap(pair_b[1], [q], [s])"""
-
-        # The "no symmetry" approach
-        """for i in range(self.mol.nao):
-            for j in range(self.mol.nao):
-                for k in range(self.mol.nao):
-                    for l in range(self.mol.nao):
-                        prefactor = 0.5 * self.mode_exchange_energy([i, j], [k, l])
-
-                        # alpha alpha
-                        H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
-
-                        # beta beta
-                        H_two_term += prefactor * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
-
-                        # alpha beta
-                        H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [i], [k]) * pair_a[1].norm_overlap(pair_b[1], [j], [l])
-
-                        # beta alpha
-                        H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])"""
-
-        """c_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
-        a_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
-        for c_pair in c_pairs:
-            for a_pair in a_pairs:
-
-                # <ij|kl> -> < c_pair[1], c_pair[0] | a_pair[0], a_pair[1] >
-
-                i = c_pair[0]
-                j = c_pair[1]
-                k = a_pair[0]
-                l = a_pair[1]
-
-
-
-
-                prefactor_same_spin = 0.5 * (self.mode_exchange_energy([i, j], [k, l]) - self.mode_exchange_energy([j, i], [k, l]) - self.mode_exchange_energy([i, j], [l, k]) + self.mode_exchange_energy([j, i], [l, k]) )
-
-                # alpha alpha
-                H_two_term += prefactor_same_spin * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
-
-                # beta beta
-                H_two_term += prefactor_same_spin * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
-
-                # alpha beta
-                H_two_term += (
-                            0.5 * self.mode_exchange_energy([i, j], [k, l]) * pair_a[0].norm_overlap(pair_b[0], [i], [k]) * pair_a[1].norm_overlap(pair_b[1], [j], [l])
-                            + 0.5 * self.mode_exchange_energy([j, i], [k, l]) * pair_a[0].norm_overlap(pair_b[0], [j], [k]) * pair_a[1].norm_overlap(pair_b[1], [i], [l])
-                            + 0.5 * self.mode_exchange_energy([i, j], [l, k]) * pair_a[0].norm_overlap(pair_b[0], [i], [l]) * pair_a[1].norm_overlap(pair_b[1], [j], [k])
-                            + 0.5 * self.mode_exchange_energy([j, i], [l, k]) * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])
-                            )
-
-                # beta alpha
-                H_two_term += (
-                            0.5 * self.mode_exchange_energy([i, j], [k, l]) * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])
-                            + 0.5 * self.mode_exchange_energy([j, i], [k, l]) * pair_a[0].norm_overlap(pair_b[0], [i], [l]) * pair_a[1].norm_overlap(pair_b[1], [j], [k])
-                            + 0.5 * self.mode_exchange_energy([i, j], [l, k]) * pair_a[0].norm_overlap(pair_b[0], [j], [k]) * pair_a[1].norm_overlap(pair_b[1], [i], [l])
-                            + 0.5 * self.mode_exchange_energy([j, i], [l, k]) * pair_a[0].norm_overlap(pair_b[0], [i], [k]) * pair_a[1].norm_overlap(pair_b[1], [j], [l])
-                            )
-
-        # Now for the cross-terms
-        ...
-        """
 
         # equal spin
         c_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
@@ -1424,33 +1345,37 @@ class ground_state_solver():
                 k = a_pair[0]
                 l = a_pair[1]
 
-                prefactor_same_spin = 1.0 * (self.mode_exchange_energy([i, j], [k, l]) - self.mode_exchange_energy([i, j], [l, k]))
+                prefactor_same_spin_alpha = 1.0 * (self.mode_exchange_energy([i, j], [k, l], "a") - self.mode_exchange_energy([i, j], [l, k], "a"))
+                prefactor_same_spin_beta = 1.0 * (self.mode_exchange_energy([i, j], [k, l], "b") - self.mode_exchange_energy([i, j], [l, k], "b"))
 
                 # alpha alpha
-                H_two_term += prefactor_same_spin * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
+                H_two_term += prefactor_same_spin_alpha * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
 
                 # beta beta
-                H_two_term += prefactor_same_spin * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
+                H_two_term += prefactor_same_spin_beta * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
 
-                upup += prefactor_same_spin * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
-                downdown += prefactor_same_spin * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
+                upup += prefactor_same_spin_alpha * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
+                downdown += prefactor_same_spin_beta * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
 
         # opposite spin
         for i in range(self.mol.nao):
             for j in range(self.mol.nao):
                 for k in range(self.mol.nao):
                     for l in range(self.mol.nao):
-                        prefactor = 0.5 * self.mode_exchange_energy([i, j], [k, l])
+                        #prefactor = 0.5 * self.mode_exchange_energy([i, j], [k, l])
+
+                        prefactor_alpha_beta = 0.5 * self.mode_exchange_energy([i, j], [k, l], "ab")
+                        prefactor_beta_alpha = 0.5 * self.mode_exchange_energy([j, i], [l, k], "ab")
 
                         # alpha beta
                         #H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [i], [k]) * pair_a[1].norm_overlap(pair_b[1], [j], [l])
-                        H_two_term += prefactor * W_alpha[i][k] * W_beta[j][l]
+                        H_two_term += prefactor_alpha_beta * W_alpha[i][k] * W_beta[j][l]
 
                         # beta alpha
                         #H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])
-                        H_two_term += prefactor * W_alpha[j][l] * W_beta[i][k]
+                        H_two_term += prefactor_beta_alpha * W_alpha[j][l] * W_beta[i][k]
 
-                        mixed += prefactor * W_alpha[i][k] * W_beta[j][l] + prefactor * W_alpha[j][l] * W_beta[i][k]
+                        mixed += prefactor_alpha_beta * W_alpha[i][k] * W_beta[j][l] + prefactor_beta_alpha * W_alpha[j][l] * W_beta[i][k]
 
 
         #print(H_one_term, H_two_term)
@@ -1466,20 +1391,17 @@ class ground_state_solver():
 
 
     def find_ground_state(self, method, **kwargs):
-        if method in self.find_ground_state_methods.keys():
-            return(self.find_ground_state_methods[method](self, **kwargs))
+        if method in ground_state_solver.find_ground_state_methods.keys():
+            return(ground_state_solver.find_ground_state_methods[method](self, **kwargs))
         else:
-            self.log.write(f"ERROR: Unknown ground state method {method}. Available methods: {self.find_ground_state_methods.keys()}")
+            self.log.write(f"ERROR: Unknown ground state method {method}. Available methods: {ground_state_solver.find_ground_state_methods.keys()}")
             return(None)
 
+    ###########################################################################
+    ##################### Low-excitation guided sampling ######################
+    ###########################################################################
 
-    # ----- Methods to look at the answer in order to better the approach -----
-
-    def print_ground_state(self):
-        assert self.ci_sol is not None
-
-        print("Printing ground state solution on the full CI...")
-        print(self.ci_sol)
+    # --------------------- Occupancy bitstring labelling ---------------------
 
     def occ_list_to_occ_string(self, occ_list):
         # the string that cistring deals with is exactly like the occ_list, but
@@ -1502,6 +1424,17 @@ class ground_state_solver():
         #for j in range() or not
         return(tuple(res))
 
+    def occ_tuple_restore(self, occ_tuple_repr):
+        # Restores a tuple which was converted to str directly
+        return( tuple([tuple([int(x) for x in occ.split(", ")]) for occ in occ_tuple_repr.strip("()").split("), (")]) )
+
+    def occ_list_to_occ_tuple(self, occ_list):
+        if isinstance(occ_list, tuple):
+            return(occ_list) # just to regularise user action
+        # There may be trailing zeros. Let's get rid of them with a cursed one-liner
+        return(tuple(occ_list[:len(occ_list) - occ_list[::-1].index(1)]))
+
+
     def occ_idx_to_occ_list(self, idx_alpha, idx_beta):
         occ_alpha = fci.cistring.addr2str(self.mol.nao, self.S_alpha, idx_alpha)
         occ_beta = fci.cistring.addr2str(self.mol.nao, self.S_beta, idx_beta)
@@ -1518,44 +1451,6 @@ class ground_state_solver():
             beta_list.append(int(occ_beta_bin[i]))
         beta_list += [0] * (self.mol.nao - len(beta_list))
         return(alpha_list, beta_list)
-
-    def ground_state_component(self, alpha_occupancy, beta_occupancy):
-        assert self.ci_sol is not None
-        # alpha/beta_occupancy is a tuple (occ1, occ2... occ_M) where N is the
-        # number of alpha/beta MOs and occupancies sum up to S_alpha/beta.
-        #alpha_idx = fci.cistring.str2addr(self.mol.nao, self.S_alpha, self.occ_list_to_occ_string(alpha_occupancy))
-        #beta_idx = fci.cistring.str2addr(self.mol.nao, self.S_beta, self.occ_list_to_occ_string(beta_occupancy))
-
-        # Access coefficient
-        if isinstance(alpha_occupancy, tuple):
-            return(self.ci_sol[(alpha_occupancy, beta_occupancy)])
-        elif isinstance(alpha_occupancy, list):
-            return(self.ci_sol[(tuple(alpha_occupancy), tuple(beta_occupancy))])
-        #return(self.ci_sol[alpha_idx, beta_idx])
-
-    # CSF projections
-
-    def closed_shell_projection(self, trim_M = None):
-        # Calculates the norm squared of the projection of the ground state
-        # onto the closed-shell-only Hilbert subspace.
-
-        # if trim_M is not None, we trim to the bottom trim_M MOs.
-        # cistring "inserts leading zeros" to bitstrings :)
-        act_M = self.mol.nao
-        if trim_M is not None:
-            act_M = min(trim_M, self.mol.nao)
-
-        cur_state = [1] * self.S_alpha + [0] * (act_M - self.S_alpha)
-        res = 0
-        res_N = 0
-        while(True):
-            cur_c = self.ground_state_component(cur_state, cur_state)
-            res += cur_c * cur_c
-            res_N += 1
-            cur_state = functions.choose_iterator(cur_state)
-            if cur_state is None:
-                break
-        return(res, res_N)
 
     def get_prom_label(self, bitlist, trim_M = None, hr = False):
         # Returns a list [[de-occupied MOs], [promoted MOs]] from ref state
@@ -1580,6 +1475,57 @@ class ground_state_solver():
                 res[1].append(i + hr_cor)
 
         return(res)
+
+    def get_ref_state(self):
+        # Returns a list of lists, useful for further modification
+        return([[1] * self.S_alpha + [0] * (self.mol.nao - self.S_alpha), [1] * self.S_beta + [0] * (self.mol.nao - self.S_beta)])
+
+    # -------------------------------------------------------------------------
+    # ------------------ Accessing the full CI ground state -------------------
+    # -------------------------------------------------------------------------
+    # Note that ci_sol is a dict with 2-tuples of occ-tuples as keys.
+
+    def print_ground_state(self):
+        assert self.ci_sol is not None
+
+        print("Printing ground state solution on the full CI...")
+        print(self.ci_sol)
+
+    def ground_state_component(self, alpha_occupancy, beta_occupancy):
+        assert self.ci_sol is not None
+
+        # Access coefficient
+        if isinstance(alpha_occupancy, tuple):
+            return(self.ci_sol[(alpha_occupancy, beta_occupancy)])
+        elif isinstance(alpha_occupancy, list):
+            return(self.ci_sol[(self.occ_list_to_occ_tuple(alpha_occupancy), self.occ_list_to_occ_tuple(beta_occupancy) )])
+        #return(self.ci_sol[alpha_idx, beta_idx])
+
+    # ------------------------------ RHF methods ------------------------------
+
+    # Closed shell methods (RHF SACs with 0 openness)
+
+    def closed_shell_projection(self, trim_M = None):
+        # Calculates the norm squared of the projection of the ground state
+        # onto the closed-shell-only Hilbert subspace.
+
+        # if trim_M is not None, we trim to the bottom trim_M MOs.
+        # cistring "inserts leading zeros" to bitstrings :)
+        act_M = self.mol.nao
+        if trim_M is not None:
+            act_M = min(trim_M, self.mol.nao)
+
+        cur_state = [1] * self.S_alpha + [0] * (act_M - self.S_alpha)
+        res = 0
+        res_N = 0
+        while(True):
+            cur_c = self.ground_state_component(cur_state, cur_state)
+            res += cur_c * cur_c
+            res_N += 1
+            cur_state = functions.choose_iterator(cur_state)
+            if cur_state is None:
+                break
+        return(res, res_N)
 
 
     def get_top_closed_shells(self, N_cs, trim_M = None):
@@ -1615,6 +1561,8 @@ class ground_state_solver():
             if cur_state is None:
                 break
         return(res)
+
+    # Two-open-shell methods (RHF SACs with openness 1)
 
     def single_excitation_singlets_projection(self, trim_M = None):
         # For every occupancy list in alpha, L_A, we consider all occupancy
@@ -1682,50 +1630,240 @@ class ground_state_solver():
 
         return(res)
 
-    def plot_single_excitation_closed_shell_heatmap(self, ax = None, trim_M = None):
+    # ------------------------------ UHF methods ------------------------------
 
-        self.user_actions += f"plot_single_excitation_closed_shell_heatmap [trim_M = {trim_M}]\n"
+    def get_simultaneously_excited_states(self, top_N = None):
+        # returns
+        #   -a list of top states (as 2-tuples of occ tuples) with one
+        #    excitation per spin subspace
+        #   -the total number of such states
+        #   -The norm squared of the ci_sol projection onto these states (None
+        #    if unknown)
 
-        act_M = self.mol.nao
-        if trim_M is not None:
-            if trim_M > self.S_alpha: # We need at least one empty shell
-                act_M = min(trim_M, self.mol.nao)
+        self.log.enter(f"Obtaining all states with one excitation on both spin subspaces...", 8)
 
-        one_exc_closed_shell_hm = self.single_excitation_closed_shell_heatmap(trim_M)
+        # First, check if there are any such states
+        if min(self.S_alpha, self.mol.nao - self.S_alpha) < 1 or min(self.S_beta, self.mol.nao - self.S_beta) < 1:
+            self.log.write("No excitation allowed on one of the spin subspaces.", 9)
+            self.log.exit()
+            return([])
 
-        if ax is None:
-            ax = plt.gca()
+        res = []
 
-        # Plot the heatmap
-        heatmap = ax.imshow(one_exc_closed_shell_hm, cmap='Wistia', interpolation='none') # extent = functions.m_ext(one_exc_closed_shell_hm)
+        for i in range(self.S_alpha):
+            for j in range(self.mol.nao - self.S_alpha):
+                for k in range(self.S_beta):
+                    for l in range(self.mol.nao - self.S_beta):
+                        # Note that we omit the trailing zeros to agree with the ci_sol convention
+                        res.append((
+                                (1,) * i + (0,) + (1,) * (self.S_alpha - 1 - i) + (0,) * j + (1,),
+                                (1,) * k + (0,) + (1,) * (self.S_beta - 1 - k) + (0,) * l + (1,)
+                            ))
+
+        self.log.write(f"Obtained {len(res)} such states.", 9)
+        self.log.exit()
+        return(res)
+
+    def get_states_by_excitation_number(self, N_exc_a, N_exc_b):
+        # returns a list of all states (as 2-tuples of occ tuples) with the
+        # exact number of excitations from the reference state.
+        # N_exc_a: number of excitations in the spin-alpha subspace
+        # N_exc_b: number of excitations in the spin-beta subspace
+
+        self.log.enter(f"Obtaining all states with {N_exc_a} excitations on spin-alpha and {N_exc_b} excitations on spin-beta...", 4)
+
+        # First, check if there are any such states
+        if min(self.S_alpha, self.mol.nao - self.S_alpha) < N_exc_a or min(self.S_beta, self.mol.nao - self.S_beta) < N_exc_b:
+            self.log.write("Number of excitations is too large. No such states exist.", 5)
+            self.log.exit()
+            return([])
+
+        a_from = functions.subset_indices(np.arange(self.S_alpha), N_exc_a)
+        a_to = functions.subset_indices(np.arange(self.S_alpha, self.mol.nao), N_exc_a)
+        b_from = functions.subset_indices(np.arange(self.S_beta), N_exc_b)
+        b_to = functions.subset_indices(np.arange(self.S_beta, self.mol.nao), N_exc_beta)
+
+        res = []
+
+        for i in range(len(a_from)):
+            for j in range(len(a_to)):
+                for k in range(len(a_from)):
+                    for l in range(len(a_to)):
+                        cur_state = [[1] * self.S_alpha + [0] * max(a_to[j]), [1] * self.S_beta + [0] * max(b_to[l])]
+                        for a_i in N_exc_a:
+                            cur_state[a_from[i][a_i]] = 0
+                            cur_state[a_to[j][a_i]] = 1
+                        for b_i in N_exc_b:
+                            cur_state[b_from[k][b_i]] = 0
+                            cur_state[b_to[l][b_i]] = 1
+                        res.append(cur_state)
+
+        self.log.write(f"Obtained {len(res)} such states.", 5)
+        self.log.exit()
+        return(res)
+
+    def get_top_single_excitation_states(self, N_top = 10):
+        # returns
+        #   -a list of lists of top states (as 2-tuples of occ tuples) with one
+        #    excitation in total (no fluff if all states), one per subspace
+        #   -the total number of such states
+        #   -The norm squared of the ci_sol projection onto these states (None
+        #    if unknown)
+
+        if N_top is None:
+            self.log.enter(f"Obtaining all states with one excitation in total...", 4)
+        else:
+            N_top_a = min(N_top, self.S_alpha * (self.mol.nao - self.S_alpha))
+            N_top_b = min(N_top, self.S_beta * (self.mol.nao - self.S_beta))
+            self.log.enter(f"Obtaining top ({N_top_a}, {N_top_b}) states with one excitation in spin (alpha, beta) as measured by overlap in true ground state...", 4)
+
+        if "full_CI_sol" not in self.checklist:
+            self.log.write("WARNING: Full CI ground state solution has not been found yet. Aborting...")
+            self.log.exit()
+            return(None)
+
+        res = [[], []] #[0/1][i] = [n_sq, key, prom_label]; ordered by n_sq desc.
+        if N_top is not None:
+            for i in range(N_top_a):
+                res[0].append([0, None, None])
+            for i in range(N_top_b):
+                res[1].append([0, None, None])
+
+        total_norm_squared_projection_a = 0.0
+        total_norm_squared_projection_b = 0.0
+
+        base_state_alpha = (1,) * self.S_alpha
+        base_state_beta = (1,) * self.S_beta
+
+        for i in range(self.S_alpha):
+            for j in range(self.mol.nao - self.S_alpha):
+                # Note that we omit the trailing zeros to agree with the ci_sol convention
+                cur_state_alpha = (1,) * i + (0,) + (1,) * (self.S_alpha - 1 - i) + (0,) * j + (1,)
+                cur_c = self.ground_state_component(cur_state_alpha, base_state_beta)
+                cur_n_sq = cur_c * cur_c
+
+                total_norm_squared_projection_a += cur_n_sq
+
+                if N_top is not None:
+                    if cur_n_sq > res[0][-1][0]:
+                        # belongs to the list
+                        new_i = len(res[0])
+                        while(cur_n_sq > res[0][new_i - 1][0]):
+                            new_i -= 1
+                            if new_i == 0:
+                                break
+                        res[0].insert(new_i, [cur_n_sq, cur_state_alpha, f"({i+1} -> {j + self.S_alpha + 1})"])
+                        res[0].pop()
+                else:
+                    # Not discriminating
+                    res[0].append(cur_state_beta)
+        for k in range(self.S_beta):
+            for l in range(self.mol.nao - self.S_beta):
+                # Note that we omit the trailing zeros to agree with the ci_sol convention
+                cur_state_beta = (1,) * k + (0,) + (1,) * (self.S_beta - 1 - k) + (0,) * l + (1,)
+                cur_c = self.ground_state_component(base_state_alpha, cur_state_beta)
+                cur_n_sq = cur_c * cur_c
+
+                total_norm_squared_projection_b += cur_n_sq
+
+                if N_top is not None:
+                    if cur_n_sq > res[1][-1][0]:
+                        # belongs to the list
+                        new_i = len(res[1])
+                        while(cur_n_sq > res[1][new_i - 1][0]):
+                            new_i -= 1
+                            if new_i == 0:
+                                break
+                        res[1].insert(new_i, [cur_n_sq, cur_state_beta, f"({k+1} -> {l + self.S_beta + 1})"])
+                        res[1].pop()
+                else:
+                    # Not discriminating
+                    res[1].append(cur_state_beta)
 
 
-        row_lab = [f"{i + one_exc_closed_shell_hm.shape[1] + 1}" for i in range(one_exc_closed_shell_hm.shape[0])]
-        col_lab = [f"{i + 1}" for i in range(one_exc_closed_shell_hm.shape[1])]
+        self.log.write(f"Obtained ({len(res[0])}, {len(res[1])}) such states.", 5)
+        self.log.exit()
+        return(res, (self.S_alpha * (self.mol.nao - self.S_alpha), self.S_beta * (self.mol.nao - self.S_beta)), (total_norm_squared_projection_a, total_norm_squared_projection_b))
 
-        # Create colorbar
-        cbar = ax.figure.colorbar(heatmap, ax=ax)
-        cbar.ax.set_ylabel("Norm sq. of sol. component", rotation=-90, va="bottom")
+    def get_top_simultaneously_excited_states(self, N_top = 10):
+        # returns
+        #   -a list of top states (as 2-tuples of occ tuples) with one
+        #    excitation per spin subspace (no fluff if all states)
+        #   -the total number of such states
+        #   -The norm squared of the ci_sol projection onto these states (None
+        #    if unknown)
 
-        ax.set_xlabel("MO being promoted from")
-        ax.set_ylabel("MO being promoted into")
+        if N_top is None:
+            self.log.enter(f"Obtaining all states with one excitation on both spin subspaces...", 4)
+        else:
+            N_top = min(N_top, self.S_alpha * (self.mol.nao - self.S_alpha) * self.S_beta * (self.mol.nao - self.S_beta))
+            self.log.enter(f"Obtaining top {N_top} states with one excitation on both spin subspaces as measured by overlap in true ground state...", 4)
 
-        ax.set_xticks(np.arange(one_exc_closed_shell_hm.shape[1]), labels=col_lab)
-        ax.set_yticks(np.arange(one_exc_closed_shell_hm.shape[0]), labels=row_lab)
+        if "full_CI_sol" not in self.checklist:
+            self.log.write("WARNING: Full CI ground state solution has not been found yet. Aborting...")
+            self.log.exit()
+            return(None)
 
-        # Grid
-        ax.spines[:].set_visible(False)
-        ax.set_xticks(np.arange(one_exc_closed_shell_hm.shape[1]+1)-.5, minor=True)
-        ax.set_yticks(np.arange(one_exc_closed_shell_hm.shape[0]+1)-.5, minor=True)
-        ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
-        ax.tick_params(which="minor", bottom=False, left=False)
+        res = [] #[i] = [n_sq, key, prom_label]; ordered by n_sq desc.
+        if N_top is not None:
+            for i in range(N_top):
+                res.append([0, None, None])
 
-        return(heatmap, cbar)
+        total_norm_squared_projection = 0.0
 
-    # ------------------------- Approximation methods -------------------------
+        for i in range(self.S_alpha):
+            for j in range(self.mol.nao - self.S_alpha):
+                for k in range(self.S_beta):
+                    for l in range(self.mol.nao - self.S_beta):
+                        # Note that we omit the trailing zeros to agree with the ci_sol convention
+                        cur_state_alpha = (1,) * i + (0,) + (1,) * (self.S_alpha - 1 - i) + (0,) * j + (1,)
+                        cur_state_beta = (1,) * k + (0,) + (1,) * (self.S_beta - 1 - k) + (0,) * l + (1,)
+                        cur_c = self.ground_state_component(cur_state_alpha, cur_state_beta)
+                        cur_n_sq = cur_c * cur_c
 
-    def solve_on_single_excitation_closed_shell(self, trim_M = None):
-        # returns heatmap, SECS energy
+                        total_norm_squared_projection += cur_n_sq
+
+                        if N_top is not None:
+                            if cur_n_sq > res[-1][0]:
+                                # belongs to the list
+                                new_i = len(res)
+                                while(cur_n_sq > res[new_i - 1][0]):
+                                    new_i -= 1
+                                    if new_i == 0:
+                                        break
+                                res.insert(new_i, [cur_n_sq, (cur_state_alpha, cur_state_beta), f"({i+1} -> {j + self.S_alpha + 1}), ({k+1} -> {l + self.S_beta + 1})"])
+                                res.pop()
+                        else:
+                            # Not discriminating
+                            res.append((cur_state_alpha, cur_state_beta))
+
+
+        self.log.write(f"Obtained {len(res)} such states.", 5)
+        self.log.exit()
+        return(res, self.S_alpha * (self.mol.nao - self.S_alpha) * self.S_beta * (self.mol.nao - self.S_beta), total_norm_squared_projection)
+
+
+
+    # -------------------------------------------------------------------------
+    # ----------------- Obtaining the low-excitation solution -----------------
+    # -------------------------------------------------------------------------
+    # Note that an LE solution has two components:
+    #   1. The actual ground state projection as a superposition onto occups
+    #   2. The expectation value constraint for parameter matrices
+
+
+    # ------------------ Finding the projected ground-state -------------------
+    # Note: SCF has methods for this (CIS, CISD)
+    # Every method in this category:
+    #   -Returns None
+    #   -Initialises self.LE_sol
+
+    # ---------- RHF methods
+
+    def find_LE_solution_SECS(self, **kwargs):
+        # kwargs:
+        #     -trim_M: integer of bottom spatial MOs to be considered.
+        #              default value: all MOs considered
 
         # Takes a basis consisting of ref state and SECSs, finds effective H,
         # finds solution, and returns norm squared of solution component for
@@ -1733,25 +1871,20 @@ class ground_state_solver():
         # The goal is to approximate the true solution heatmap for the purpose
         # of guiding the CS sampling process.
 
+        # Parameter regularisation
+        act_M = self.mol.nao
+        if "trim_M" in kwargs:
+            if kwargs["trim_M"] > self.S_alpha: # We need at least one empty shell
+                act_M = min(kwargs["trim_M"], self.mol.nao)
+
+        self.LE_description["params"] = {"trim_M" : act_M}
+
+
         self.log.enter("Solving on a single-excitation closed-shell basis...", 1)
 
-        self.user_actions += f"solve_on_single_excitation_closed_shell [trim_M = {trim_M}]\n"
-
-        if "SECS_sol" in self.checklist:
-            # Already solved
-            self.log.write("Already solved.", 1)
-            self.log.exit()
-            return(self.SECS_eta, self.SECS_energy)
-
+        self.user_actions += f"find_LE_solution_SECS [MOs considered: {act_M}]\n"
 
         assert(self.S_alpha == self.S_beta)
-
-        act_M = self.mol.nao
-        if trim_M is not None:
-            if trim_M > self.S_alpha: # We need at least one empty shell
-                act_M = min(trim_M, self.mol.nao)
-
-        self.log.write(f"Mode number for each spin space = {act_M}", 4)
 
         ref_state = [1] * self.S_alpha + [0] * (act_M - self.S_alpha)
         basis = [[ref_state, ref_state]]
@@ -1805,37 +1938,238 @@ class ground_state_solver():
 
         # Now, for the heatmap
         self.log.write(f"Obtaining the single-excitation prevalence matrix...", 2)
-        res = np.zeros((act_M - self.S_alpha, self.S_alpha))
+        exp_vals = np.zeros((act_M - self.S_alpha, self.S_alpha))
         i = 1
         for a in range(act_M - self.S_alpha):
             for b in range(self.S_alpha):
-                sol_component = ground_state_vector[i]
-                res[a][b] = sol_component * sol_component
+                exp_vals[a][b] = ground_state_vector[i]
                 i += 1
 
         # Mark as solved
-        self.check_off("SECS_sol")
+        self.check_off("LE_sol")
 
-        self.SECS_eta = res
-        self.SECS_energy = ground_state_energy
+        self.LE_sol["E"] = ground_state_energy
+        self.LE_sol["sol"] = ground_state_vector
+        self.LE_sol["exp"] = exp_vals
 
         self.log.write(f"Success!", 1)
         self.log.exit()
+        return(None)
 
-        return(res, ground_state_energy)
+    def find_LE_solution_SEO1(self, **kwargs):
+        pass
+
+
+    # ---------- UHF methods
+
+
+    def find_LE_solution_SE(self, **kwargs):
+        # Single excitation
+        pass
+
+
+    def find_LE_solution_MSDE(self, **kwargs):
+        # Double excitation with mixed spins
+        pass
 
 
 
-    def plot_SECS_restricted_heatmap(self, ax = None, trim_M = None):
 
-        self.user_actions += f"plot_SECS_restricted_heatmap [trim_M = {trim_M}]\n"
+    # Entry function
+
+    def find_LE_solution(self, method, **kwargs):
+        # requires HF_method to be established, i.e. mol_init
+        self.log.enter(f"Obtaining low-excitation solution with env. {self.HF_method}, method {method}...", 1)
+
+        if "mol_init" not in self.checklist or self.HF_method is None:
+            self.log.write("WARNING: Molecule not initialised. Aborting...")
+            self.log.exit()
+            return(None)
+
+        if "LE_sol" in self.checklist:
+            self.log.write("WARNING: LE solution initialised before.")
+            if self.LE_description["env"] != self.HF_method or self.LE_description["spec"] != method:
+                self.log.write(f"Previous solution found with a different method ({self.LE_description["env"]}: {self.LE_description["spec"]})")
+            self.log.exit()
+            return(None)
+
+        if method not in ground_state_solver.low_excitation_methods[self.HF_method]:
+            self.log.write(f"ERROR: Unknown method '{method}'. Methods available for {self.HF_method}: {ground_state_solver.low_excitation_methods[self.HF_method].keys()}")
+            self.log.exit()
+            return(None)
+
+        self.LE_description["env"] = self.HF_method
+        self.LE_description["spec"] = method
+
+        ground_state_solver.low_excitation_methods[self.HF_method][method](self, **kwargs)
+
+        self.log.exit()
+        return(None)
+
+    ###########################################################################
+    ############################# Output methods ##############################
+    ###########################################################################
+
+    # ------------------------ Data storage management ------------------------
+
+    def save_data(self):
+        self.user_actions += f"save_data\n"
+        # Save user log
+        self.disk_jockey.commit_datum_bulk("system", "user_actions", self.user_actions)
+        self.disk_jockey.commit_datum_bulk("system", "log", self.log.dump())
+        self.disk_jockey.commit_metadatum("system", "log", {
+            "checklist" : self.checklist,
+            "measured_datasets" : self.measured_datasets
+            })
+
+        # Save self-analysis results which were performed
+        if "mol_init" in self.checklist:
+            self.disk_jockey.commit_datum_bulk("self_analysis", "physical_properties", {
+                "HF_method" : self.HF_method,
+                "reference_state_energy" : self.reference_state_energy
+                })
+        if "full_CI_sol" in self.checklist:
+            self.disk_jockey.commit_datum_bulk("self_analysis", "full_CI_sol", {
+                "E" : self.ci_energy,
+                "sol" : {str(k): v for k, v in self.ci_sol.items()} # each key is a tuple of tuples
+                })
+        if "LE_sol" in self.checklist:
+            if isinstance(self.LE_sol["exp"], np.ndarray):
+                self.LE_sol["exp"] = LE_sol["exp"].tolist()
+            self.disk_jockey.commit_datum_bulk("self_analysis", "LE_sol", {
+                "E" : self.LE_sol["E"],
+                "sol" : {str(k): v for k, v in self.LE_sol["sol"].items()},
+                "exp" : self.LE_sol["exp"]
+                })
+            self.disk_jockey.commit_metadatum("self_analysis", "LE_sol", self.LE_description)
+
+        # save diagnostic
+        self.disk_jockey.commit_datum_bulk("diagnostics", "diagnostic_log", self.print_diagnostic_log())
+
+        # Save to disk
+        self.disk_jockey.save_data()
+
+        self.log.close_journal()
+
+    def load_data(self, what_to_load = None):
+        # what_to_load is a list of magic strings
+        if what_to_load is None:
+            # Default option
+            self.load_data(["system", "self_analysis", "measured_datasets"])
+        else:
+            self.log.enter("Loading data from the disk...", 0)
+            self.user_actions += f"load_data\n"
+            # loads data using disk jockey
+
+            # Firstly, let's see what we can load!
+            self.log.write("Reading files on disk...", 5)
+            self.disk_jockey.load_data(["system", "diagnostics"]) # Always by default
+            loaded_checklist = self.disk_jockey.metadata["system"]["log"]["checklist"]
+
+            if "self_analysis" in what_to_load and "mol_init" in loaded_checklist:
+                self.log.enter("Restoring self-analysis values...", 3)
+                if "mol_init" not in self.checklist:
+                    self.disk_jockey.load_data(["molecule"])
+                self.disk_jockey.load_data(["self_analysis"])
+
+                loaded_phys_properties = self.disk_jockey.data_bulks["self_analysis"]["physical_properties"]
+
+                self.HF_method = loaded_phys_properties["HF_method"]
+                self.reference_state_energy = loaded_phys_properties["reference_state_energy"]
+                self.check_off("mol_init")
+
+                if "full_CI_sol" in loaded_checklist:
+                    loaded_full_CI_sol = self.disk_jockey.data_bulks["self_analysis"]["full_CI_sol"]
+                    self.ci_energy = loaded_full_CI_sol["E"]
+                    self.ci_sol = {self.occ_tuple_restore(k): v for k, v in loaded_full_CI_sol["sol"].items()}
+                    self.check_off("full_CI_sol")
+                    self.log.write("Results from SCF performed on the full CI loaded...", 4)
+
+                if "LE_sol" in loaded_checklist:
+                    loaded_LE_sol = self.disk_jockey.data_bulks["self_analysis"]["LE_sol"]
+                    self.LE_description = self.disk_jockey.metadata["self_analysis"]["LE_sol"]
+                    self.LE_sol = {
+                        "E" : loaded_LE_sol["E"],
+                        "sol" : {self.occ_tuple_restore(k): v for k, v in loaded_LE_sol["sol"].items()},
+                        "exp" : loaded_LE_sol["exp"]
+                        }
+                    self.check_off("LE_sol")
+                    self.log.write(f"Results from diagonalisation on a low-excitation basis loaded (env {self.LE_description["env"]}, spec {self.LE_description["spec"]})...", 4)
+
+                self.log.exit()
+
+            if "measured_datasets" in what_to_load:
+                self.log.enter("Restoring measured datasets...", 3)
+                for loaded_dataset in self.disk_jockey.metadata["system"]["log"]["measured_datasets"]:
+                    if loaded_dataset not in self.measured_datasets:
+                        self.log.write(f"Restoring dataset '{loaded_dataset}'...", 4)
+                        for dataset_datum in self.disk_jockey.data_nodes[loaded_dataset]:
+                            self.disk_jockey.load_datum(loaded_dataset, dataset_datum)
+                        self.measured_datasets.append(loaded_dataset)
+                    else:
+                        self.log.write("WARNING: Attempted to load a dataset which exists in internal checklist. Data from the disk was ignored.", 0)
+                self.log.exit()
+
+            self.log.exit()
+
+
+    # ------------------------------- Plotting --------------------------------
+
+    def plot_datasets(self, reference_energies = None):
+        # Plots energy against configuration size
+        self.log.enter("Plotting obtained measurements...", 1)
+
+        plt.title(f"{self.ID}")
+        plt.xlabel("Basis size")
+        plt.ylabel("E [Hartree]")
+
+        for i in range(len(self.measured_datasets)):
+            self.log.write(f"Collecting data from dataset '{self.measured_datasets[i]}'...", 5)
+            ds_val = self.disk_jockey.data_bulks[self.measured_datasets[i]]["result_energy_states"]
+            # ds_val is a list of dicts - here we cast it into plottable arrays
+            N_space = []
+            E_space = []
+            for row in ds_val:
+                N_space.append(row["N"])
+                E_space.append(row["E [H]"])
+            plt.plot(N_space, E_space, "x", label = self.measured_datasets[i])
+
+        if "mol_init" in self.checklist:
+            plt.axhline(y = self.reference_state_energy, label = "ref state", color = functions.ref_energy_colors["ref state"])
+        if "full_CI_sol" in self.checklist:
+            plt.axhline(y = self.ci_energy, label = "full CI", color = functions.ref_energy_colors["full CI"])
+        if "LE_sol" in self.checklist:
+            plt.axhline(y = self.LE_sol["E"], label = "LE CI", color = functions.ref_energy_colors["LE CI"])
+
+        if reference_energies is not None:
+            for ref_energy in reference_energies:
+                ref_e = ref_energy["E"]
+                ref_label = ref_energy["label"]
+                ref_color = "blue"
+                if "color" in ref_energy:
+                    ref_color = ref_energy["color"]
+                ref_linestyle = "solid"
+                if "linestyle" in ref_energy:
+                    ref_linestyle = ref_energy["linestyle"]
+                plt.axhline(y = ref_e, label = ref_label, color = ref_color, linestyle = ref_linestyle)
+
+        self.log.write(f"Displaying plot...", 5)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+        self.log.exit()
+
+    def plot_single_excitation_closed_shell_heatmap(self, ax = None, trim_M = None):
+
+        self.user_actions += f"plot_single_excitation_closed_shell_heatmap [trim_M = {trim_M}]\n"
 
         act_M = self.mol.nao
         if trim_M is not None:
             if trim_M > self.S_alpha: # We need at least one empty shell
                 act_M = min(trim_M, self.mol.nao)
 
-        one_exc_closed_shell_hm, _ = self.solve_on_single_excitation_closed_shell(trim_M)
+        one_exc_closed_shell_hm = self.single_excitation_closed_shell_heatmap(trim_M)
 
         if ax is None:
             ax = plt.gca()
@@ -1866,49 +2200,112 @@ class ground_state_solver():
 
         return(heatmap, cbar)
 
-    def plot_datasets(self, reference_energies = None):
-        # Plots energy against configuration size
-        self.log.enter("Plotting obtained measurements...", 1)
+    def plot_SECS_restricted_heatmap(self, ax = None, trim_M = None):
 
-        plt.title(f"{self.ID}")
-        plt.xlabel("Basis size")
-        plt.ylabel("E [Hartree]")
+        self.user_actions += f"plot_SECS_restricted_heatmap [trim_M = {trim_M}]\n"
 
-        for i in range(len(self.measured_datasets)):
-            self.log.write(f"Collecting data from dataset '{self.measured_datasets[i]}'...", 5)
-            ds_val = self.disk_jockey.data_bulks[self.measured_datasets[i]]["result_energy_states"]
-            # ds_val is a list of dicts - here we cast it into plottable arrays
-            N_space = []
-            E_space = []
-            for row in ds_val:
-                N_space.append(row["N"])
-                E_space.append(row["E [H]"])
-            plt.plot(N_space, E_space, "x", label = self.measured_datasets[i])
+        act_M = self.mol.nao
+        if trim_M is not None:
+            if trim_M > self.S_alpha: # We need at least one empty shell
+                act_M = min(trim_M, self.mol.nao)
 
-        if "mol_init" in self.checklist:
-            plt.axhline(y = self.reference_state_energy, label = "ref state", color = functions.ref_energy_colors["ref state"])
-        if "pyscf_full_CI" in self.checklist:
-            plt.axhline(y = self.ci_energy, label = "full CI", color = functions.ref_energy_colors["full CI"])
-        if "SECS_sol" in self.checklist:
-            plt.axhline(y = self.SECS_energy, label = "SECS-restricted CI", color = functions.ref_energy_colors["SECS"])
+        #self.find_LE_solution_SECS(trim_M)
+        assert "LE_sol" in self.checklist
+        assert self.LE_description["env"] == "RHF" and self.LE_description["spec"] == "SECS"
 
-        if reference_energies is not None:
-            for ref_energy in reference_energies:
-                ref_e = ref_energy["E"]
-                ref_label = ref_energy["label"]
-                ref_color = "blue"
-                if "color" in ref_energy:
-                    ref_color = ref_energy["color"]
-                ref_linestyle = "solid"
-                if "linestyle" in ref_energy:
-                    ref_linestyle = ref_energy["linestyle"]
-                plt.axhline(y = ref_e, label = ref_label, color = ref_color, linestyle = ref_linestyle)
+        one_exc_closed_shell_hm = self.LE_sol["exp"]
 
-        self.log.write(f"Displaying plot...", 5)
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+        if ax is None:
+            ax = plt.gca()
 
+        # Plot the heatmap
+        heatmap = ax.imshow(one_exc_closed_shell_hm, cmap='Wistia', interpolation='none') # extent = functions.m_ext(one_exc_closed_shell_hm)
+
+
+        row_lab = [f"{i + one_exc_closed_shell_hm.shape[1] + 1}" for i in range(one_exc_closed_shell_hm.shape[0])]
+        col_lab = [f"{i + 1}" for i in range(one_exc_closed_shell_hm.shape[1])]
+
+        # Create colorbar
+        cbar = ax.figure.colorbar(heatmap, ax=ax)
+        cbar.ax.set_ylabel("Norm sq. of sol. component", rotation=-90, va="bottom")
+
+        ax.set_xlabel("MO being promoted from")
+        ax.set_ylabel("MO being promoted into")
+
+        ax.set_xticks(np.arange(one_exc_closed_shell_hm.shape[1]), labels=col_lab)
+        ax.set_yticks(np.arange(one_exc_closed_shell_hm.shape[0]), labels=row_lab)
+
+        # Grid
+        ax.spines[:].set_visible(False)
+        ax.set_xticks(np.arange(one_exc_closed_shell_hm.shape[1]+1)-.5, minor=True)
+        ax.set_yticks(np.arange(one_exc_closed_shell_hm.shape[0]+1)-.5, minor=True)
+        ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
+        ax.tick_params(which="minor", bottom=False, left=False)
+
+        return(heatmap, cbar)
+
+    # ------------------------------- Printing --------------------------------
+
+    def print_singlet_info(self, top_N_closed_shells = 5):
+        self.log.enter("Reporting on singlet Spin-Adapted Configurations...", 0)
+        if "full_CI_sol" not in self.checklist:
+            self.log.write("Full CI solution not known, aborting...")
+            self.log.exit()
+            return(None)
+        self.log.enter("Closed-shell Slater determinants")
+        closed_shell_proj, closed_shell_N = self.closed_shell_projection()
+        self.log.write(f"Norm squared of projection onto all {closed_shell_N} closed-shell states = {closed_shell_proj:0.5f}")
+        self.log.write(f"Top {top_N_closed_shells} closed shell occupancies are:")
+        top_N_closed_shell_states = self.get_top_closed_shells(top_N_closed_shells)
+        for i in range(top_N_closed_shells):
+            prom_label = self.get_prom_label(top_N_closed_shell_states[i][1], hr = True)
+            self.log.write(f"  {i+1}) Coef = {top_N_closed_shell_states[i][0]:0.4f}; occ. = {top_N_closed_shell_states[i][1]} (prom ({prom_label[0]}) -> ({prom_label[1]}))")
+        self.log.exit()
+        self.log.enter("Two-open-shell singlet SACs")
+        single_exc_proj, single_exc_N = self.single_excitation_singlets_projection()
+        self.log.write(f"Total square norm of the projection into all {single_exc_N} two-open-shell SAC singlets is {single_exc_proj:0.5f}")
+        self.log.exit()
+        self.log.write(f"The total space of singlet SACs with up to two open shells is {closed_shell_N + single_exc_N}-dimensional; with norm square projection {closed_shell_proj + single_exc_proj:0.5f}")
+        self.log.exit()
+
+    def print_UHF_low_excitation_info(self, top_N_single_excitation = 5, top_N_simulatenous_excitation = 10):
+        self.log.enter("Reporting on low-excitation configurations for inequal MOs...", 0)
+        if "full_CI_sol" not in self.checklist:
+            self.log.write("Full CI solution not known, aborting...")
+            self.log.exit()
+            return(None)
+
+        ref_a, ref_b = self.get_ref_state()
+        ref_state_component = self.ground_state_component(ref_a, ref_b)
+        ref_state_proj = ref_state_component * ref_state_component
+        self.log.write(f"No-excitation (reference) state norm squared ground state projection = {ref_state_proj:0.5f}")
+
+
+        self.log.enter("Single-excitation Slater determinants")
+        single_exc_top, single_exc_N, single_exc_proj = self.get_top_single_excitation_states(top_N_single_excitation)
+        single_exc_N_a, single_exc_N_b = single_exc_N
+        single_exc_proj_a, single_exc_proj_b = single_exc_proj
+        self.log.write(f"For all single-excitation Slater determinants:")
+        self.log.write(f"  -Exc. on spin alpha: {single_exc_N_a} states with norm squared projection {single_exc_proj_a:0.5f}")
+        self.log.write(f"  -Exc. on spin beta: {single_exc_N_b} states with norm squared projection {single_exc_proj_b:0.5f}")
+        self.log.write(f"  -In total: {single_exc_N_a + single_exc_N_b} states with norm squared projection {single_exc_proj_a + single_exc_proj_b:0.5f}")
+        self.log.write(f"Top {len(single_exc_top[0])} Slater determinants with one excited spin-alpha electron:")
+        for i in range(len(single_exc_top[0])):
+            self.log.write(f"  {i+1}) Coef = {single_exc_top[0][i][0]:0.4f}; promotion {single_exc_top[0][i][2]}")
+        self.log.write(f"Top {len(single_exc_top[1])} Slater determinants with one excited spin-beta electron:")
+        for i in range(len(single_exc_top[1])):
+            self.log.write(f"  {i+1}) Coef = {single_exc_top[1][i][0]:0.4f}; promotion {single_exc_top[1][i][2]}")
+        self.log.exit()
+
+        self.log.enter("Simultaneourly excited Slater deteminants")
+        sim_exc_top, sim_exc_N, sim_exc_proj = self.get_top_simultaneously_excited_states(top_N_simulatenous_excitation)
+        self.log.write(f"Total square norm of the projection into all {sim_exc_N} simultaneously-excited Slater determinants: {sim_exc_proj:0.5f}")
+        self.log.write(f"Top {len(sim_exc_top)} simultaneously-excited Slater determinants:")
+        for i in range(len(sim_exc_top)):
+            self.log.write(f"  {i+1}) Coef = {sim_exc_top[i][0]:0.4f}; promotion {sim_exc_top[i][2]}")
+        self.log.exit()
+
+        self.log.write(f"The total space of states with up to one excitation on either spin subspace is {1 + single_exc_N_a + single_exc_N_b + sim_exc_N}-dimensional; with norm square projection {ref_state_proj + single_exc_proj_a + single_exc_proj_b + sim_exc_proj:0.5f}")
         self.log.exit()
 
 

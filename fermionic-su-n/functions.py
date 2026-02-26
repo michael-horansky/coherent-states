@@ -94,6 +94,27 @@ def choose_iterator(choice):
     return([1] * (pointer_index - 1 - number_of_passed_zeros) + [0] * (number_of_passed_zeros + 1) + [1] + choice[pointer_index+1:])
 
 # -----------------------------------------------------------------------------
+# ------------------------ Methods for random sampling ------------------------
+# -----------------------------------------------------------------------------
+
+# ---------- Sampling a vector using a self-correlation matrix: \Sigma_
+def sample_with_autocorrelation(mu, Sigma, n_samples):
+    # mu is the mean value vector
+    # Sigma is the auto-correlation matrix
+    L = np.linalg.cholesky(Sigma)  # or use eigh for numerical safety
+    Z = np.random.randn(n_samples, Sigma.shape[0])
+    return(Z @ L.T + mu) # result[n_i][i] = X_i in the n_i-th sample
+
+def sample_with_autocorrelation_safe(Sigma, n_samples):
+    # same as above, but enforces positive-semidefiniteness by clipping eigvals
+    eigvals, eigvecs = np.linalg.eigh(Sigma)
+    eigvals = np.clip(eigvals, 0, None)
+    L = eigvecs * np.sqrt(eigvals)[None, :]
+    Z = np.random.randn(n_samples, Sigma.shape[0])
+    return Z @ L.T  # shape (n_samples, n_x)
+
+
+# -----------------------------------------------------------------------------
 # ------------------------ Methods for data formatting ------------------------
 # -----------------------------------------------------------------------------
 
@@ -284,7 +305,7 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
 ref_energy_colors = {
     "ref state" : "#b3b3ff",
     "full CI" : "#005ce6",
-    "SECS" : "#80ffff",
+    "LE CI" : "#80ffff",
     "trimmed CI" : "#6699ff"
     }
 

@@ -29,7 +29,7 @@ class CS_Base():
         self.S = S
         self.S_spin = S_spin # either None or a tuple (S_alpha, S_beta)
 
-        self.z = z
+        self.z = np.array(z)
 
         log_norm_sign, log_norm_mag = self.slog_overlap(self)
         self.log_norm_coef = (log_norm_sign, log_norm_mag)

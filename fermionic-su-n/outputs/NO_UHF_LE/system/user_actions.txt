@@ -1,0 +1,4 @@
+initialised solver NO_UHF_LE
+initialise_molecule [M = 20, S = 15]
+find_LE_solution_SE
+save_data

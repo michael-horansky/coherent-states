@@ -1,0 +1,5 @@
+initialised solver NO_UHF_LEGS_SE_with_SCF
+initialise_molecule [M = 20, S = 15]
+full_CI_sol
+find_LE_solution_SE [diag_alg = 'SCF']
+save_data

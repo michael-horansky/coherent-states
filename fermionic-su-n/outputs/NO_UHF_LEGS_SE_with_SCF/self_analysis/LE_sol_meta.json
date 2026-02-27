@@ -1,0 +1,7 @@
+{
+  "env": "UHF",
+  "spec": "SE",
+  "params": {
+    "diag_alg": "SCF"
+  }
+}

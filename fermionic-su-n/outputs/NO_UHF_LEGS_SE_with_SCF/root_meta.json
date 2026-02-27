@@ -1,0 +1,68 @@
+{
+  "data_nodes": {
+    "system": [
+      "user_actions",
+      "log"
+    ],
+    "molecule": [
+      "mol_structure",
+      "mode_structure"
+    ],
+    "self_analysis": [
+      "physical_properties",
+      "full_CI_sol",
+      "LE_sol"
+    ],
+    "diagnostics": [
+      "diagnostic_log"
+    ],
+    "LEGS 1st o.": [
+      "basis_samples",
+      "result_energy_states"
+    ]
+  },
+  "data_bulk_types": {
+    "system": {
+      "user_actions": "txt",
+      "log": "txt"
+    },
+    "molecule": {
+      "mol_structure": "pkl",
+      "mode_structure": "pkl"
+    },
+    "self_analysis": {
+      "physical_properties": "json",
+      "full_CI_sol": "json",
+      "LE_sol": "json"
+    },
+    "diagnostics": {
+      "diagnostic_log": "txt"
+    },
+    "LEGS 1st o.": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    }
+  },
+  "metadata_types": {
+    "system": {
+      "user_actions": "json",
+      "log": "json"
+    },
+    "molecule": {
+      "mol_structure": "json",
+      "mode_structure": "json"
+    },
+    "self_analysis": {
+      "physical_properties": "json",
+      "full_CI_sol": "json",
+      "LE_sol": "json"
+    },
+    "diagnostics": {
+      "diagnostic_log": "json"
+    },
+    "LEGS 1st o.": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    }
+  }
+}

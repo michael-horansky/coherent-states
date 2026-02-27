@@ -1,0 +1,10 @@
+{
+  "checklist": [
+    "mol_init",
+    "full_CI_sol",
+    "LE_sol"
+  ],
+  "measured_datasets": [
+    "LEGS 1st o."
+  ]
+}

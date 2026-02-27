@@ -1,0 +1,5 @@
+initialised solver NO_UHF_LEGS_SE_with_SCF
+initialise_molecule [M = 20, S = 15]
+load_data
+find_ground_state_SEGS_first_order [N = 25, N_sub = 5, CS type = Thouless]
+save_data

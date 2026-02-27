@@ -2,7 +2,7 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 
-from pyscf import gto, scf, cc, ao2mo, fci
+from pyscf import gto, scf, cc, ao2mo, fci, pbc
 
 from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_Qubit import CS_Qubit
@@ -94,38 +94,6 @@ class ground_state_solver():
     }
 
 
-    find_ground_state_methods = {
-        "sampling" : find_ground_state_sampling,
-        "manual" : find_ground_state_manual, # manual sample
-        "LE_width" : find_ground_state_SEGS_width, # uses SEGS for width of sample, correlated for UHF
-        "LE_phase" : find_ground_state_SEGS_phase, # restricts the magnitudes by SEGS, only randomises phases of components
-        "krylov" : find_ground_state_krylov,
-        "imag_timeprop" : find_ground_state_imaginary_timeprop
-    }
-
-    low_excitation_methods = { # ["RHF"/"UHF"][spec] = {"method" : solver method, "desc" : human-readable description}
-        "RHF" : {
-            "SECS" : { # "Single excitation closed-shell states"
-                "method" : find_LE_solution_SECS,
-                "desc" : "Includes only closed-shell states with one excitation in each subspace"
-            },
-            "SEO1" : { # "Single excitation openness-1 states"
-                "method" : find_LE_solution_SEO1,
-                "desc" : "Includes singlet SACs with up to two open shells (openness = 1)"
-            }
-        },
-        "UHF" : {
-            "SE" : { # "Single excitation states"
-                "method" : find_LE_solution_SE,
-                "desc" : "Includes only states with up to one excitation in total"
-            },
-            "MSDE" : { # "Mixed-spin double excitation states"
-                "method" : find_LE_solution_MSDE,
-                "desc" : "Includes states with up to one excitation per spin-subspace."
-            }
-        }
-    }
-
     def __init__(self, ID, log_verbosity = 5):
 
         self.ID = ID
@@ -154,6 +122,8 @@ class ground_state_solver():
         self.measured_datasets = [] # list of dataset labels
 
         # mol_init properties
+        self.mol = None
+        self.mean_field = None
         self.HF_method = None
         self.reference_state_energy = None
         # Full CI properties
@@ -161,17 +131,50 @@ class ground_state_solver():
         self.ci_sol = None # We did not perform full CI
         # Low-excitation solution properties
         self.LE_sol = {
-            "E" : None # Energy of solution
-            "sol" : None # dict[occ tuple] = coefficient
+            "E" : None, # Energy of solution
+            "sol" : None, # dict[occ tuple] = coefficient
             "exp" : None # expectation value constraint object, context-sensitive form
             }
         self.LE_description = {
             "env" : None, # RHF or UHF, just for verbosity
-            "spec" : None # magic word uniquely specifying process
+            "spec" : None, # magic word uniquely specifying process
             "params" : None # parameters used during the solving
             }
 
         self.log.exit()
+
+        self.find_ground_state_methods = {
+            "sampling" : self.find_ground_state_sampling,
+            "manual" : self.find_ground_state_manual, # manual sample
+            "LEGS_width" : self.find_ground_state_LEGS_width, # uses SEGS for width of sample, correlated for UHF
+            "LEGS_phase" : self.find_ground_state_LEGS_phase, # restricts the magnitudes by SEGS, only randomises phases of components
+            "LE_first_order" : self.find_ground_state_SEGS_first_order,
+            "krylov" : self.find_ground_state_krylov,
+            "imag_timeprop" : self.find_ground_state_imaginary_timeprop
+        }
+
+        self.low_excitation_methods = { # ["RHF"/"UHF"][spec] = {"method" : solver method, "desc" : human-readable description}
+            "RHF" : {
+                "SECS" : { # "Single excitation closed-shell states"
+                    "method" : self.find_LE_solution_SECS,
+                    "desc" : "Includes only closed-shell states with one excitation in each subspace"
+                },
+                "SEO1" : { # "Single excitation openness-1 states"
+                    "method" : self.find_LE_solution_SEO1,
+                    "desc" : "Includes singlet SACs with up to two open shells (openness = 1)"
+                }
+            },
+            "UHF" : {
+                "SE" : { # "Single excitation states"
+                    "method" : self.find_LE_solution_SE,
+                    "desc" : "Includes only states with up to one excitation in total"
+                },
+                "MSDE" : { # "Mixed-spin double excitation states"
+                    "method" : self.find_LE_solution_MSDE,
+                    "desc" : "Includes states with up to one excitation per spin-subspace."
+                }
+            }
+        }
 
 
     ###########################################################################
@@ -749,7 +752,7 @@ class ground_state_solver():
 
         return(N_vals, convergence_sols)
 
-    def find_ground_state_SEGS_width(self, **kwargs):
+    def find_ground_state_LEGS_width(self, **kwargs):
         # kwargs:
         #     -N: Sample size
         #     -N_sub: Subsample size
@@ -784,7 +787,7 @@ class ground_state_solver():
         # Disk jockey node creation and metadata storage
         self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
         self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {"CS" : CS_type, "N" : N, "N_sub" : N_subsample})
-        self.user_actions += f"find_ground_state_SEGS_width [N = {N}, N_sub = {N_subsample}, CS type = {CS_type}]\n"
+        self.user_actions += f"find_ground_state_LEGS_width [N = {N}, N_sub = {N_subsample}, CS type = {CS_type}]\n"
         procedure_diagnostic = []
 
         assert self.S_alpha == self.S_beta # So far only RHF!
@@ -862,14 +865,14 @@ class ground_state_solver():
 
         self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
         self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
-        self.diagnostics_log.append({f"find_ground_state_SEGS_width ({dataset_label})" : procedure_diagnostic})
+        self.diagnostics_log.append({f"find_ground_state_LEGS_width ({dataset_label})" : procedure_diagnostic})
 
         self.measured_datasets.append(dataset_label)
 
         self.log.exit()
         return(N_vals, convergence_sols)
 
-    def find_ground_state_SEGS_phase(self, **kwargs):
+    def find_ground_state_LEGS_phase(self, **kwargs):
         # kwargs:
         #     -N: Sample size
         #     -N_sub: Subsample size
@@ -906,7 +909,7 @@ class ground_state_solver():
         # Disk jockey node creation and metadata storage
         self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
         self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {"CS" : CS_type, "N" : N, "N_sub" : N_subsample})
-        self.user_actions += f"find_ground_state_SEGS_phase [N = {N}, N_sub = {N_subsample}, CS type = {CS_type}]\n"
+        self.user_actions += f"find_ground_state_LEGS_phase [N = {N}, N_sub = {N_subsample}, CS type = {CS_type}]\n"
         procedure_diagnostic = []
 
         assert self.S_alpha == self.S_beta
@@ -963,12 +966,159 @@ class ground_state_solver():
 
         self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
         self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
-        self.diagnostics_log.append({f"find_ground_state_SEGS_phase ({dataset_label})" : procedure_diagnostic})
+        self.diagnostics_log.append({f"find_ground_state_LEGS_phase ({dataset_label})" : procedure_diagnostic})
 
         self.measured_datasets.append(dataset_label)
 
         self.log.exit()
 
+        return(N_vals, convergence_sols)
+
+    def find_ground_state_SEGS_first_order(self, **kwargs):
+        # kwargs:
+        #     -N: Sample size
+        #     -N_sub: Subsample size
+        #     -CS: Type of CS to use. Not all CS types support SEGS!
+        #     -sigma: standard deviation of every Z parameter. default 0.05. Can be a number, a list of ndarrays, or a magic word
+        #     ------------------------
+        #     -dataset_label: if present, this will label the dataset in disc jockey. Otherwise, label is generated from other kwargs.
+
+        # -------------------- Parameter initialisation
+
+        assert "N" in kwargs
+        N = kwargs["N"]
+
+        if "N_sub" in kwargs:
+            N_subsample = kwargs["N_sub"]
+        else:
+            N_subsample = 1
+
+        if "CS" in kwargs:
+            CS_type = kwargs["CS"]
+        else:
+            CS_type = "Thouless"
+
+        if "sigma" in kwargs:
+            sigma = kwargs["sigma"]
+        else:
+            sigma = 0.05
+
+        if "dataset_label" in kwargs:
+            dataset_label = kwargs["dataset_label"]
+        else:
+            dataset_label = f"SEGS_first_order_{N}_{N_subsample}_{CS_type}"
+
+
+        self.log.enter(f"Obtaining the ground state with the method \"SEGS 1st ord.\" [N = {N}, N_sub = {N_subsample}, CS = {CS_type}]", 1)
+
+
+        # Disk jockey node creation and metadata storage
+        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
+        self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {"CS" : CS_type, "N" : N, "N_sub" : N_subsample})
+        self.user_actions += f"find_ground_state_SEGS_first_order [N = {N}, N_sub = {N_subsample}, CS type = {CS_type}]\n"
+        procedure_diagnostic = []
+
+        if "LE_sol" not in self.checklist:
+            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            self.log.exit()
+            return(None)
+
+        cur_LE_heatmap = self.LE_sol["exp"] #["g"/"a"/"b"/"ab"] for first order
+
+        # We now manually sample Thouless states guided by the SECS heatmap
+        cur_sample = CS_sample(self, ground_state_solver.coherent_state_types[CS_type], add_ref_state = True)
+
+        # We flatten the heatmap
+        len_a = self.S_alpha * (self.mol.nao - self.S_alpha)
+        len_b = self.S_beta * (self.mol.nao - self.S_beta)
+        a_ij_to_i = lambda i,j : i * (self.mol.nao - self.S_alpha) + j
+        b_ij_to_i = lambda i,j : self.S_alpha * (self.mol.nao - self.S_alpha) + i * (self.mol.nao - self.S_beta) + j
+        means = np.zeros( len_a + len_b )
+        stds = sigma + np.zeros( len_a + len_b) #TODO what if sigma is not always the same?
+
+        for i in range(self.mol.nao - self.S_alpha):
+            for j in range(self.S_alpha):
+                # j -> i on alpha
+                means[a_ij_to_i(i, j)] = cur_LE_heatmap["a"][i][j]
+        for i in range(self.mol.nao - self.S_beta):
+            for j in range(self.S_beta):
+                # j -> i on beta
+                means[b_ij_to_i(i, j)] = cur_LE_heatmap["b"][i][j]
+
+        product_means = np.outer(means, means) + np.diag(stds * stds) # we start with no covariance except natural widths and then change the off-diagonal block
+
+        for i in range(self.mol.nao - self.S_alpha):
+            for j in range(self.S_alpha):
+                for k in range(self.mol.nao - self.S_beta):
+                    for l in range(self.S_beta):
+                        # j -> i on alpha, l -> k on beta
+                        product_means[a_ij_to_i(i, j)][b_ij_to_i(k, l)] = cur_LE_heatmap["ab"][i][j][k][l]
+                        product_means[b_ij_to_i(k, l)][a_ij_to_i(i, j)] = cur_LE_heatmap["ab"][i][j][k][l]
+
+        cov_matrix = product_means - np.outer(means, means) # This is what we sample by with Cholesky
+
+        eigvals, eigvecs = np.linalg.eigh(cov_matrix)
+        min_eigval = min(eigvals)
+        if min_eigval <= 0.0:
+            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+
+        # We pre-sample the parameters
+        rand_X = functions.sample_with_autocorrelation_safe(means, cov_matrix, N * N_subsample)
+        raw_Z_sample = [
+            np.zeros((N, N_subsample, self.mol.nao - self.S_alpha, self.S_alpha)),
+            np.zeros((N, N_subsample, self.mol.nao - self.S_beta, self.S_beta))
+            ]
+        for n in range(N):
+            for n_sub in range(N_subsample):
+                for i in range(self.mol.nao - self.S_alpha):
+                    for j in range(self.S_alpha):
+                        # j -> i on alpha
+                        raw_Z_sample[0][n][n_sub][i][j] = rand_X[n * N_subsample + n_sub][a_ij_to_i(i, j)]
+                for i in range(self.mol.nao - self.S_beta):
+                    for j in range(self.S_beta):
+                        # j -> i on beta
+                        raw_Z_sample[1][n][n_sub][i][j] = rand_X[n * N_subsample + n_sub][b_ij_to_i(i, j)]
+
+
+        assert CS_type == "Thouless"
+
+        N_vals = [1]
+        convergence_sols = [self.reference_state_energy]
+
+        msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
+        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
+        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+
+        for n in range(N):
+            # We add the best out of 10 random states
+            cur_subsample = []
+            for n_sub in range(N_subsample):
+
+                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                cur_subsample.append([rand_z_alpha, rand_z_beta])
+
+            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            N_vals.append(cur_sample.N)
+            convergence_sols.append(cur_sample.E_ground[-1])
+
+        procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
+
+        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
+        self.log.exit("Evaluation")
+
+        csv_sol = [] # list of rows
+        for i in range(len(N_vals)):
+            csv_sol.append({"N" : N_vals[i], "E [H]" : float(convergence_sols[i])})
+
+
+        self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
+        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
+        self.diagnostics_log.append({f"find_ground_state_LEGS_width ({dataset_label})" : procedure_diagnostic})
+
+        self.measured_datasets.append(dataset_label)
+
+        self.log.exit()
         return(N_vals, convergence_sols)
 
 
@@ -1086,11 +1236,11 @@ class ground_state_solver():
         if self.HF_method == "RHF":
             # Everything is the same in both subspaces
             self.log.write("Finding the molecular orbitals using mean-field approximations...", 1)
-            mean_field = scf.RHF(self.mol).run(verbose = 0)
+            self.mean_field = scf.RHF(self.mol).run(verbose = 0)
 
-            self.MO_coefs["a"] = mean_field.mo_coeff
+            self.MO_coefs["a"] = self.mean_field.mo_coeff
             self.MO_coefs["b"] = self.MO_coefs["a"]
-            self.reference_state_energy = mean_field.e_tot
+            self.reference_state_energy = self.mean_field.e_tot
             self.log.write(f"Done! Reference state energy is {self.reference_state_energy:0.5f}", 1)
 
             self.log.write("Transforming 1e and 2e integrals to MO basis...", 3)
@@ -1104,7 +1254,7 @@ class ground_state_solver():
             self.MO_H_two["ab"] = self.MO_H_two["a"]
 
             # We construct the second quantised space as occupied \oplus unoccupied orbitals
-            occ_orbs_alpha = [i for i, o in enumerate(mean_field.mo_occ) if o > 0]
+            occ_orbs_alpha = [i for i, o in enumerate(self.mean_field.mo_occ) if o > 0]
             occ_orbs_beta = occ_orbs_alpha
 
         elif self.HF_method == "UHF":
@@ -1120,15 +1270,15 @@ class ground_state_solver():
             #mean_field = mf_uhf.kernel(dm0=dm0, verbose=0)
             mf_object.conv_tol = 1e-10 # Tighter convergence
 
-            mean_field = mf_object.run(verbose = 0)
-            self.MO_coefs["a"] = mean_field.mo_coeff[0]
-            self.MO_coefs["b"] = mean_field.mo_coeff[1]
+            self.mean_field = mf_object.run(verbose = 0)
+            self.MO_coefs["a"] = self.mean_field.mo_coeff[0]
+            self.MO_coefs["b"] = self.mean_field.mo_coeff[1]
 
             assert self.MO_coefs["a"].shape[1] == self.MO_coefs["b"].shape[1]
             # This is not required but if we remove the constraint we need to
             # firstly restore symmetry, making the mixed H_two["ab"] non-square
 
-            self.reference_state_energy = mean_field.e_tot
+            self.reference_state_energy = self.mean_field.e_tot
             self.log.write(f"Done! Reference state energy is {self.reference_state_energy:0.5f}", 1)
 
             self.log.write("Transforming 1e and 2e integrals to MO basis...", 3)
@@ -1147,8 +1297,8 @@ class ground_state_solver():
             self.MO_H_two["ab"] = MO_H_two_chemist_ab.transpose(0, 2, 1, 3)
 
             # We construct the second quantised space as occupied \oplus unoccupied orbitals
-            occ_orbs_alpha = [i for i, o in enumerate(mean_field.mo_occ[0]) if o > 0]
-            occ_orbs_beta = [i for i, o in enumerate(mean_field.mo_occ[1]) if o > 0]
+            occ_orbs_alpha = [i for i, o in enumerate(self.mean_field.mo_occ[0]) if o > 0]
+            occ_orbs_beta = [i for i, o in enumerate(self.mean_field.mo_occ[1]) if o > 0]
 
         # TODO note that by using RHF, we assume N_alpha = N_beta. We can generalise the process by using UHF,
         # but this would mean using separate MO coeffs for alpha and beta subspaces
@@ -1391,10 +1541,10 @@ class ground_state_solver():
 
 
     def find_ground_state(self, method, **kwargs):
-        if method in ground_state_solver.find_ground_state_methods.keys():
-            return(ground_state_solver.find_ground_state_methods[method](self, **kwargs))
+        if method in self.find_ground_state_methods.keys():
+            return(self.find_ground_state_methods[method](**kwargs))
         else:
-            self.log.write(f"ERROR: Unknown ground state method {method}. Available methods: {ground_state_solver.find_ground_state_methods.keys()}")
+            self.log.write(f"ERROR: Unknown ground state method {method}. Available methods: {self.find_ground_state_methods.keys()}")
             return(None)
 
     ###########################################################################
@@ -1433,6 +1583,12 @@ class ground_state_solver():
             return(occ_list) # just to regularise user action
         # There may be trailing zeros. Let's get rid of them with a cursed one-liner
         return(tuple(occ_list[:len(occ_list) - occ_list[::-1].index(1)]))
+
+    def occ_tuple_to_list(self, occ_tuple):
+        occ_a, occ_b = occ_tuple
+        list_a = list(occ_a)
+        list_b = list(occ_b)
+        return([ list_a + [0] * (self.mol.nao - len(list_a)), list_b + [0] * (self.mol.nao - len(list_b)) ])
 
 
     def occ_idx_to_occ_list(self, idx_alpha, idx_beta):
@@ -1664,7 +1820,7 @@ class ground_state_solver():
         self.log.exit()
         return(res)
 
-    def get_states_by_excitation_number(self, N_exc_a, N_exc_b):
+    def get_states_by_excitation_number(self, N_exc_a, N_exc_b, form = "tuple"):
         # returns a list of all states (as 2-tuples of occ tuples) with the
         # exact number of excitations from the reference state.
         # N_exc_a: number of excitations in the spin-alpha subspace
@@ -1681,22 +1837,25 @@ class ground_state_solver():
         a_from = functions.subset_indices(np.arange(self.S_alpha), N_exc_a)
         a_to = functions.subset_indices(np.arange(self.S_alpha, self.mol.nao), N_exc_a)
         b_from = functions.subset_indices(np.arange(self.S_beta), N_exc_b)
-        b_to = functions.subset_indices(np.arange(self.S_beta, self.mol.nao), N_exc_beta)
+        b_to = functions.subset_indices(np.arange(self.S_beta, self.mol.nao), N_exc_b)
 
         res = []
 
         for i in range(len(a_from)):
             for j in range(len(a_to)):
-                for k in range(len(a_from)):
-                    for l in range(len(a_to)):
-                        cur_state = [[1] * self.S_alpha + [0] * max(a_to[j]), [1] * self.S_beta + [0] * max(b_to[l])]
-                        for a_i in N_exc_a:
-                            cur_state[a_from[i][a_i]] = 0
-                            cur_state[a_to[j][a_i]] = 1
-                        for b_i in N_exc_b:
-                            cur_state[b_from[k][b_i]] = 0
-                            cur_state[b_to[l][b_i]] = 1
-                        res.append(cur_state)
+                for k in range(len(b_from)):
+                    for l in range(len(b_to)):
+                        cur_state = [[1] * self.S_alpha + [0] * (1 + max(a_to[j]) - self.S_alpha), [1] * self.S_beta + [0] * (1 + max(b_to[l]) - self.S_beta)]
+                        for a_i in range(N_exc_a):
+                            cur_state[0][a_from[i][a_i]] = 0
+                            cur_state[0][a_to[j][a_i]] = 1
+                        for b_i in range(N_exc_b):
+                            cur_state[1][b_from[k][b_i]] = 0
+                            cur_state[1][b_to[l][b_i]] = 1
+                        if form == "tuple":
+                            res.append((self.occ_list_to_occ_tuple(cur_state[0]), self.occ_list_to_occ_tuple(cur_state[1])))
+                        else:
+                            res.append(cur_state)
 
         self.log.write(f"Obtained {len(res)} such states.", 5)
         self.log.exit()
@@ -1965,7 +2124,210 @@ class ground_state_solver():
 
     def find_LE_solution_SE(self, **kwargs):
         # Single excitation
-        pass
+        # kwargs:
+        #     -diag_alg: algorithm to find the projected ground state. Options:
+        #          "exp" : explicit diagonalisation [default]
+        #          "SCF" : SCF performed on CIS
+
+        # -------------------- Parameter initialisation
+
+        if "diag_alg" in kwargs:
+            diag_alg = kwargs["diag_alg"]
+        else:
+            diag_alg = "exp"
+        hr_diag_alg_label = {
+            "exp" : "explicit diagonalisation",
+            "SCF" : "SCF on a CISD basis"
+            }[diag_alg]
+
+
+        self.LE_description["params"] = {"diag_alg" : diag_alg}
+
+        self.log.enter(f"Solving on a single-excitation closed-shell basis using {hr_diag_alg_label}...", 1)
+
+        self.user_actions += f"find_LE_solution_SE [diag_alg = '{diag_alg}']\n"
+
+
+
+        if diag_alg == "exp":
+
+            self.log.write(f"Obtaining the SE basis....", 1)
+
+            ref_state_a = (1,) * self.S_alpha
+            ref_state_b = (1,) * self.S_beta
+            basis = [(ref_state_a, ref_state_b)]
+
+            for j in range(self.mol.nao - self.S_alpha):
+                for i in range(self.S_alpha):
+                    # Note that we omit the trailing zeros to agree with the ci_sol convention
+                    basis.append(( (1,) * i + (0,) + (1,) * (self.S_alpha - 1 - i) + (0,) * j + (1,),  ref_state_b))
+
+            for l in range(self.mol.nao - self.S_beta):
+                for k in range(self.S_beta):
+                    # Note that we omit the trailing zeros to agree with the ci_sol convention
+                    basis.append((ref_state_a, (1,) * k + (0,) + (1,) * (self.S_beta - 1 - k) + (0,) * l + (1,)))
+
+            basis += self.get_states_by_excitation_number(1, 1)
+            self.log.write(f"SE basis of length {len(basis)} obtained.")
+
+            H = np.zeros((len(basis), len(basis)))
+            msg = f"Explicit Hamiltonian evaluation on SE basis"
+
+            self.log.enter(msg, 1, True, tau_space = np.linspace(0, len(basis) * (len(basis) + 1) / 2, 100 + 1))
+
+            for a in range(len(basis)):
+                # Here the diagonal <Z_a|H|Z_a>
+                cur_H_overlap = self.get_H_overlap_on_occupancy(self.occ_tuple_to_list(basis[a]), self.occ_tuple_to_list(basis[a]))
+                assert cur_H_overlap.imag < 1e-08
+                H[a][a] = cur_H_overlap.real
+                #self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
+                self.log.update_semaphor_event(a * (a + 1) / 2)
+
+                # Here the off-diagonal, using the fact that H is a Hermitian matrix
+                for b in range(a):
+                    # We explicitly calculate <Z_a | H | Z_b>
+                    cur_H_overlap = self.get_H_overlap_on_occupancy(self.occ_tuple_to_list(basis[a]), self.occ_tuple_to_list(basis[b]))
+                    assert cur_H_overlap.imag < 1e-08
+                    H[a][b] = cur_H_overlap.real
+                    H[b][a] = H[a][b] # np.conjugate(H[a][b])
+                    #self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
+                    self.log.update_semaphor_event(a * (a + 1) / 2 + b + 1)
+
+            #self.semaphor.finish_event(new_sem_ID, "Evaluation")
+            self.log.exit("Evaluation")
+
+            energy_levels, energy_states = np.linalg.eig(H)
+            ground_state_index = np.argmin(energy_levels)
+            ground_state_energy = energy_levels[ground_state_index]
+            ground_state_vector = energy_states[:,ground_state_index] # note that energy_states consist of column vectors, not row vectors
+
+            if "full_CI_sol" in self.checklist:
+                self.log.write(f"Ground state energy: {ground_state_energy:0.5f} (compare to full CI: {self.ci_energy:0.5f})", 1)
+            else:
+                self.log.write(f"Ground state energy: {ground_state_energy:0.5f}", 1)
+
+            # Now, for the heatmap
+            self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+            exp_vals = {
+                "g" : ground_state_vector[0],
+                "a" : np.zeros((self.mol.nao - self.S_alpha, self.S_alpha)).tolist(), #[i][j] = E[j -> i on alpha]
+                "b" : np.zeros((self.mol.nao - self.S_beta, self.S_alpha)).tolist(), #[i][j] = E[j -> i on beta]
+                "ab" : np.zeros((self.mol.nao - self.S_alpha, self.S_alpha, self.mol.nao - self.S_beta, self.S_beta)).tolist() #[i][j][k][l] = E[j -> i on alpha, l -> k on beta]
+
+            }
+
+            res_sol = {basis[0] : ground_state_vector[0]}
+
+            basis_i = 1
+            for a in range(self.mol.nao - self.S_alpha):
+                for b in range(self.S_alpha):
+                    exp_vals["a"][a][b] = - ground_state_vector[basis_i] / ground_state_vector[basis_i]
+                    res_sol[basis[basis_i]] = ground_state_vector[basis_i]
+                    basis_i += 1
+            for a in range(self.mol.nao - self.S_beta):
+                for b in range(self.S_beta):
+                    exp_vals["b"][a][b] = - ground_state_vector[basis_i] / ground_state_vector[0]
+                    res_sol[basis[basis_i]] = ground_state_vector[basis_i]
+                    basis_i += 1
+
+            # order must match the generator
+            for i in range(self.S_alpha):
+                for j in range(self.mol.nao - self.S_alpha):
+                    for k in range(self.S_beta):
+                        for l in range(self.mol.nao - self.S_beta):
+                            exp_vals["ab"][j][i][l][k] = ground_state_vector[basis_i] / ground_state_vector[0]
+                            res_sol[basis[basis_i]] = ground_state_vector[basis_i]
+                            basis_i += 1
+
+            # Mark as solved
+            self.check_off("LE_sol")
+
+            self.LE_sol["E"] = ground_state_energy
+            self.LE_sol["sol"] = res_sol
+            self.LE_sol["exp"] = exp_vals
+
+        elif diag_alg == "SCF":
+            self.log.enter("SCF on CISD basis...", 3)
+
+            #mcis = pbc.ci.kcis_rhf.KCIS(self.mean_field)
+            #e_vals, ci_coeff= mcis.kernel()
+
+            cisd_solver = self.mean_field.CISD().run()
+
+            if not cisd_solver.converged:
+                self.log.write("ERROR: SCF solver failed to converge. Aborting...")
+                self.log.exit()
+                return(None)
+
+            self.log.write(f"Obtained CISD solution (basis length = {len(cisd_solver.ci)})")
+
+            if "full_CI_sol" in self.checklist:
+                self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f} (compare to full CI: {self.ci_energy:0.5f})", 1)
+            else:
+                self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f}", 1)
+
+            # We characterise the coef array by excitations
+            c0, c1, c2 = cisd_solver.cisdvec_to_amplitudes(cisd_solver.ci)
+
+            c1_a, c1_b = c1
+            c2_aa, c2_ab, c2_bb = c2
+
+            self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
+            self.log.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
+            self.log.write(f"  For one excitation: {c1_a.shape} on alpha, {c1_b.shape} on beta")
+            self.log.write(f"  For two excitations: {c2_aa.shape} on alpha-alpha, {c2_bb.shape} on beta-beta, {c2_ab.shape} on mixed-spin excitations")
+
+            # Now, for the heatmap
+            self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+            exp_vals = {
+                "g" : c0,
+                "a" : np.zeros((self.mol.nao - self.S_alpha, self.S_alpha)).tolist(), #[i][j] = E[j -> i on alpha]
+                "b" : np.zeros((self.mol.nao - self.S_beta, self.S_beta)).tolist(), #[i][j] = E[j -> i on beta]
+                "ab" : np.zeros((self.mol.nao - self.S_alpha, self.S_alpha, self.mol.nao - self.S_beta, self.S_beta)).tolist() #[i][j][k][l] = E[j -> i on alpha, l -> k on beta]
+
+            }
+
+            # We do not need to project onto the (no same-spin double excitation) basis,
+            # since the fraction cn / c0 remains the same
+
+            ref_state_a = (1,) * self.S_alpha
+            ref_state_b = (1,) * self.S_beta
+            res_sol = {(ref_state_a, ref_state_b) : c0}
+
+            for a in range(self.mol.nao - self.S_alpha):
+                for b in range(self.S_alpha):
+                    # exc b -> a on the alpha subspace
+                    res_sol[( (1,) * b + (0,) + (1,) * (self.S_alpha - 1 - b) + (0,) * a + (1,),  ref_state_b)] = c1_a[b][a]
+                    exp_vals["a"][a][b] = - c1_a[b][a] / c0
+
+            for a in range(self.mol.nao - self.S_beta):
+                for b in range(self.S_beta):
+                    # exc b -> a on the beta subspace
+                    res_sol[(ref_state_a, (1,) * b + (0,) + (1,) * (self.S_beta - 1 - b) + (0,) * a + (1,))] = c1_b[b][a]
+                    exp_vals["b"][a][b] = - c1_b[b][a] / c0
+
+            # order must match the generator
+            for i in range(self.mol.nao - self.S_alpha):
+                for j in range(self.S_alpha):
+                    for k in range(self.mol.nao - self.S_beta):
+                        for l in range(self.S_beta):
+                            # j -> i on alpha, l -> k on beta
+                            res_sol[( (1,) * j + (0,) + (1,) * (self.S_alpha - 1 - j) + (0,) * i + (1,),  (1,) * l + (0,) + (1,) * (self.S_beta - 1 - l) + (0,) * k + (1,))] = c2_ab[j][l][i][k]
+                            exp_vals["ab"][i][j][k][l] = c2_ab[j][l][i][k] / c0
+
+            # Mark as solved
+            self.check_off("LE_sol")
+
+            self.LE_sol["E"] = cisd_solver.e_tot
+            self.LE_sol["sol"] = res_sol
+            self.LE_sol["exp"] = exp_vals
+
+            self.log.exit()
+
+
+        self.log.write(f"Success!", 1)
+        self.log.exit()
+        return(None)
 
 
     def find_LE_solution_MSDE(self, **kwargs):
@@ -1977,9 +2339,9 @@ class ground_state_solver():
 
     # Entry function
 
-    def find_LE_solution(self, method, **kwargs):
+    def find_LE_solution(self, spec, **kwargs):
         # requires HF_method to be established, i.e. mol_init
-        self.log.enter(f"Obtaining low-excitation solution with env. {self.HF_method}, method {method}...", 1)
+        self.log.enter(f"Obtaining low-excitation solution with env. {self.HF_method}, spec {spec}...", 1)
 
         if "mol_init" not in self.checklist or self.HF_method is None:
             self.log.write("WARNING: Molecule not initialised. Aborting...")
@@ -1988,20 +2350,20 @@ class ground_state_solver():
 
         if "LE_sol" in self.checklist:
             self.log.write("WARNING: LE solution initialised before.")
-            if self.LE_description["env"] != self.HF_method or self.LE_description["spec"] != method:
-                self.log.write(f"Previous solution found with a different method ({self.LE_description["env"]}: {self.LE_description["spec"]})")
+            if self.LE_description["env"] != self.HF_method or self.LE_description["spec"] != spec:
+                self.log.write(f"Previous solution found with a different spec ({self.LE_description["env"]}: {self.LE_description["spec"]})")
             self.log.exit()
             return(None)
 
-        if method not in ground_state_solver.low_excitation_methods[self.HF_method]:
-            self.log.write(f"ERROR: Unknown method '{method}'. Methods available for {self.HF_method}: {ground_state_solver.low_excitation_methods[self.HF_method].keys()}")
+        if spec not in self.low_excitation_methods[self.HF_method]:
+            self.log.write(f"ERROR: Unknown spec '{spec}'. Methods available for {self.HF_method}: {self.low_excitation_methods[self.HF_method].keys()}")
             self.log.exit()
             return(None)
 
         self.LE_description["env"] = self.HF_method
-        self.LE_description["spec"] = method
+        self.LE_description["spec"] = spec
 
-        ground_state_solver.low_excitation_methods[self.HF_method][method](self, **kwargs)
+        self.low_excitation_methods[self.HF_method][spec]["method"](**kwargs)
 
         self.log.exit()
         return(None)
@@ -2139,7 +2501,14 @@ class ground_state_solver():
         if "full_CI_sol" in self.checklist:
             plt.axhline(y = self.ci_energy, label = "full CI", color = functions.ref_energy_colors["full CI"])
         if "LE_sol" in self.checklist:
+            # LE ground state
             plt.axhline(y = self.LE_sol["E"], label = "LE CI", color = functions.ref_energy_colors["LE CI"])
+            # LE mean-value uncorrelated state
+            #LE_no_cor = [CS_Thouless(self.mol.nao, self.S_alpha, self.LE_sol["exp"]["a"]), CS_Thouless(self.mol.nao, self.S_beta, self.LE_sol["exp"]["b"])]
+            #LE_no_cor_E = self.H_overlap(LE_no_cor, LE_no_cor).real
+            #plt.axhline(y = LE_no_cor_E, label = "LE-mean CS", color = functions.ref_energy_colors["LE CI"], linestyle = "dashed")
+
+
 
         if reference_energies is not None:
             for ref_energy in reference_energies:

@@ -1,0 +1,63 @@
+Initialising molecule solver Li2_RHF_LEGS_mixed_spin_covariance at log_verbosity = 5
+| Initialising Data Storage Manager...
+| Initialising self-analysis properties...
+\_
+Initialising molecule...
+| Building molecule...
+| | There are 10 atomic orbitals, each able to hold 2 electrons of opposing spin.
+| | The molecule is occupied by 6 electrons in total: 3 with spin alpha, 3 with spin beta.
+| | The molecule consists of the following atoms: ['Li', 'Li']
+| | The atomic orbitals are ordered as follows: ['0 Li 1s    ', '0 Li 2s    ', '0 Li 2px   ', '0 Li 2py   ', '0 Li 2pz   ', '1 Li 1s    ', '1 Li 2s    ', '1 Li 2px   ', '1 Li 2py   ', '1 Li 2pz   ']
+| | The nuclear repulsion energy is 1.8000000000000003
+| | Calculating 1e integrals...
+| | Calculating 2e integrals...
+| \_
+| Performing mean-field calculations to determine the molecular orbitals...
+| | Mean field method: Unrestricted Hartree-Fock (selected by user)
+| | Finding the molecular orbitals using mean-field approximations...
+| | Done! Reference state energy is -14.63864
+| | Transforming 1e and 2e integrals to MO basis...
+| \_
+| Reference state analysis
+| | Occupied orbitals:
+| |   -in the spin-alpha subspace: [0, 1, 2]
+| |   -in the spin-beta subspace:  [0, 1, 2]
+| | Testing each CS type Hamiltonian overlap evaluation against the reference state...
+| |   -For Thouless: E_ref = -14.63864, which agrees with the true value
+| |   -For Qubit: E_ref = -14.63864, which agrees with the true value
+| \_
+\_
+Obtaining low-excitation solution with env. UHF, spec SE...
+| Solving on a single-excitation closed-shell basis using SCF on a CISD basis...
+| | SCF on CISD basis...
+| | | Obtained CISD solution (basis length = 610)
+| | | Ground state energy: -14.66726
+| | | Excitation-based Slater determinant sub-bases have lengths:
+| | |   For zero excitation: one state only (overlap 0.95369)
+| | |   For one excitation: (3, 7) on alpha, (3, 7) on beta
+| | |   For two excitations: (3, 3, 7, 7) on alpha-alpha, (3, 3, 7, 7) on beta-beta, (3, 3, 7, 7) on mixed-spin excitations
+| | | Obtaining the low-excitation prevalence matrix...
+| | \_
+| | Success!
+| \_
+\_
+Obtaining the ground state with the method "LEGS mixed spin covariance" [N = 5, N_sub = 10, CS = Thouless, sigma : 0.001]
+| Default variance: [1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06
+ 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06
+ 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06
+ 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06
+ 1.e-06 1.e-06]; required additional variance: [0.00717186 0.00501545 0.20517975 0.0056982  0.00499312 0.22781637
+ 0.0056982  0.00499312 0.22781711 0.00618165 0.00539076 0.10909094
+ 0.00551402 0.00685918 0.00732292 0.00551402 0.00685918 0.00732294
+ 0.00840828 0.00822581 0.08210816 0.00717186 0.00501545 0.20517976
+ 0.00570728 0.00502186 0.22784191 0.00570728 0.00502186 0.22784219
+ 0.00618165 0.00539076 0.10909287 0.00550549 0.00682382 0.00730271
+ 0.00550549 0.00682382 0.00730271 0.00840828 0.00822581 0.08210816]
+| Conditioned sampling with ground state search on 5 states, each taken from 10 random states begins at 23:05:50
+| | Conditioned sampling with ground state search on 5 states, each taken from 10 random states waiting for the first event...
+| \_ Evaluation finished at 23:09:03 (duration 3 min 12 sec)                                                                                                
+\_
+Plotting obtained measurements...
+| Collecting data from dataset 'LEGS_s=1e-3'...
+| Displaying plot...
+\_

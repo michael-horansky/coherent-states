@@ -148,7 +148,8 @@ class ground_state_solver():
             "manual" : self.find_ground_state_manual, # manual sample
             "LEGS_width" : self.find_ground_state_LEGS_width, # uses SEGS for width of sample, correlated for UHF
             "LEGS_phase" : self.find_ground_state_LEGS_phase, # restricts the magnitudes by SEGS, only randomises phases of components
-            "LE_first_order" : self.find_ground_state_SEGS_first_order,
+            "LE_first_order" : self.find_ground_state_LEGS_first_order,
+            "LE_mixed_spin_covariance" : self.find_ground_state_LEGS_mixed_spin_covariance,
             "krylov" : self.find_ground_state_krylov,
             "imag_timeprop" : self.find_ground_state_imaginary_timeprop
         }
@@ -162,6 +163,10 @@ class ground_state_solver():
                 "SEO1" : { # "Single excitation openness-1 states"
                     "method" : self.find_LE_solution_SEO1,
                     "desc" : "Includes singlet SACs with up to two open shells (openness = 1)"
+                },
+                "SE" : { # "Single excitation states"
+                    "method" : self.find_LE_solution_SE,
+                    "desc" : "Includes only states with up to one excitation in total"
                 }
             },
             "UHF" : {
@@ -974,11 +979,11 @@ class ground_state_solver():
 
         return(N_vals, convergence_sols)
 
-    def find_ground_state_SEGS_first_order(self, **kwargs):
+    def find_ground_state_LEGS_first_order(self, **kwargs):
         # kwargs:
         #     -N: Sample size
         #     -N_sub: Subsample size
-        #     -CS: Type of CS to use. Not all CS types support SEGS!
+        #     -CS: Type of CS to use. Not all CS types support LEGS!
         #     -sigma: standard deviation of every Z parameter. default 0.05. Can be a number, a list of ndarrays, or a magic word
         #     ------------------------
         #     -dataset_label: if present, this will label the dataset in disc jockey. Otherwise, label is generated from other kwargs.
@@ -1006,16 +1011,16 @@ class ground_state_solver():
         if "dataset_label" in kwargs:
             dataset_label = kwargs["dataset_label"]
         else:
-            dataset_label = f"SEGS_first_order_{N}_{N_subsample}_{CS_type}"
+            dataset_label = f"LEGS_first_order_{N}_{N_subsample}_{CS_type}"
 
 
-        self.log.enter(f"Obtaining the ground state with the method \"SEGS 1st ord.\" [N = {N}, N_sub = {N_subsample}, CS = {CS_type}]", 1)
+        self.log.enter(f"Obtaining the ground state with the method \"LEGS 1st ord.\" [N = {N}, N_sub = {N_subsample}, CS = {CS_type}]", 1)
 
 
         # Disk jockey node creation and metadata storage
         self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
-        self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {"CS" : CS_type, "N" : N, "N_sub" : N_subsample})
-        self.user_actions += f"find_ground_state_SEGS_first_order [N = {N}, N_sub = {N_subsample}, CS type = {CS_type}]\n"
+        self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {"CS" : CS_type, "N" : N, "N_sub" : N_subsample, "sigma" : sigma})
+        self.user_actions += f"find_ground_state_LEGS_first_order [N = {N}, N_sub = {N_subsample}, CS type = {CS_type}, sigma = {sigma}]\n"
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
@@ -1120,6 +1125,169 @@ class ground_state_solver():
 
         self.log.exit()
         return(N_vals, convergence_sols)
+
+    def find_ground_state_LEGS_mixed_spin_covariance(self, **kwargs):
+
+        # This method takes into account that even if a single-excited state
+        # has low presence in the LE sol., it may still be a significant part
+        # of the sampling distribution in Z because of its second orders (which
+        # are typically mixed-spin double excitations).
+        # Here, we take the single-excitation state overlaps as expectation
+        # values of Z_ij,s, and mixed-spin double excitation state overlaps as
+        # elements of the covariance matrix (whose absolute value also
+        # contributes to the variance of Z_ij,s)
+
+        # LE is found via SCF
+
+        # kwargs:
+        #     -N: Sample size
+        #     -N_sub: Subsample size
+        #     -sigma: base standard deviation of every Z parameter. default 0.001. Can be a number, a list of ndarrays, or a magic word
+        #     ------------------------
+        #     -dataset_label: if present, this will label the dataset in disc jockey. Otherwise, label is generated from other kwargs.
+
+        # -------------------- Parameter initialisation
+
+        assert "N" in kwargs
+        N = kwargs["N"]
+
+        if "N_sub" in kwargs:
+            N_subsample = kwargs["N_sub"]
+        else:
+            N_subsample = 1
+
+        if "CS" in kwargs:
+            CS_type = kwargs["CS"]
+        else:
+            CS_type = "Thouless"
+
+        if "sigma" in kwargs:
+            sigma = kwargs["sigma"]
+        else:
+            sigma = 1e-3
+
+        if "dataset_label" in kwargs:
+            dataset_label = kwargs["dataset_label"]
+        else:
+            dataset_label = f"LEGS_mixed_spin_covariance_{N}_{N_subsample}_{CS_type}"
+
+        self.log.enter(f"Obtaining the ground state with the method \"LEGS mixed spin covariance\" [N = {N}, N_sub = {N_subsample}, CS = {CS_type}, sigma : {sigma}]", 1)
+
+
+        # Disk jockey node creation and metadata storage
+        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
+        self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {"CS" : CS_type, "N" : N, "N_sub" : N_subsample, "sigma" : sigma})
+        self.user_actions += f"find_ground_state_LEGS_mixed_spin_covariance [N = {N}, N_sub = {N_subsample}, CS type = {CS_type}, sigma : {sigma}]\n"
+        procedure_diagnostic = []
+
+        if "LE_sol" not in self.checklist:
+            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            self.log.exit()
+            return(None)
+
+        cur_LE_heatmap = self.LE_sol["exp"] #["g"/"a"/"b"/"ab"] for first order
+
+        # We now manually sample Thouless states guided by the SECS heatmap
+        cur_sample = CS_sample(self, ground_state_solver.coherent_state_types[CS_type], add_ref_state = True)
+
+        # We flatten the heatmap
+        len_a = self.S_alpha * (self.mol.nao - self.S_alpha)
+        len_b = self.S_beta * (self.mol.nao - self.S_beta)
+        a_ij_to_i = lambda i,j : i * self.S_alpha + j
+        b_ij_to_i = lambda i,j : self.S_alpha * (self.mol.nao - self.S_alpha) + i * self.S_beta + j
+        means = np.zeros( len_a + len_b )
+        stds = sigma + np.zeros( len_a + len_b) #TODO what if sigma is not always the same?
+
+        for i in range(self.mol.nao - self.S_alpha):
+            for j in range(self.S_alpha):
+                # j -> i on alpha
+                means[a_ij_to_i(i, j)] = cur_LE_heatmap["a"][i][j]
+        for i in range(self.mol.nao - self.S_beta):
+            for j in range(self.S_beta):
+                # j -> i on beta
+                means[b_ij_to_i(i, j)] = cur_LE_heatmap["b"][i][j]
+
+        product_means = np.outer(means, means) # we start with no covariance except natural widths and then change the off-diagonal block
+
+        for i in range(self.mol.nao - self.S_alpha):
+            for j in range(self.S_alpha):
+                for k in range(self.mol.nao - self.S_beta):
+                    for l in range(self.S_beta):
+                        # j -> i on alpha, l -> k on beta
+                        product_means[a_ij_to_i(i, j)][b_ij_to_i(k, l)] = cur_LE_heatmap["ab"][i][j][k][l]
+                        product_means[b_ij_to_i(k, l)][a_ij_to_i(i, j)] = cur_LE_heatmap["ab"][i][j][k][l]
+
+        cov_matrix = product_means - np.outer(means, means) # This is what we sample by with Cholesky
+        # Now we add the diagonal terms, i.e. the variance
+        required_variance = np.sum(np.abs(cov_matrix), axis = 1) # minimal diag terms to achieve positive semidefiniteness
+        cov_matrix += np.diag(required_variance + stds * stds)
+
+        self.log.write(f"Default variance: {stds * stds}; required additional variance: {required_variance}")
+
+        eigvals, eigvecs = np.linalg.eigh(cov_matrix)
+        min_eigval = min(eigvals)
+        if min_eigval <= 0.0:
+            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+
+        # We pre-sample the parameters
+        rand_X = functions.sample_with_autocorrelation_safe(means, cov_matrix, N * N_subsample)
+        raw_Z_sample = [
+            np.zeros((N, N_subsample, self.mol.nao - self.S_alpha, self.S_alpha)),
+            np.zeros((N, N_subsample, self.mol.nao - self.S_beta, self.S_beta))
+            ]
+        for n in range(N):
+            for n_sub in range(N_subsample):
+                for i in range(self.mol.nao - self.S_alpha):
+                    for j in range(self.S_alpha):
+                        # j -> i on alpha
+                        raw_Z_sample[0][n][n_sub][i][j] = rand_X[n * N_subsample + n_sub][a_ij_to_i(i, j)]
+                for i in range(self.mol.nao - self.S_beta):
+                    for j in range(self.S_beta):
+                        # j -> i on beta
+                        raw_Z_sample[1][n][n_sub][i][j] = rand_X[n * N_subsample + n_sub][b_ij_to_i(i, j)]
+
+
+        assert CS_type == "Thouless"
+
+        N_vals = [1]
+        convergence_sols = [self.reference_state_energy]
+
+        msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
+        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
+        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+
+        for n in range(N):
+            # We add the best out of 10 random states
+            cur_subsample = []
+            for n_sub in range(N_subsample):
+
+                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                cur_subsample.append([rand_z_alpha, rand_z_beta])
+
+            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            N_vals.append(cur_sample.N)
+            convergence_sols.append(cur_sample.E_ground[-1])
+
+        procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
+
+        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
+        self.log.exit("Evaluation")
+
+        csv_sol = [] # list of rows
+        for i in range(len(N_vals)):
+            csv_sol.append({"N" : N_vals[i], "E [H]" : float(convergence_sols[i])})
+
+
+        self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
+        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
+        self.diagnostics_log.append({f"find_ground_state_LEGS_width ({dataset_label})" : procedure_diagnostic})
+
+        self.measured_datasets.append(dataset_label)
+
+        self.log.exit()
+        return(N_vals, convergence_sols)
+
 
 
 
@@ -2249,13 +2417,11 @@ class ground_state_solver():
         elif diag_alg == "SCF":
             self.log.enter("SCF on CISD basis...", 3)
 
-            #mcis = pbc.ci.kcis_rhf.KCIS(self.mean_field)
-            #e_vals, ci_coeff= mcis.kernel()
-
             cisd_solver = self.mean_field.CISD().run()
 
             if not cisd_solver.converged:
                 self.log.write("ERROR: SCF solver failed to converge. Aborting...")
+                self.log.exit()
                 self.log.exit()
                 return(None)
 
@@ -2332,7 +2498,88 @@ class ground_state_solver():
 
     def find_LE_solution_MSDE(self, **kwargs):
         # Double excitation with mixed spins
-        pass
+
+
+        self.LE_description["params"] = {}
+
+        self.log.enter(f"Solving on a mixed-spin double-excitation basis using SCF...", 1)
+
+        self.user_actions += f"find_LE_solution_MSDE [def_var = {def_var}]\n"
+
+        # Finding the LE solution
+        self.log.enter("SCF on CISD basis...", 3)
+        cisd_solver = self.mean_field.CISD().run()
+        if not cisd_solver.converged:
+            self.log.write("ERROR: SCF solver failed to converge. Aborting...")
+            self.log.exit()
+            self.log.exit()
+            return(None)
+        self.log.write(f"Obtained CISD solution (basis length = {len(cisd_solver.ci)})")
+
+        if "full_CI_sol" in self.checklist:
+            self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f} (compare to full CI: {self.ci_energy:0.5f})", 1)
+        else:
+            self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f}", 1)
+
+        # We characterise the coef array by excitations
+        c0, c1, c2 = cisd_solver.cisdvec_to_amplitudes(cisd_solver.ci)
+
+        c1_a, c1_b = c1
+        c2_aa, c2_ab, c2_bb = c2
+
+        self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
+        self.log.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
+        self.log.write(f"  For one excitation: {c1_a.shape} on alpha, {c1_b.shape} on beta")
+        self.log.write(f"  For two excitations: {c2_aa.shape} on alpha-alpha, {c2_bb.shape} on beta-beta, {c2_ab.shape} on mixed-spin excitations")
+
+        # Now, for the heatmap
+        self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+        exp_vals = {
+            "g" : c0,
+            "a" : np.zeros((self.mol.nao - self.S_alpha, self.S_alpha)).tolist(), #[i][j] = E[j -> i on alpha]
+            "b" : np.zeros((self.mol.nao - self.S_beta, self.S_beta)).tolist(), #[i][j] = E[j -> i on beta]
+            "ab" : np.zeros((self.mol.nao - self.S_alpha, self.S_alpha, self.mol.nao - self.S_beta, self.S_beta)).tolist() #[i][j][k][l] = E[j -> i on alpha, l -> k on beta]
+
+        }
+
+        # We do not need to project onto the (no same-spin double excitation) basis,
+        # since the fraction cn / c0 remains the same
+
+        ref_state_a = (1,) * self.S_alpha
+        ref_state_b = (1,) * self.S_beta
+        res_sol = {(ref_state_a, ref_state_b) : c0}
+
+        for a in range(self.mol.nao - self.S_alpha):
+            for b in range(self.S_alpha):
+                # exc b -> a on the alpha subspace
+                res_sol[( (1,) * b + (0,) + (1,) * (self.S_alpha - 1 - b) + (0,) * a + (1,),  ref_state_b)] = c1_a[b][a]
+                exp_vals["a"][a][b] = - c1_a[b][a] / c0
+
+        for a in range(self.mol.nao - self.S_beta):
+            for b in range(self.S_beta):
+                # exc b -> a on the beta subspace
+                res_sol[(ref_state_a, (1,) * b + (0,) + (1,) * (self.S_beta - 1 - b) + (0,) * a + (1,))] = c1_b[b][a]
+                exp_vals["b"][a][b] = - c1_b[b][a] / c0
+
+        # order must match the generator
+        for i in range(self.mol.nao - self.S_alpha):
+            for j in range(self.S_alpha):
+                for k in range(self.mol.nao - self.S_beta):
+                    for l in range(self.S_beta):
+                        # j -> i on alpha, l -> k on beta
+                        res_sol[( (1,) * j + (0,) + (1,) * (self.S_alpha - 1 - j) + (0,) * i + (1,),  (1,) * l + (0,) + (1,) * (self.S_beta - 1 - l) + (0,) * k + (1,))] = c2_ab[j][l][i][k]
+                        exp_vals["ab"][i][j][k][l] = c2_ab[j][l][i][k] / c0
+
+        # Mark as solved
+        self.check_off("LE_sol")
+
+        self.LE_sol["E"] = cisd_solver.e_tot
+        self.LE_sol["sol"] = res_sol
+        self.LE_sol["exp"] = exp_vals
+
+        self.log.exit()
+
+
 
 
 

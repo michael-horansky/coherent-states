@@ -1,0 +1,9 @@
+{
+  "checklist": [
+    "mol_init",
+    "LE_sol"
+  ],
+  "measured_datasets": [
+    "LEGS_s=1e-3"
+  ]
+}

@@ -1,0 +1,5 @@
+initialised solver Li2_RHF_LEGS_mixed_spin_covariance
+initialise_molecule [M = 20, S = 6]
+find_LE_solution_SE [diag_alg = 'SCF']
+find_ground_state_LEGS_mixed_spin_covariance [N = 5, N_sub = 10, CS type = Thouless, sigma : 0.001]
+save_data

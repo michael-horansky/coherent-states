@@ -1,0 +1,4 @@
+initialised solver NO_UHF_LEGS_mixed_spin_covariance
+initialise_molecule [M = 20, S = 15]
+load_data
+save_data

@@ -1521,7 +1521,7 @@ class ground_state_solver():
             return(self.ci_energy)
 
         if self.HF_method == "RHF":
-            cisolver = fci.FCI(self.mol, self.MO_coefs)
+            cisolver = fci.FCI(self.mol, self.MO_coefs["a"])
         elif self.HF_method == "UHF":
             cisolver = fci.FCI(self.mol, (self.MO_coefs["a"], self.MO_coefs["b"]))
         else:
@@ -1777,7 +1777,7 @@ class ground_state_solver():
         return(alpha_list, beta_list)
 
     def get_prom_label(self, bitlist, trim_M = None, hr = False):
-        # Returns a list [[de-occupied MOs], [promoted MOs]] from ref state
+        # Returns a tuple [[de-occupied MOs], [promoted MOs]] from ref state
         # if hr, this is human-readable (i.e. MO labels are +1)
 
         cur_S = sum(bitlist)
@@ -1799,6 +1799,37 @@ class ground_state_solver():
                 res[1].append(i + hr_cor)
 
         return(res)
+
+    # Prom tuple methods
+    # a prom tuple labels a low-excitation state by the following format: ((a, b), (c, d))
+    # where a, b are m-tuples and c, d are n-tuples.
+    # This labels the state obtained by promoting electrons from indices in a into b and from c into d in the alpha and beta spin spaces, respectively
+
+    def occ_list_to_prom_tuple(self, occ_a, occ_b):
+        prom_label_a = self.get_prom_label(occ_a)
+        prom_label_b = self.get_prom_label(occ_b)
+        return( ( (tuple(prom_label_a[0]), tuple(prom_label_a[1])), (tuple(prom_label_b[0]), tuple(prom_label_b[1])) ) )
+
+    def str_to_prom_tuple(self, prom_str):
+        # Restoring on data load
+
+        proms_by_spin = prom_str.lstrip("(").rstrip(")").split(")), ((")
+        index_lists_alpha = proms_by_spin[0].lstrip("(").rstrip(")").split("), (")
+        index_lists_beta = proms_by_spin[1].lstrip("(").rstrip(")").split("), (")
+
+        if index_lists_alpha[0] == '':
+            index_lists_alpha_tuple = ((), ())
+        else:
+            index_lists_alpha_tuple = tuple([tuple([int(x) for x in occ.rstrip(",").split(", ")]) for occ in index_lists_alpha])
+        if index_lists_beta[0] == '':
+            index_lists_beta_tuple = ((), ())
+        else:
+            index_lists_beta_tuple = tuple([tuple([int(x) for x in occ.rstrip(",").split(", ")]) for occ in index_lists_beta])
+
+        return( (
+            index_lists_alpha_tuple,
+            index_lists_beta_tuple
+            ) )
 
     def get_ref_state(self):
         # Returns a list of lists, useful for further modification
@@ -2178,6 +2209,17 @@ class ground_state_solver():
     #   1. The actual ground state projection as a superposition onto occups
     #   2. The expectation value constraint for parameter matrices
 
+    # The LE solution has the following standard structure:
+    # self.LE_sol = {
+    #     "E" : ground state energy (float),
+    #     "sol" : solution as a dictionary [(excitation tuple a, excitation tuple b)] = coefficient
+    # }
+    # self.LE_description = {
+    #     "scope" : list of tuples (a,b); if (a,b) is present, the solution contains states with a excitations on alpha and b excitations on beta,
+    #     "params" : param dict,
+    #     "label" : human readable method label
+    # }
+
 
     # ------------------ Finding the projected ground-state -------------------
     # Note: SCF has methods for this (CIS, CISD)
@@ -2204,7 +2246,9 @@ class ground_state_solver():
             if kwargs["trim_M"] > self.S_alpha: # We need at least one empty shell
                 act_M = min(kwargs["trim_M"], self.mol.nao)
 
+        self.LE_description["scope"] = [(0, 0), (1, 1)]
         self.LE_description["params"] = {"trim_M" : act_M}
+        self.LE_description["label"] = "Closed-shell states differing from the HF state by one shell at most"
 
 
         self.log.enter("Solving on a single-excitation closed-shell basis...", 1)
@@ -2263,21 +2307,13 @@ class ground_state_solver():
 
         self.log.write(f"Ground state energy: {ground_state_energy} (compare to full CI: {self.ci_energy})", 1)
 
-        # Now, for the heatmap
-        self.log.write(f"Obtaining the single-excitation prevalence matrix...", 2)
-        exp_vals = np.zeros((act_M - self.S_alpha, self.S_alpha))
-        i = 1
-        for a in range(act_M - self.S_alpha):
-            for b in range(self.S_alpha):
-                exp_vals[a][b] = ground_state_vector[i]
-                i += 1
-
         # Mark as solved
         self.check_off("LE_sol")
 
         self.LE_sol["E"] = ground_state_energy
-        self.LE_sol["sol"] = ground_state_vector
-        self.LE_sol["exp"] = exp_vals
+        self.LE_sol["sol"] = {}
+        for i in range(len(basis)):
+            self.LE_sol[self.occ_list_to_prom_tuple(basis[i][0], basis[i][1])] = ground_state_vector[i]
 
         self.log.write(f"Success!", 1)
         self.log.exit()
@@ -2309,7 +2345,9 @@ class ground_state_solver():
             }[diag_alg]
 
 
+        self.LE_description["scope"] = [(0, 0), (1, 0), (0, 1), (1, 1)]
         self.LE_description["params"] = {"diag_alg" : diag_alg}
+        self.LE_description["label"] = "at most one excitation in each spin subspace"
 
         self.log.enter(f"Solving on a single-excitation closed-shell basis using {hr_diag_alg_label}...", 1)
 
@@ -2348,7 +2386,6 @@ class ground_state_solver():
                 cur_H_overlap = self.get_H_overlap_on_occupancy(self.occ_tuple_to_list(basis[a]), self.occ_tuple_to_list(basis[a]))
                 assert cur_H_overlap.imag < 1e-08
                 H[a][a] = cur_H_overlap.real
-                #self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
                 self.log.update_semaphor_event(a * (a + 1) / 2)
 
                 # Here the off-diagonal, using the fact that H is a Hermitian matrix
@@ -2358,10 +2395,8 @@ class ground_state_solver():
                     assert cur_H_overlap.imag < 1e-08
                     H[a][b] = cur_H_overlap.real
                     H[b][a] = H[a][b] # np.conjugate(H[a][b])
-                    #self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
                     self.log.update_semaphor_event(a * (a + 1) / 2 + b + 1)
 
-            #self.semaphor.finish_event(new_sem_ID, "Evaluation")
             self.log.exit("Evaluation")
 
             energy_levels, energy_states = np.linalg.eig(H)
@@ -2384,18 +2419,16 @@ class ground_state_solver():
 
             }
 
-            res_sol = {basis[0] : ground_state_vector[0]}
+            res_sol = {(((), ()), ((), ())) : ground_state_vector[0]}
 
             basis_i = 1
             for a in range(self.mol.nao - self.S_alpha):
                 for b in range(self.S_alpha):
-                    exp_vals["a"][a][b] = - ground_state_vector[basis_i] / ground_state_vector[basis_i]
-                    res_sol[basis[basis_i]] = ground_state_vector[basis_i]
+                    res_sol[ (((b,), (a,)), ((), ())) ] = ground_state_vector[basis_i]
                     basis_i += 1
             for a in range(self.mol.nao - self.S_beta):
                 for b in range(self.S_beta):
-                    exp_vals["b"][a][b] = - ground_state_vector[basis_i] / ground_state_vector[0]
-                    res_sol[basis[basis_i]] = ground_state_vector[basis_i]
+                    res_sol[ (((), ()), ((b,), (a,))) ] = ground_state_vector[basis_i]
                     basis_i += 1
 
             # order must match the generator
@@ -2403,8 +2436,7 @@ class ground_state_solver():
                 for j in range(self.mol.nao - self.S_alpha):
                     for k in range(self.S_beta):
                         for l in range(self.mol.nao - self.S_beta):
-                            exp_vals["ab"][j][i][l][k] = ground_state_vector[basis_i] / ground_state_vector[0]
-                            res_sol[basis[basis_i]] = ground_state_vector[basis_i]
+                            res_sol[ (((i,), (j,)), ((k,), (l,))) ] = ground_state_vector[basis_i]
                             basis_i += 1
 
             # Mark as solved
@@ -2412,7 +2444,6 @@ class ground_state_solver():
 
             self.LE_sol["E"] = ground_state_energy
             self.LE_sol["sol"] = res_sol
-            self.LE_sol["exp"] = exp_vals
 
         elif diag_alg == "SCF":
             self.log.enter("SCF on CISD basis...", 3)
@@ -2445,48 +2476,31 @@ class ground_state_solver():
 
             # Now, for the heatmap
             self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
-            exp_vals = {
-                "g" : c0,
-                "a" : np.zeros((self.mol.nao - self.S_alpha, self.S_alpha)).tolist(), #[i][j] = E[j -> i on alpha]
-                "b" : np.zeros((self.mol.nao - self.S_beta, self.S_beta)).tolist(), #[i][j] = E[j -> i on beta]
-                "ab" : np.zeros((self.mol.nao - self.S_alpha, self.S_alpha, self.mol.nao - self.S_beta, self.S_beta)).tolist() #[i][j][k][l] = E[j -> i on alpha, l -> k on beta]
-
-            }
 
             # We do not need to project onto the (no same-spin double excitation) basis,
             # since the fraction cn / c0 remains the same
 
-            ref_state_a = (1,) * self.S_alpha
-            ref_state_b = (1,) * self.S_beta
-            res_sol = {(ref_state_a, ref_state_b) : c0}
+            res_sol = {(((), ()), ((), ())) : c0}
 
             for a in range(self.mol.nao - self.S_alpha):
                 for b in range(self.S_alpha):
-                    # exc b -> a on the alpha subspace
-                    res_sol[( (1,) * b + (0,) + (1,) * (self.S_alpha - 1 - b) + (0,) * a + (1,),  ref_state_b)] = c1_a[b][a]
-                    exp_vals["a"][a][b] = - c1_a[b][a] / c0
-
+                    res_sol[ (((b,), (a,)), ((), ())) ] = c1_a[b][a]
             for a in range(self.mol.nao - self.S_beta):
                 for b in range(self.S_beta):
-                    # exc b -> a on the beta subspace
-                    res_sol[(ref_state_a, (1,) * b + (0,) + (1,) * (self.S_beta - 1 - b) + (0,) * a + (1,))] = c1_b[b][a]
-                    exp_vals["b"][a][b] = - c1_b[b][a] / c0
+                    res_sol[ (((), ()), ((b,), (a,))) ] = c1_b[b][a]
 
             # order must match the generator
             for i in range(self.mol.nao - self.S_alpha):
                 for j in range(self.S_alpha):
                     for k in range(self.mol.nao - self.S_beta):
                         for l in range(self.S_beta):
-                            # j -> i on alpha, l -> k on beta
-                            res_sol[( (1,) * j + (0,) + (1,) * (self.S_alpha - 1 - j) + (0,) * i + (1,),  (1,) * l + (0,) + (1,) * (self.S_beta - 1 - l) + (0,) * k + (1,))] = c2_ab[j][l][i][k]
-                            exp_vals["ab"][i][j][k][l] = c2_ab[j][l][i][k] / c0
+                            res_sol[ (((j,), (i,)), ((l,), (k,))) ] = c2_ab[j][l][i][k]
 
             # Mark as solved
             self.check_off("LE_sol")
 
             self.LE_sol["E"] = cisd_solver.e_tot
             self.LE_sol["sol"] = res_sol
-            self.LE_sol["exp"] = exp_vals
 
             self.log.exit()
 
@@ -2500,7 +2514,9 @@ class ground_state_solver():
         # Double excitation with mixed spins
 
 
+        self.LE_description["scope"] = [(0, 0), (1, 0), (0, 1), (1, 1)]
         self.LE_description["params"] = {}
+        self.LE_description["label"] = "at most one excitation in each spin subspace"
 
         self.log.enter(f"Solving on a mixed-spin double-excitation basis using SCF...", 1)
 
@@ -2534,48 +2550,32 @@ class ground_state_solver():
 
         # Now, for the heatmap
         self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
-        exp_vals = {
-            "g" : c0,
-            "a" : np.zeros((self.mol.nao - self.S_alpha, self.S_alpha)).tolist(), #[i][j] = E[j -> i on alpha]
-            "b" : np.zeros((self.mol.nao - self.S_beta, self.S_beta)).tolist(), #[i][j] = E[j -> i on beta]
-            "ab" : np.zeros((self.mol.nao - self.S_alpha, self.S_alpha, self.mol.nao - self.S_beta, self.S_beta)).tolist() #[i][j][k][l] = E[j -> i on alpha, l -> k on beta]
 
-        }
 
         # We do not need to project onto the (no same-spin double excitation) basis,
         # since the fraction cn / c0 remains the same
 
-        ref_state_a = (1,) * self.S_alpha
-        ref_state_b = (1,) * self.S_beta
-        res_sol = {(ref_state_a, ref_state_b) : c0}
+        res_sol = {(((), ()), ((), ())) : c0}
 
         for a in range(self.mol.nao - self.S_alpha):
             for b in range(self.S_alpha):
-                # exc b -> a on the alpha subspace
-                res_sol[( (1,) * b + (0,) + (1,) * (self.S_alpha - 1 - b) + (0,) * a + (1,),  ref_state_b)] = c1_a[b][a]
-                exp_vals["a"][a][b] = - c1_a[b][a] / c0
-
+                res_sol[ (((b,), (a,)), ((), ())) ] = c1_a[b][a]
         for a in range(self.mol.nao - self.S_beta):
             for b in range(self.S_beta):
-                # exc b -> a on the beta subspace
-                res_sol[(ref_state_a, (1,) * b + (0,) + (1,) * (self.S_beta - 1 - b) + (0,) * a + (1,))] = c1_b[b][a]
-                exp_vals["b"][a][b] = - c1_b[b][a] / c0
+                res_sol[ (((), ()), ((b,), (a,))) ] = c1_b[b][a]
 
         # order must match the generator
         for i in range(self.mol.nao - self.S_alpha):
             for j in range(self.S_alpha):
                 for k in range(self.mol.nao - self.S_beta):
                     for l in range(self.S_beta):
-                        # j -> i on alpha, l -> k on beta
-                        res_sol[( (1,) * j + (0,) + (1,) * (self.S_alpha - 1 - j) + (0,) * i + (1,),  (1,) * l + (0,) + (1,) * (self.S_beta - 1 - l) + (0,) * k + (1,))] = c2_ab[j][l][i][k]
-                        exp_vals["ab"][i][j][k][l] = c2_ab[j][l][i][k] / c0
+                        res_sol[ (((j,), (i,)), ((l,), (k,))) ] = c2_ab[j][l][i][k]
 
         # Mark as solved
         self.check_off("LE_sol")
 
         self.LE_sol["E"] = cisd_solver.e_tot
         self.LE_sol["sol"] = res_sol
-        self.LE_sol["exp"] = exp_vals
 
         self.log.exit()
 
@@ -2643,12 +2643,9 @@ class ground_state_solver():
                 "sol" : {str(k): v for k, v in self.ci_sol.items()} # each key is a tuple of tuples
                 })
         if "LE_sol" in self.checklist:
-            if isinstance(self.LE_sol["exp"], np.ndarray):
-                self.LE_sol["exp"] = LE_sol["exp"].tolist()
             self.disk_jockey.commit_datum_bulk("self_analysis", "LE_sol", {
                 "E" : self.LE_sol["E"],
-                "sol" : {str(k): v for k, v in self.LE_sol["sol"].items()},
-                "exp" : self.LE_sol["exp"]
+                "sol" : {str(k): v for k, v in self.LE_sol["sol"].items()}
                 })
             self.disk_jockey.commit_metadatum("self_analysis", "LE_sol", self.LE_description)
 
@@ -2697,13 +2694,21 @@ class ground_state_solver():
                 if "LE_sol" in loaded_checklist:
                     loaded_LE_sol = self.disk_jockey.data_bulks["self_analysis"]["LE_sol"]
                     self.LE_description = self.disk_jockey.metadata["self_analysis"]["LE_sol"]
+                    # We need to re-tuple the scope
+                    self.LE_description["scope"] = [tuple(prom_label) for prom_label in self.LE_description["scope"]]
                     self.LE_sol = {
                         "E" : loaded_LE_sol["E"],
-                        "sol" : {self.occ_tuple_restore(k): v for k, v in loaded_LE_sol["sol"].items()},
-                        "exp" : loaded_LE_sol["exp"]
+                        "sol" : {self.str_to_prom_tuple(k): v for k, v in loaded_LE_sol["sol"].items()}
                         }
                     self.check_off("LE_sol")
-                    self.log.write(f"Results from diagonalisation on a low-excitation basis loaded (env {self.LE_description["env"]}, spec {self.LE_description["spec"]})...", 4)
+                    self.log.write(f"Results from diagonalisation on a low-excitation basis loaded...", 4)
+                    self.log.write(f"  -environment: {self.LE_description["env"]}", 4)
+                    self.log.write(f"  -specification: {self.LE_description["spec"]}", 4)
+                    self.log.write(f"  -scope: {self.LE_description["scope"]}", 4)
+                    self.log.write(f"  -description: {self.LE_description["label"]}", 4)
+                    self.log.write(f"  -parameters:", 4)
+                    for param_name, param_val in self.LE_description["params"].items():
+                        self.log.write(f"    -{param_name}: {param_val}", 4)
 
                 self.log.exit()
 

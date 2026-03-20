@@ -1,0 +1,3 @@
+----------------- N2_RHF_LEGS_mixed_spin_covariance diagnostic log -----------------
+find_ground_state_LEGS_width (LEGS_s=1e-3)
+    Full sample condition number = [1.0, np.float64(1.6656432498077631), np.float64(2.2164263095722827), np.float64(2.5699455756822465), np.float64(3.719863542852399), np.float64(4.098998359864883)]

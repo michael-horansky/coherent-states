@@ -4,7 +4,5 @@
     "full_CI_sol",
     "LE_sol"
   ],
-  "measured_datasets": [
-    "LEGS_s=1e-3"
-  ]
+  "measured_datasets": []
 }

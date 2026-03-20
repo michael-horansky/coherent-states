@@ -14,8 +14,8 @@ import functions
 
 
 benchmark_molecules = {
-#    "Li2" : li2_mol,
-    "N2" : n2_mol
+    "Li2" : li2_mol
+#    "N2" : n2_mol
     }
 
 trimmed_ground_state_full_ci = {
@@ -27,14 +27,14 @@ trimmed_ground_state_full_ci = {
 
 for mol_name, mol in benchmark_molecules.items():
 
-    mol_solver = ground_state_solver(f"{mol_name}_SECS_80_configs_10_reps")
+    mol_solver = ground_state_solver(f"{mol_name}_SECS_doubled_states")
     mol_solver.initialise_molecule(mol)
-    mol_solver.load_data(["self_analysis", "measured_datasets"])
-    mol_solver.print_singlet_info()
+    #mol_solver.load_data(["self_analysis", "measured_datasets"])
+    #mol_solver.print_singlet_info()
 
     # Self-analysis methods
-    #mol_solver.pyscf_full_CI()
-    #cur_SECS_heatmap, cur_SECS_restricted_energy = mol_solver.solve_on_single_excitation_closed_shell()
+    mol_solver.full_CI_sol()
+    mol_solver.find_LE_solution("SECS")
 
 
     # Sampling methods

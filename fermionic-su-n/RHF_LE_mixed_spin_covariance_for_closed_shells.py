@@ -25,9 +25,9 @@ trimmed_ground_state_full_ci = {
     }
 
 
-mol_solver = ground_state_solver(f"Li2_RHF_LEGS_mixed_spin_covariance")
-mol_solver.initialise_molecule(li2_mol, HF_method = "UHF")
-#mol_solver.load_data(["self_analysis", "measured_datasets"])
+mol_solver = ground_state_solver(f"NO_UHF_LEGS_mixed_spin_covariance")
+mol_solver.initialise_molecule(no_mol, HF_method = "UHF")
+mol_solver.load_data(["self_analysis", "measured_datasets"])
 
 # Self-analysis methods
 #mol_solver.full_CI_sol()
@@ -41,7 +41,7 @@ mol_solver.initialise_molecule(li2_mol, HF_method = "UHF")
 #    mol_solver.log.write(f"  {i+1}) Coef = {top_sim_exc_states[i][0]:0.4f}; occ. = {top_sim_exc_states[i][1]} (prom {top_sim_exc_states[i][2]})")
 #mol_solver.log.exit()
 
-mol_solver.find_LE_solution("SE", diag_alg = "SCF")
+#mol_solver.find_LE_solution("SE", diag_alg = "SCF")
 
 
 
@@ -49,7 +49,7 @@ mol_solver.find_LE_solution("SE", diag_alg = "SCF")
 
 # Sampling methods
 #N_vals_width, energy_levels_width = mol_solver.find_ground_state("SEGS_width", N = 80, N_sub = 10, dataset_label = "SEGS width")
-mol_solver.find_ground_state("LE_mixed_spin_covariance", N = 5, N_sub = 10, sigma = 1e-3, dataset_label = "LEGS_s=1e-3")
+#mol_solver.find_ground_state("LE_mixed_spin_covariance", N = 35, N_sub = 10, sigma = 1e-3, dataset_label = "LEGS_s=1e-3")
 
 
 # Plotting and saving

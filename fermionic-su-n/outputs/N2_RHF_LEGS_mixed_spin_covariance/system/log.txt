@@ -1,30 +1,30 @@
-Initialising molecule solver Li2_RHF_LEGS_mixed_spin_covariance at log_verbosity = 5
+Initialising molecule solver N2_RHF_LEGS_mixed_spin_covariance at log_verbosity = 5
 | Initialising Data Storage Manager...
 | Initialising self-analysis properties...
 \_
 Initialising molecule...
 | Building molecule...
 | | There are 10 atomic orbitals, each able to hold 2 electrons of opposing spin.
-| | The molecule is occupied by 6 electrons in total: 3 with spin alpha, 3 with spin beta.
-| | The molecule consists of the following atoms: ['Li', 'Li']
-| | The atomic orbitals are ordered as follows: ['0 Li 1s    ', '0 Li 2s    ', '0 Li 2px   ', '0 Li 2py   ', '0 Li 2pz   ', '1 Li 1s    ', '1 Li 2s    ', '1 Li 2px   ', '1 Li 2py   ', '1 Li 2pz   ']
-| | The nuclear repulsion energy is 1.8000000000000003
+| | The molecule is occupied by 14 electrons in total: 7 with spin alpha, 7 with spin beta.
+| | The molecule consists of the following atoms: ['N', 'N']
+| | The atomic orbitals are ordered as follows: ['0 N 1s    ', '0 N 2s    ', '0 N 2px   ', '0 N 2py   ', '0 N 2pz   ', '1 N 1s    ', '1 N 2s    ', '1 N 2px   ', '1 N 2py   ', '1 N 2pz   ']
+| | The nuclear repulsion energy is 23.615378143666234
 | | Calculating 1e integrals...
 | | Calculating 2e integrals...
 | \_
 | Performing mean-field calculations to determine the molecular orbitals...
 | | Mean field method: Unrestricted Hartree-Fock (selected by user)
 | | Finding the molecular orbitals using mean-field approximations...
-| | Done! Reference state energy is -14.63864
+| | Done! Reference state energy is -107.49598
 | | Transforming 1e and 2e integrals to MO basis...
 | \_
 | Reference state analysis
 | | Occupied orbitals:
-| |   -in the spin-alpha subspace: [0, 1, 2]
-| |   -in the spin-beta subspace:  [0, 1, 2]
+| |   -in the spin-alpha subspace: [0, 1, 2, 3, 4, 5, 6]
+| |   -in the spin-beta subspace:  [0, 1, 2, 3, 4, 5, 6]
 | | Testing each CS type Hamiltonian overlap evaluation against the reference state...
-| |   -For Thouless: E_ref = -14.63864, which agrees with the true value
-| |   -For Qubit: E_ref = -14.63864, which agrees with the true value
+| |   -For Thouless: E_ref = -107.49598, which agrees with the true value
+| |   -For Qubit: E_ref = -107.49598, which agrees with the true value
 | \_
 \_
 Loading data from the disk...
@@ -41,16 +41,16 @@ Obtaining the ground state with the method "LEGS mixed spin covariance" [N = 5, 
  1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06
  1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06
  1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06 1.e-06
- 1.e-06 1.e-06]; required additional variance: [0.00717146 0.00501511 0.20517955 0.00598746 0.00506267 0.24236236
- 0.00598746 0.00506267 0.24236616 0.00618143 0.00539052 0.10909742
- 0.00639136 0.00658392 0.00799745 0.00639136 0.00658392 0.00799746
- 0.00840778 0.00822538 0.0821071  0.00717146 0.00501511 0.20517956
- 0.00583369 0.0045758  0.24192005 0.00583369 0.0045758  0.24191808
- 0.00618143 0.00539052 0.10909782 0.00653585 0.00718269 0.00833985
- 0.00653585 0.00718269 0.00833982 0.00840778 0.00822538 0.0821071 ]
-| Conditioned sampling with ground state search on 5 states, each taken from 10 random states begins at 13:13:19
+ 1.e-06 1.e-06]; required additional variance: [0.00284806 0.00183516 0.05282115 0.07197309 0.29077045 0.16975845
+ 0.04406831 0.00284806 0.00183516 0.05282115 0.07197309 0.16975845
+ 0.29077045 0.04406831 0.00250306 0.00177331 0.11678742 0.01365917
+ 0.03833892 0.03833892 0.11915866 0.00284046 0.00183516 0.05261672
+ 0.07197309 0.29687632 0.16307696 0.0440578  0.00284046 0.00183516
+ 0.05261672 0.07197309 0.16307696 0.29687632 0.0440578  0.00250823
+ 0.00177331 0.11736194 0.01365917 0.03856144 0.03856144 0.11973021]
+| Conditioned sampling with ground state search on 5 states, each taken from 10 random states begins at 13:18:20
 | | Conditioned sampling with ground state search on 5 states, each taken from 10 random states waiting for the first event...
-| \_ Evaluation finished at 13:16:36 (duration 3 min 18 sec)                                                                                                
+| \_ Evaluation finished at 13:21:37 (duration 3 min 17 sec)                                                                                                
 \_
 Plotting obtained measurements...
 | Collecting data from dataset 'LEGS_s=1e-3'...

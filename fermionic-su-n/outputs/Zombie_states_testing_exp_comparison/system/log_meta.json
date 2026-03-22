@@ -1,0 +1,8 @@
+{
+  "checklist": [
+    "mol_init",
+    "full_CI_sol",
+    "LE_sol"
+  ],
+  "measured_datasets": []
+}

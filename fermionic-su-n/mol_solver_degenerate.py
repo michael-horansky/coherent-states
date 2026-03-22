@@ -2338,7 +2338,7 @@ class ground_state_solver():
         if "diag_alg" in kwargs:
             diag_alg = kwargs["diag_alg"]
         else:
-            diag_alg = "exp"
+            diag_alg = "SCF"
         hr_diag_alg_label = {
             "exp" : "explicit diagonalisation",
             "SCF" : "SCF on a CISD basis"
@@ -2374,6 +2374,28 @@ class ground_state_solver():
                     basis.append((ref_state_a, (1,) * k + (0,) + (1,) * (self.S_beta - 1 - k) + (0,) * l + (1,)))
 
             basis += self.get_states_by_excitation_number(1, 1)
+
+            for i in range(self.S_alpha):
+                for j in range(i + 1, self.S_alpha):
+                    for k in range(self.mol.nao - self.S_alpha):
+                        for l in range(k + 1, self.mol.nao - self.S_alpha):
+                            a_occ = [1] * self.S_alpha + [0] * (l + 1)
+                            a_occ[i] = 0
+                            a_occ[j] = 0
+                            a_occ[k + self.S_alpha] = 1
+                            a_occ[l + self.S_alpha] = 1
+                            basis.append((tuple(a_occ), ref_state_b))
+            for i in range(self.S_beta):
+                for j in range(i + 1, self.S_beta):
+                    for k in range(self.mol.nao - self.S_beta):
+                        for l in range(k + 1, self.mol.nao - self.S_beta):
+                            b_occ = [1] * self.S_beta + [0] * (l + 1)
+                            b_occ[i] = 0
+                            b_occ[j] = 0
+                            b_occ[k + self.S_beta] = 1
+                            b_occ[l + self.S_beta] = 1
+                            basis.append((ref_state_a, tuple(b_occ)))
+
             self.log.write(f"SE basis of length {len(basis)} obtained.")
 
             H = np.zeros((len(basis), len(basis)))
@@ -2411,13 +2433,6 @@ class ground_state_solver():
 
             # Now, for the heatmap
             self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
-            exp_vals = {
-                "g" : ground_state_vector[0],
-                "a" : np.zeros((self.mol.nao - self.S_alpha, self.S_alpha)).tolist(), #[i][j] = E[j -> i on alpha]
-                "b" : np.zeros((self.mol.nao - self.S_beta, self.S_alpha)).tolist(), #[i][j] = E[j -> i on beta]
-                "ab" : np.zeros((self.mol.nao - self.S_alpha, self.S_alpha, self.mol.nao - self.S_beta, self.S_beta)).tolist() #[i][j][k][l] = E[j -> i on alpha, l -> k on beta]
-
-            }
 
             res_sol = {(((), ()), ((), ())) : ground_state_vector[0]}
 
@@ -2437,6 +2452,21 @@ class ground_state_solver():
                     for k in range(self.S_beta):
                         for l in range(self.mol.nao - self.S_beta):
                             res_sol[ (((i,), (j,)), ((k,), (l,))) ] = ground_state_vector[basis_i]
+                            basis_i += 1
+
+            # alpha alpha
+            for i in range(self.S_alpha):
+                for j in range(i + 1, self.S_alpha):
+                    for k in range(self.mol.nao - self.S_alpha):
+                        for l in range(k + 1, self.mol.nao - self.S_alpha):
+                            res_sol[ (((i, j), (k, l)), ((), ())) ] = ground_state_vector[basis_i]
+                            basis_i += 1
+            # beta beta
+            for i in range(self.S_beta):
+                for j in range(i + 1, self.S_beta):
+                    for k in range(self.mol.nao - self.S_beta):
+                        for l in range(k + 1, self.mol.nao - self.S_beta):
+                            res_sol[ (((), ()), ((i, j), (k, l))) ] = ground_state_vector[basis_i]
                             basis_i += 1
 
             # Mark as solved
@@ -2466,35 +2496,67 @@ class ground_state_solver():
             # We characterise the coef array by excitations
             c0, c1, c2 = cisd_solver.cisdvec_to_amplitudes(cisd_solver.ci)
 
-            c1_a, c1_b = c1
-            c2_aa, c2_ab, c2_bb = c2
+            # The shapes of these look different based on the HF method, with extra symmetry assumed for RHF
 
-            self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
-            self.log.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
-            self.log.write(f"  For one excitation: {c1_a.shape} on alpha, {c1_b.shape} on beta")
-            self.log.write(f"  For two excitations: {c2_aa.shape} on alpha-alpha, {c2_bb.shape} on beta-beta, {c2_ab.shape} on mixed-spin excitations")
+            if self.HF_method == "UHF":
+                c1_a, c1_b = c1
+                c2_aa, c2_ab, c2_bb = c2
 
-            # Now, for the heatmap
-            self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+                self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
+                self.log.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
+                self.log.write(f"  For one excitation: {c1_a.shape} on alpha, {c1_b.shape} on beta")
+                self.log.write(f"  For two excitations: {c2_aa.shape} on alpha-alpha, {c2_bb.shape} on beta-beta, {c2_ab.shape} on mixed-spin excitations")
 
-            # We do not need to project onto the (no same-spin double excitation) basis,
-            # since the fraction cn / c0 remains the same
+                # Now, for the heatmap
+                self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
 
-            res_sol = {(((), ()), ((), ())) : c0}
 
-            for a in range(self.mol.nao - self.S_alpha):
-                for b in range(self.S_alpha):
-                    res_sol[ (((b,), (a,)), ((), ())) ] = c1_a[b][a]
-            for a in range(self.mol.nao - self.S_beta):
-                for b in range(self.S_beta):
-                    res_sol[ (((), ()), ((b,), (a,))) ] = c1_b[b][a]
+                # We do not need to project onto the (no same-spin double excitation) basis,
+                # since the fraction cn / c0 remains the same
 
-            # order must match the generator
-            for i in range(self.mol.nao - self.S_alpha):
-                for j in range(self.S_alpha):
-                    for k in range(self.mol.nao - self.S_beta):
-                        for l in range(self.S_beta):
-                            res_sol[ (((j,), (i,)), ((l,), (k,))) ] = c2_ab[j][l][i][k]
+                res_sol = {(((), ()), ((), ())) : c0}
+
+                for a in range(self.mol.nao - self.S_alpha):
+                    for b in range(self.S_alpha):
+                        res_sol[ (((b,), (a,)), ((), ())) ] = c1_a[b][a]
+                for a in range(self.mol.nao - self.S_beta):
+                    for b in range(self.S_beta):
+                        res_sol[ (((), ()), ((b,), (a,))) ] = c1_b[b][a]
+
+                for i in range(self.mol.nao - self.S_alpha):
+                    for j in range(self.S_alpha):
+                        for k in range(self.mol.nao - self.S_beta):
+                            for l in range(self.S_beta):
+                                res_sol[ (((j,), (i,)), ((l,), (k,))) ] = c2_ab[j][l][i][k]
+
+            elif self.HF_method == "RHF":
+                self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
+                self.log.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
+                self.log.write(f"  For one excitation: {c1.shape} spin-adapted configurations of the form | i -> j > = 1/sqrt(2) . (a_i,alpha\\hc a_j,alpha + a_i,beta\\hc a_j,beta) | HF >")
+                self.log.write(f"  For two excitations: {c2.shape} singlet-coupled combinations of the form | ij -> kl > 1/2 . (a_k,alpha\\hc a_l,beta\\hc - a_l,alpha\\hc a_k,beta\\hc) . (a_i,alpha a_j,beta - a_j,alpha a_i,beta) | HF >")
+
+                # Now, for the heatmap
+                self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+
+
+                # We do not need to project onto the (no same-spin double excitation) basis,
+                # since the fraction cn / c0 remains the same
+
+                res_sol = {(((), ()), ((), ())) : c0}
+
+                for a in range(self.mol.nao - self.S_alpha):
+                    for b in range(self.S_alpha):
+                        # | b -> a >
+                        amp = c1[b][a] / np.sqrt(2)
+                        res_sol[ (((b,), (a,)), ((), ())) ] = amp
+                        res_sol[ (((), ()), ((b,), (a,))) ] = amp
+
+                for i in range(self.S_alpha):
+                    for j in range(self.S_beta):
+                        for k in range(self.mol.nao - self.S_alpha):
+                            for l in range(self.mol.nao - self.S_beta):
+                                # | ij -> kl >
+                                res_sol[ (((i,), (k,)), ((j,), (l,))) ] = c2[i][j][k][l]
 
             # Mark as solved
             self.check_off("LE_sol")
@@ -2540,36 +2602,69 @@ class ground_state_solver():
         # We characterise the coef array by excitations
         c0, c1, c2 = cisd_solver.cisdvec_to_amplitudes(cisd_solver.ci)
 
-        c1_a, c1_b = c1
-        c2_aa, c2_ab, c2_bb = c2
+        # The shapes of these look different based on the HF method, with extra symmetry assumed for RHF
 
-        self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
-        self.log.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
-        self.log.write(f"  For one excitation: {c1_a.shape} on alpha, {c1_b.shape} on beta")
-        self.log.write(f"  For two excitations: {c2_aa.shape} on alpha-alpha, {c2_bb.shape} on beta-beta, {c2_ab.shape} on mixed-spin excitations")
+        if self.HF_method == "UHF":
+            c1_a, c1_b = c1
+            c2_aa, c2_ab, c2_bb = c2
 
-        # Now, for the heatmap
-        self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+            self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
+            self.log.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
+            self.log.write(f"  For one excitation: {c1_a.shape} on alpha, {c1_b.shape} on beta")
+            self.log.write(f"  For two excitations: {c2_aa.shape} on alpha-alpha, {c2_bb.shape} on beta-beta, {c2_ab.shape} on mixed-spin excitations")
+
+            # Now, for the heatmap
+            self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
 
 
-        # We do not need to project onto the (no same-spin double excitation) basis,
-        # since the fraction cn / c0 remains the same
+            # We do not need to project onto the (no same-spin double excitation) basis,
+            # since the fraction cn / c0 remains the same
 
-        res_sol = {(((), ()), ((), ())) : c0}
+            res_sol = {(((), ()), ((), ())) : c0}
 
-        for a in range(self.mol.nao - self.S_alpha):
-            for b in range(self.S_alpha):
-                res_sol[ (((b,), (a,)), ((), ())) ] = c1_a[b][a]
-        for a in range(self.mol.nao - self.S_beta):
-            for b in range(self.S_beta):
-                res_sol[ (((), ()), ((b,), (a,))) ] = c1_b[b][a]
+            for a in range(self.mol.nao - self.S_alpha):
+                for b in range(self.S_alpha):
+                    res_sol[ (((b,), (a,)), ((), ())) ] = c1_a[b][a]
+            for a in range(self.mol.nao - self.S_beta):
+                for b in range(self.S_beta):
+                    res_sol[ (((), ()), ((b,), (a,))) ] = c1_b[b][a]
 
-        # order must match the generator
-        for i in range(self.mol.nao - self.S_alpha):
-            for j in range(self.S_alpha):
-                for k in range(self.mol.nao - self.S_beta):
-                    for l in range(self.S_beta):
-                        res_sol[ (((j,), (i,)), ((l,), (k,))) ] = c2_ab[j][l][i][k]
+            for i in range(self.mol.nao - self.S_alpha):
+                for j in range(self.S_alpha):
+                    for k in range(self.mol.nao - self.S_beta):
+                        for l in range(self.S_beta):
+                            res_sol[ (((j,), (i,)), ((l,), (k,))) ] = c2_ab[j][l][i][k]
+
+        elif self.HF_method == "RHF":
+            self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
+            self.log.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
+            self.log.write(f"  For one excitation: {c1.shape} spin-adapted configurations of the form | i -> j > = 1/sqrt(2) . (a_i,alpha\\hc a_j,alpha + a_i,beta\\hc a_j,beta) | HF >")
+            self.log.write(f"  For two excitations: {c2.shape} singlet-coupled combinations of the form | ij -> kl > 1/2 . (a_k,alpha\\hc a_l,beta\\hc - a_l,alpha\\hc a_k,beta\\hc) . (a_i,alpha a_j,beta - a_j,alpha a_i,beta) | HF >")
+
+            # Now, for the heatmap
+            self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+
+
+            # We do not need to project onto the (no same-spin double excitation) basis,
+            # since the fraction cn / c0 remains the same
+
+            res_sol = {(((), ()), ((), ())) : c0}
+
+            for a in range(self.mol.nao - self.S_alpha):
+                for b in range(self.S_alpha):
+                    # | b -> a >
+                    amp = c1[b][a] / np.sqrt(2)
+                    res_sol[ (((b,), (a,)), ((), ())) ] = amp
+                    res_sol[ (((), ()), ((b,), (a,))) ] = amp
+
+            for i in range(self.S_alpha):
+                for j in range(self.S_beta):
+                    for k in range(self.mol.nao - self.S_alpha):
+                        for l in range(self.mol.nao - self.S_beta):
+                            # | ij -> kl >
+                            res_sol[ (((i,), (k,)), ((j,), (l,))) ] = c2[i][j][k][l]
+
+
 
         # Mark as solved
         self.check_off("LE_sol")

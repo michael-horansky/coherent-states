@@ -1,0 +1,5 @@
+initialised solver Zombie_states_testing_NO_exp_comparison
+initialise_molecule [M = 20, S = 15]
+full_CI_sol
+find_LE_solution_SE [diag_alg = 'exp']
+save_data

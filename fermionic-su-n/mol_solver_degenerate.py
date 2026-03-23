@@ -2,7 +2,7 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 
-from pyscf import gto, scf, cc, ao2mo, fci, pbc
+from pyscf import gto, scf, cc, ao2mo, ci, fci, pbc
 
 from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_Qubit import CS_Qubit
@@ -150,6 +150,7 @@ class ground_state_solver():
             "LEGS_phase" : self.find_ground_state_LEGS_phase, # restricts the magnitudes by SEGS, only randomises phases of components
             "LE_first_order" : self.find_ground_state_LEGS_first_order,
             "LE_mixed_spin_covariance" : self.find_ground_state_LEGS_mixed_spin_covariance,
+            "LE_Zombie_cov" : self.find_ground_state_LEGS_Zombie_cov,
             "krylov" : self.find_ground_state_krylov,
             "imag_timeprop" : self.find_ground_state_imaginary_timeprop
         }
@@ -1288,6 +1289,150 @@ class ground_state_solver():
         self.log.exit()
         return(N_vals, convergence_sols)
 
+    def find_ground_state_LEGS_Zombie_cov(self, **kwargs):
+
+        # This method uses Zombie (Qubit) states.
+        # It looks at the total norm of the states in | LE > which have i-th MO
+        # occupied, i.e. < LE | b_i\hc b_i | LE >, and uses this to estimate
+        # E[z_i^2]. The means are inferred from the variances by lowering from
+        # 1 for pi_1 and leaving them at 0 for pi_0.
+
+        # kwargs:
+        #     -N: Sample size
+        #     -N_sub: Subsample size
+        #     ------------------------
+        #     -dataset_label: if present, this will label the dataset in disc jockey. Otherwise, label is generated from other kwargs.
+
+        # -------------------- Parameter initialisation
+
+        assert "N" in kwargs
+        N = kwargs["N"]
+
+        if "N_sub" in kwargs:
+            N_subsample = kwargs["N_sub"]
+        else:
+            N_subsample = 1
+
+
+        if "dataset_label" in kwargs:
+            dataset_label = kwargs["dataset_label"]
+        else:
+            dataset_label = f"LEGS_Zombie_cov_{N}_{N_subsample}"
+
+        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov\" [N = {N}, N_sub = {N_subsample}]", 1)
+
+
+        # Disk jockey node creation and metadata storage
+        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
+        self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {"N" : N, "N_sub" : N_subsample})
+        self.user_actions += f"find_ground_state_LEGS_Zombie_cov [N = {N}, N_sub = {N_subsample}]\n"
+        procedure_diagnostic = []
+
+        if "LE_sol" not in self.checklist:
+            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            self.log.exit()
+            return(None)
+
+        # We now manually sample Thouless states guided by the LE solution
+        cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
+
+        # We find the means and the covariances
+        spin_idx_dict = {"a" : 0, "b" : 1}
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
+        means = np.zeros( 2 * self.mol.nao )
+        cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
+
+        # TODO: qubit variances and means! :))
+
+        for i in range(self.mol.nao - self.S_alpha):
+            for j in range(self.S_alpha):
+                # j -> i on alpha
+                means[a_ij_to_i(i, j)] = cur_LE_heatmap["a"][i][j]
+        for i in range(self.mol.nao - self.S_beta):
+            for j in range(self.S_beta):
+                # j -> i on beta
+                means[b_ij_to_i(i, j)] = cur_LE_heatmap["b"][i][j]
+
+        product_means = np.outer(means, means) # we start with no covariance except natural widths and then change the off-diagonal block
+
+        for i in range(self.mol.nao - self.S_alpha):
+            for j in range(self.S_alpha):
+                for k in range(self.mol.nao - self.S_beta):
+                    for l in range(self.S_beta):
+                        # j -> i on alpha, l -> k on beta
+                        product_means[a_ij_to_i(i, j)][b_ij_to_i(k, l)] = cur_LE_heatmap["ab"][i][j][k][l]
+                        product_means[b_ij_to_i(k, l)][a_ij_to_i(i, j)] = cur_LE_heatmap["ab"][i][j][k][l]
+
+        cov_matrix = product_means - np.outer(means, means) # This is what we sample by with Cholesky
+        # Now we add the diagonal terms, i.e. the variance
+        required_variance = np.sum(np.abs(cov_matrix), axis = 1) # minimal diag terms to achieve positive semidefiniteness
+        cov_matrix += np.diag(required_variance + stds * stds)
+
+        self.log.write(f"Default variance: {stds * stds}; required additional variance: {required_variance}")
+
+        eigvals, eigvecs = np.linalg.eigh(cov_matrix)
+        min_eigval = min(eigvals)
+        if min_eigval <= 0.0:
+            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+
+        # We pre-sample the parameters
+        rand_X = functions.sample_with_autocorrelation_safe(means, cov_matrix, N * N_subsample)
+        raw_Z_sample = [
+            np.zeros((N, N_subsample, self.mol.nao - self.S_alpha, self.S_alpha)),
+            np.zeros((N, N_subsample, self.mol.nao - self.S_beta, self.S_beta))
+            ]
+        for n in range(N):
+            for n_sub in range(N_subsample):
+                for i in range(self.mol.nao - self.S_alpha):
+                    for j in range(self.S_alpha):
+                        # j -> i on alpha
+                        raw_Z_sample[0][n][n_sub][i][j] = rand_X[n * N_subsample + n_sub][a_ij_to_i(i, j)]
+                for i in range(self.mol.nao - self.S_beta):
+                    for j in range(self.S_beta):
+                        # j -> i on beta
+                        raw_Z_sample[1][n][n_sub][i][j] = rand_X[n * N_subsample + n_sub][b_ij_to_i(i, j)]
+
+
+        assert CS_type == "Thouless"
+
+        N_vals = [1]
+        convergence_sols = [self.reference_state_energy]
+
+        msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
+        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
+        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+
+        for n in range(N):
+            # We add the best out of 10 random states
+            cur_subsample = []
+            for n_sub in range(N_subsample):
+
+                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                cur_subsample.append([rand_z_alpha, rand_z_beta])
+
+            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            N_vals.append(cur_sample.N)
+            convergence_sols.append(cur_sample.E_ground[-1])
+
+        procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
+
+        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
+        self.log.exit("Evaluation")
+
+        csv_sol = [] # list of rows
+        for i in range(len(N_vals)):
+            csv_sol.append({"N" : N_vals[i], "E [H]" : float(convergence_sols[i])})
+
+
+        self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
+        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
+        self.diagnostics_log.append({f"find_ground_state_LEGS_width ({dataset_label})" : procedure_diagnostic})
+
+        self.measured_datasets.append(dataset_label)
+
+        self.log.exit()
+        return(N_vals, convergence_sols)
 
 
 
@@ -1794,7 +1939,7 @@ class ground_state_solver():
         for i in range(cur_S):
             if bitlist[i] == 0:
                 res[0].append(i + hr_cor)
-        for i in range(cur_S, act_M):
+        for i in range(cur_S, min(act_M, len(bitlist))):
             if bitlist[i] == 1:
                 res[1].append(i + hr_cor)
 
@@ -1807,7 +1952,11 @@ class ground_state_solver():
 
     def occ_list_to_prom_tuple(self, occ_a, occ_b):
         prom_label_a = self.get_prom_label(occ_a)
+        for i in range(len(prom_label_a[1])):
+            prom_label_a[1][i] -= self.S_alpha
         prom_label_b = self.get_prom_label(occ_b)
+        for i in range(len(prom_label_b[1])):
+            prom_label_b[1][i] -= self.S_beta
         return( ( (tuple(prom_label_a[0]), tuple(prom_label_a[1])), (tuple(prom_label_b[0]), tuple(prom_label_b[1])) ) )
 
     def str_to_prom_tuple(self, prom_str):
@@ -2493,12 +2642,14 @@ class ground_state_solver():
             else:
                 self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f}", 1)
 
-            # We characterise the coef array by excitations
-            c0, c1, c2 = cisd_solver.cisdvec_to_amplitudes(cisd_solver.ci)
-
-            # The shapes of these look different based on the HF method, with extra symmetry assumed for RHF
 
             if self.HF_method == "UHF":
+
+                # We characterise the coef array by excitations
+                c0, c1, c2 = cisd_solver.cisdvec_to_amplitudes(cisd_solver.ci)
+
+                # The shapes of these look different based on the HF method, with extra symmetry assumed for RHF
+
                 c1_a, c1_b = c1
                 c2_aa, c2_ab, c2_bb = c2
 
@@ -2530,7 +2681,87 @@ class ground_state_solver():
                                 res_sol[ (((j,), (i,)), ((l,), (k,))) ] = c2_ab[j][l][i][k]
 
             elif self.HF_method == "RHF":
-                self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
+                fci_coefs = ci.cisd.to_fcivec(cisd_solver.ci, self.mol.nao, (self.S_alpha, self.S_beta))
+                #fci_coefs = ci.cisd.to_fcivec(cisd_solver.ci, cisd_solver.norb, cisd_solver.nelec)
+                #fci_coefs = cc.cc2ci.fci_coefs(cisd_solver)
+                # fci_coefs is the same kind of object as the output of a full FCI calculation
+
+                res_sol = {}
+
+                self.log.write("Regularising solution as a dict of tuples...", 3)
+                # We omit entries which are not singlet or doublet excitations, since they are by definition zero in the CISD sol
+                HF_occ = "1" * self.S_alpha
+                res_sol[(((), ()), ((), ()))] = float(fci_coefs[fci.cistring.str2addr(self.mol.nao, self.S_alpha, HF_occ), fci.cistring.str2addr(self.mol.nao, self.S_beta, HF_occ)])
+
+                # singlets
+                for i in range(self.S_alpha):
+                    for j in range(self.mol.nao - self.S_alpha):
+                        promoted_occ = self.occ_list_to_occ_string([1] * i + [0] + [1] * (self.S_alpha - 1 - i) + [0] * j + [1])
+                        res_sol[(((i,), (j,)), ((), ()))] = float(fci_coefs[fci.cistring.str2addr(self.mol.nao, self.S_alpha, promoted_occ), fci.cistring.str2addr(self.mol.nao, self.S_beta, HF_occ)])
+                        res_sol[(((), ()), ((i,), (j,)))] = float(fci_coefs[fci.cistring.str2addr(self.mol.nao, self.S_alpha, HF_occ), fci.cistring.str2addr(self.mol.nao, self.S_beta, promoted_occ)])
+
+                # doublets
+                for i in range(self.S_alpha):
+                    for j in range(self.mol.nao - self.S_alpha):
+                        for k in range(self.S_beta):
+                            for l in range(self.mol.nao - self.S_beta):
+                                alpha_occ = self.occ_list_to_occ_string([1] * i + [0] + [1] * (self.S_alpha - 1 - i) + [0] * j + [1])
+                                beta_occ = self.occ_list_to_occ_string([1] * k + [0] + [1] * (self.S_alpha - 1 - k) + [0] * l + [1])
+                                res_sol[(((i,), (j,)), ((k,), (l,)))] = float(fci_coefs[fci.cistring.str2addr(self.mol.nao, self.S_alpha, alpha_occ), fci.cistring.str2addr(self.mol.nao, self.S_beta, beta_occ)])
+
+                """for a in range(fci_coefs.shape[0]):
+                    for b in range(fci_coefs.shape[1]):
+                        alpha_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(self.mol.nao, self.S_alpha, a)))
+                        beta_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(self.mol.nao, self.S_beta, b)))
+
+                        # We omit entries which are not singlet or doublet excitations, since they are by definition zero in the CISD sol
+                        #if
+
+                        key = self.occ_list_to_prom_tuple(alpha_occ, beta_occ)# (self.get_prom_label(alpha_occ), self.get_prom_label(beta_occ))
+                        res_sol[key] = float(fci_coefs[a, b])"""
+
+
+                """t1addrs, t1signs = ci.cisd.tn_addrs_signs(self.mol.nao, self.S_alpha, 1)
+                t2addrs, t2signs = ci.cisd.tn_addrs_signs(self.mol.nao, self.S_alpha, 2)
+
+                # singlets
+
+                cis_a = fci_coefs[t1addrs, 0] * t1signs
+                cis_b = fci_coefs[0, t1addrs] * t1signs
+
+                # doublets
+
+                cid_aa = fci_coefs[t2addrs, 0] * t2signs
+                cid_bb = fci_coefs[0, t2addrs] * t2signs
+                cid_ab = np.einsum('ij,i,j->ij', fci_coefs[t1addrs[:,None], t1addrs], t1signs, t1signs)
+
+                res_sol = {(((), ()), ((), ())) : fci_coefs[0, 0]}
+
+                idx = 0
+                for b in range(self.S_alpha):
+                    for a in range(self.mol.nao - self.S_alpha):
+                        # | b -> a >
+                        #promoted_occ = self.occ_list_to_occ_string([1] * b + [0] + [1] * (self.S_alpha - 1 - b) + [0] * a + [1])
+                        res_sol[ (((b,), (a,)), ((), ())) ] = cis_a[idx]
+                        res_sol[ (((), ()), ((b,), (a,))) ] = cis_b[idx]
+                        idx += 1
+
+                idx_a = 0
+
+                for i in range(self.S_alpha):
+                    for j in range(self.mol.nao - self.S_alpha):
+                        idx_b = 0
+                        for k in range(self.S_beta):
+                            for l in range(self.mol.nao - self.S_beta):
+                                # | i - > j, k -> l >
+                                #alpha_occ = self.occ_list_to_occ_string([1] * i + [0] + [1] * (self.S_alpha - 1 - i) + [0] * j + [1])
+                                #beta_occ = self.occ_list_to_occ_string([1] * k + [0] + [1] * (self.S_alpha - 1 - k) + [0] * l + [1])
+                                res_sol[ (((i,), (j,)), ((k,), (l,))) ] = cid_ab[idx_a, idx_b]
+                                idx_b += 1
+                        idx_a += 1"""
+
+
+                """self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
                 self.log.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
                 self.log.write(f"  For one excitation: {c1.shape} spin-adapted configurations of the form | i -> j > = 1/sqrt(2) . (a_i,alpha\\hc a_j,alpha + a_i,beta\\hc a_j,beta) | HF >")
                 self.log.write(f"  For two excitations: {c2.shape} singlet-coupled combinations of the form | ij -> kl > 1/2 . (a_k,alpha\\hc a_l,beta\\hc - a_l,alpha\\hc a_k,beta\\hc) . (a_i,alpha a_j,beta - a_j,alpha a_i,beta) | HF >")
@@ -2556,7 +2787,7 @@ class ground_state_solver():
                         for k in range(self.mol.nao - self.S_alpha):
                             for l in range(self.mol.nao - self.S_beta):
                                 # | ij -> kl >
-                                res_sol[ (((i,), (k,)), ((j,), (l,))) ] = c2[i][j][k][l]
+                                res_sol[ (((i,), (k,)), ((j,), (l,))) ] = c2[i][j][k][l]"""
 
             # Mark as solved
             self.check_off("LE_sol")

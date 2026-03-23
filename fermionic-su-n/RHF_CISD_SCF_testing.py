@@ -7,6 +7,9 @@
 import json
 import numpy as np
 
+from molecules import *
+from mol_solver_degenerate import ground_state_solver
+
 def str_to_prom_tuple(prom_str):
     # Restoring on data load
 
@@ -33,8 +36,12 @@ def str_to_prom_tuple(prom_str):
 
 # Li2 calc
 
-scf_filename = "outputs/Zombie_states_testing/self_analysis/LE_sol.json"
+scf_filename = "outputs/Zombie_states_testing_SCF_fixed/self_analysis/LE_sol.json"
 exp_filename = "outputs/Zombie_states_testing_exp_comparison_with_doubles/self_analysis/LE_sol.json"
+
+
+mol_solver = ground_state_solver(f"rhf testing DONT SAVE")
+mol_solver.initialise_molecule(li2_mol, HF_method = "RHF")
 
 S_alpha = 3
 S_beta = 3
@@ -83,17 +90,17 @@ all_comps_agree = True
 for i in range(S_alpha):
     for j in range(nao - S_alpha):
         # | i -> j > on alpha
-            if np.round(scf_sol[(((i,), (j,)), ((), ()))] * np.sqrt(2) / scf_c0, round_val) != np.round(exp_sol[(((i,), (j,)), ((), ()))] / exp_c0, round_val):
+            if np.round(scf_sol[(((i,), (j,)), ((), ()))] / scf_c0, round_val) != np.round(exp_sol[(((i,), (j,)), ((), ()))] / exp_c0, round_val):
                 all_comps_agree = False
-                print(f"Disagreement at |{i}->{j}> on alpha ({scf_sol[(((i,), (j,)), ((), ()))] * np.sqrt(2) / scf_c0} vs {exp_sol[(((i,), (j,)), ((), ()))] / exp_c0})")
-                print(f"[Rounded: {np.round(scf_sol[(((i,), (j,)), ((), ()))] * np.sqrt(2) / scf_c0, round_val)} vs {np.round(exp_sol[(((i,), (j,)), ((), ()))] / exp_c0, round_val)}]")
+                print(f"Disagreement at |{i}->{j}> on alpha ({scf_sol[(((i,), (j,)), ((), ()))] / scf_c0} vs {exp_sol[(((i,), (j,)), ((), ()))] / exp_c0})")
+                print(f"[Rounded: {np.round(scf_sol[(((i,), (j,)), ((), ()))]  / scf_c0, round_val)} vs {np.round(exp_sol[(((i,), (j,)), ((), ()))] / exp_c0, round_val)}]")
 for i in range(S_beta):
     for j in range(nao - S_beta):
         # | i -> j > on beta
-            if np.round(scf_sol[(((), ()), ((i,), (j,)))] * np.sqrt(2) / scf_c0, round_val) != np.round(exp_sol[(((), ()), ((i,), (j,)))] / exp_c0, round_val):
+            if np.round(scf_sol[(((), ()), ((i,), (j,)))] / scf_c0, round_val) != np.round(exp_sol[(((), ()), ((i,), (j,)))] / exp_c0, round_val):
                 all_comps_agree = False
-                print(f"Disagreement at |{i}->{j}> on beta ({scf_sol[(((), ()), ((i,), (j,)))] * np.sqrt(2) / scf_c0} vs {exp_sol[(((), ()), ((i,), (j,)))] / exp_c0})")
-                print(f"[Rounded: {np.round(scf_sol[(((), ()), ((i,), (j,)))] * np.sqrt(2) / scf_c0, round_val)} vs {np.round(exp_sol[(((), ()), ((i,), (j,)))] / exp_c0, round_val)}]")
+                print(f"Disagreement at |{i}->{j}> on beta ({scf_sol[(((), ()), ((i,), (j,)))] / scf_c0} vs {exp_sol[(((), ()), ((i,), (j,)))] / exp_c0})")
+                print(f"[Rounded: {np.round(scf_sol[(((), ()), ((i,), (j,)))] / scf_c0, round_val)} vs {np.round(exp_sol[(((), ()), ((i,), (j,)))] / exp_c0, round_val)}]")
 
 if all_comps_agree:
     print("  c1 components agree!")
@@ -105,19 +112,36 @@ print("c2 analysis (prom signature (1, 1))")
 
 all_comps_agree = True
 
+scf_tensor = np.zeros((S_alpha, nao - S_alpha, S_beta, nao - S_beta))
+for i in range(S_alpha):
+    for j in range(nao - S_alpha):
+        for k in range(S_beta):
+            for l in range(nao - S_beta):
+                scf_tensor[i,j,k,l] += scf_sol[(((i,), (j,)), ((k,), (l,)))] / 2.0
+                scf_tensor[k,l,i,j] += scf_sol[(((i,), (j,)), ((k,), (l,)))] / 2.0
+                #scf_tensor[i,l,k,j] += scf_sol[(((i,), (j,)), ((k,), (l,)))] / 4.0
+                #scf_tensor[k,j,i,l] += scf_sol[(((i,), (j,)), ((k,), (l,)))] / 4.0
+
+
 for i in range(S_alpha):
     for j in range(nao - S_alpha):
         for k in range(S_beta):
             for l in range(nao - S_beta):
                 # | i -> j > on alpha, | k -> l > on beta
-                    if np.round(scf_sol[(((i,), (j,)), ((k,), (l,)))] / scf_c0, round_val) != np.round(exp_sol[(((i,), (j,)), ((k,), (l,)))] / exp_c0, round_val):
-                        all_comps_agree = False
-                        print(f"Disagreement at |{i}->{j}> on alpha, |{k}->{l}> on beta ({scf_sol[(((i,), (j,)), ((k,), (l,)))] / scf_c0} vs {exp_sol[(((i,), (j,)), ((k,), (l,)))] / exp_c0})")
-                        print(f"[Rounded: {np.round(scf_sol[(((i,), (j,)), ((k,), (l,)))] / scf_c0, round_val)} vs {np.round(exp_sol[(((i,), (j,)), ((k,), (l,)))] / exp_c0, round_val)}]")
+                scf_val = scf_sol[(((i,), (j,)), ((k,), (l,)))]#scf_tensor[i,j,k,l]
+
+                if np.round(scf_val / scf_c0, round_val) != np.round(exp_sol[(((i,), (j,)), ((k,), (l,)))] / exp_c0, round_val):
+                    all_comps_agree = False
+                    print(f"Disagreement at |{i}->{j}> on alpha, |{k}->{l}> on beta ({scf_val / scf_c0} vs {exp_sol[(((i,), (j,)), ((k,), (l,)))] / exp_c0})")
+                    print(f"[Rounded: {np.round(scf_val / scf_c0, round_val)} vs {np.round(exp_sol[(((i,), (j,)), ((k,), (l,)))] / exp_c0, round_val)}]")
 
 if all_comps_agree:
     print("  c2 components agree!")
 else:
     print("  c2 components DISAGREE")
+
+
+print("---------- Explicit energy calculation ----------")
+print("Looks like it works well now, and any disagreement is due to SCF not finding the global minimum")
 
 

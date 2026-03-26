@@ -114,7 +114,7 @@ class Journal():
     for a_val in answer_strings.values():
         valid_answers += a_val
 
-    def __init__(self, verbosity = 0, print_on_the_fly = True, fancy_printing = True):
+    def __init__(self, verbosity = 0, print_on_the_fly = True, fancy_printing = True, max_row_width = 200):
 
         self.journal_text = ""
         self.routine_stack = [] # every routine is [header, max required verbosity]
@@ -123,6 +123,8 @@ class Journal():
         self.depth = 0
 
         self.fancy_printing = fancy_printing # if True, we use colors, highlighting etc
+
+        self.max_row_width = max_row_width # used for clever wrapping
 
         self.last_printed_line = None # Always printed with \r until next line is staged, with different colour
         self.last_printed_depth = 0
@@ -198,6 +200,57 @@ class Journal():
                 else:
                     # crude printing only
                     print(self.pre() + msg)
+
+    # Special object printing methods
+
+    def print_matrix(self, m, label, dec_points = 5, max_rows = 10):
+
+
+    def print_table(self, table_name, column_names, row_names, list_of_rows, subtable_borders = [], header_separation = 2):
+        # column_names[N], row_names[M], list_of_rows[M][N]
+        def st(a, w):
+            if len(str(a)) >= w:
+                return(str(a)[:w]) # we trim
+            else:
+                diff = w - len(str(a))
+                return(" " * int(diff // 2) + str(a) + " " * int(diff - diff // 2))
+
+        print_queue = [] # each line is an element
+
+        max_len_row_names = len(str(table_name))
+        for row_name in row_names:
+            if len(str(row_name)) > max_len_row_names:
+                max_len_row_names = len(row_name)
+        max_len_by_column = []
+        for column_name in column_names:
+            max_len_by_column.append(len(str(column_name)))
+
+        for j in range(len(column_names)):
+            for i in range(len(row_names)):
+                if max_len_by_column[j] < len(str(list_of_rows[i][j])):
+                    max_len_by_column[j] = len(str(list_of_rows[i][j]))
+
+        header_str = st(table_name, max_len_row_names + header_separation) + "|"
+        for i in range(len(column_names)):
+            header_str += st(column_names[i], max_len_by_column[i] + header_separation)
+            if i in subtable_borders:
+                header_str += "|"
+
+        print_queue.append(header_str)
+        print_queue.append("-" * len(header_str))
+        for i in range(len(row_names)):
+            cur_str = st(row_names[i], max_len_row_names + header_separation) + "|"
+            for j in range(len(column_names)):
+                cur_str += st(list_of_rows[i][j], max_len_by_column[j] + header_separation)
+                if j in subtable_borders:
+                    cur_str += "|"
+            print_queue.append(cur_str)
+        print_queue.append("-" * len(header_str))
+
+        for line in print_queue:
+            self.write(line)
+
+
 
     # Routine stack management
 

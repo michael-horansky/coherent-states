@@ -1120,7 +1120,7 @@ class ground_state_solver():
 
         self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
         self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
-        self.diagnostics_log.append({f"find_ground_state_LEGS_width ({dataset_label})" : procedure_diagnostic})
+        self.diagnostics_log.append({f"find_ground_state_LEGS_first_order ({dataset_label})" : procedure_diagnostic})
 
         self.measured_datasets.append(dataset_label)
 
@@ -1282,7 +1282,7 @@ class ground_state_solver():
 
         self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
         self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
-        self.diagnostics_log.append({f"find_ground_state_LEGS_width ({dataset_label})" : procedure_diagnostic})
+        self.diagnostics_log.append({f"find_ground_state_LEGS_mixed_spin_covariance ({dataset_label})" : procedure_diagnostic})
 
         self.measured_datasets.append(dataset_label)
 
@@ -1342,58 +1342,102 @@ class ground_state_solver():
         means = np.zeros( 2 * self.mol.nao )
         cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
 
-        # TODO: qubit variances and means! :))
 
-        for i in range(self.mol.nao - self.S_alpha):
-            for j in range(self.S_alpha):
-                # j -> i on alpha
-                means[a_ij_to_i(i, j)] = cur_LE_heatmap["a"][i][j]
-        for i in range(self.mol.nao - self.S_beta):
-            for j in range(self.S_beta):
-                # j -> i on beta
-                means[b_ij_to_i(i, j)] = cur_LE_heatmap["b"][i][j]
 
-        product_means = np.outer(means, means) # we start with no covariance except natural widths and then change the off-diagonal block
 
-        for i in range(self.mol.nao - self.S_alpha):
-            for j in range(self.S_alpha):
-                for k in range(self.mol.nao - self.S_beta):
-                    for l in range(self.S_beta):
-                        # j -> i on alpha, l -> k on beta
-                        product_means[a_ij_to_i(i, j)][b_ij_to_i(k, l)] = cur_LE_heatmap["ab"][i][j][k][l]
-                        product_means[b_ij_to_i(k, l)][a_ij_to_i(i, j)] = cur_LE_heatmap["ab"][i][j][k][l]
+        # initialise means
+        for i in range(self.S_alpha):
+            means[spat_to_spin_idx("a", i)] = 0.5 * (1.0 + np.sqrt(2.0 * self.LE_sol["red"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - 1.0))
+        for i in range(self.S_beta):
+            means[spat_to_spin_idx("b", i)] = 0.5 * (1.0 + np.sqrt(2.0 * self.LE_sol["red"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)] - 1.0))
 
-        cov_matrix = product_means - np.outer(means, means) # This is what we sample by with Cholesky
-        # Now we add the diagonal terms, i.e. the variance
-        required_variance = np.sum(np.abs(cov_matrix), axis = 1) # minimal diag terms to achieve positive semidefiniteness
-        cov_matrix += np.diag(required_variance + stds * stds)
+        # initialise variances
+        for i in range(self.mol.nao):
+            norm_coef = 1.0
+            if i >= self.S_alpha:
+                norm_coef = 1.0 / self.S_alpha
+            cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] = norm_coef * self.LE_sol["red"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - means[spat_to_spin_idx("a", i)] * means[spat_to_spin_idx("a", i)]
+        for i in range(self.mol.nao):
+            norm_coef = 1.0
+            if i >= self.S_beta:
+                norm_coef = 1.0 / self.S_beta
+            cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)] = norm_coef * self.LE_sol["red"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)] - means[spat_to_spin_idx("b", i)] * means[spat_to_spin_idx("b", i)]
 
-        self.log.write(f"Default variance: {stds * stds}; required additional variance: {required_variance}")
+        # initialise covariances
+        # alpha-alpha
+        for i in range(self.mol.nao):
+            for j in range(i + 1, self.mol.nao):
+                if i < self.S_alpha and j < self.S_alpha:
+                    # agnostic
+                    continue
+                elif i < self.S_alpha and j > self.S_alpha:
+                    cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = self.LE_sol["red"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] - means[spat_to_spin_idx("a", i)] * means[spat_to_spin_idx("a", j)]
+                    cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
+                elif i > self.S_alpha and j > self.S_alpha:
+                    cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = 1.0 / self.S_alpha * self.LE_sol["red"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] - means[spat_to_spin_idx("a", i)] * means[spat_to_spin_idx("a", j)]
+                    cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
+        # beta-beta
+        for i in range(self.mol.nao):
+            for j in range(i + 1, self.mol.nao):
+                if i < self.S_beta and j < self.S_beta:
+                    # agnostic
+                    continue
+                elif i < self.S_beta and j > self.S_beta:
+                    cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] = self.LE_sol["red"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] - means[spat_to_spin_idx("b", i)] * means[spat_to_spin_idx("b", j)]
+                    cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("b", i)] = cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] # conjugate?
+                elif i > self.S_beta and j > self.S_beta:
+                    cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] = 1.0 / self.S_beta * self.LE_sol["red"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] - means[spat_to_spin_idx("b", i)] * means[spat_to_spin_idx("b", j)]
+                    cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("b", i)] = cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] # conjugate?
 
-        eigvals, eigvecs = np.linalg.eigh(cov_matrix)
+        # alpha-beta
+        # We remain agnostic!
+
+        dec_point = 4
+
+        diagnostic_table = []
+        for i in range(self.mol.nao):
+            diagnostic_table.append([
+                np.round(means[spat_to_spin_idx("a", i)], dec_point),
+                np.round(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
+                np.round(np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) - cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
+                np.round(2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])), dec_point)
+                ])
+
+        self.log.print_table(
+            table_name = "LE Zombie diag.",
+            column_names = ["mean", "var", "gershgorin disc", "leeway"],
+            row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+            list_of_rows = diagnostic_table
+            )
+
+        """print("")
+        print("- Means -")
+        print(means)
+        print("- Covariance matrix -")
+        print(cov)
+        print("- Covariance matric after removing negative eigenvalues -")
+        eigvals, eigvecs = np.linalg.eigh(cov)
+        eigvals = np.clip(eigvals, 0, None)
+        L = eigvecs * eigvals[None, :]
+        print(L)
+        print("")"""
+
+        eigvals, eigvecs = np.linalg.eigh(cov)
         min_eigval = min(eigvals)
         if min_eigval <= 0.0:
             self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
         # We pre-sample the parameters
-        rand_X = functions.sample_with_autocorrelation_safe(means, cov_matrix, N * N_subsample)
+        rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
         raw_Z_sample = [
-            np.zeros((N, N_subsample, self.mol.nao - self.S_alpha, self.S_alpha)),
-            np.zeros((N, N_subsample, self.mol.nao - self.S_beta, self.S_beta))
+            np.zeros((N, N_subsample, self.mol.nao)),
+            np.zeros((N, N_subsample, self.mol.nao))
             ]
         for n in range(N):
             for n_sub in range(N_subsample):
-                for i in range(self.mol.nao - self.S_alpha):
-                    for j in range(self.S_alpha):
-                        # j -> i on alpha
-                        raw_Z_sample[0][n][n_sub][i][j] = rand_X[n * N_subsample + n_sub][a_ij_to_i(i, j)]
-                for i in range(self.mol.nao - self.S_beta):
-                    for j in range(self.S_beta):
-                        # j -> i on beta
-                        raw_Z_sample[1][n][n_sub][i][j] = rand_X[n * N_subsample + n_sub][b_ij_to_i(i, j)]
-
-
-        assert CS_type == "Thouless"
+                for i in range(self.mol.nao):
+                    raw_Z_sample[0][n][n_sub][i] = rand_X[n * N_subsample + n_sub][spat_to_spin_idx("a", i)]
+                    raw_Z_sample[1][n][n_sub][i] = rand_X[n * N_subsample + n_sub][spat_to_spin_idx("b", i)]
 
         N_vals = [1]
         convergence_sols = [self.reference_state_energy]
@@ -1407,8 +1451,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                rand_z_alpha = CS_Qubit(self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = CS_Qubit(self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -1427,7 +1471,7 @@ class ground_state_solver():
 
         self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
         self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
-        self.diagnostics_log.append({f"find_ground_state_LEGS_width ({dataset_label})" : procedure_diagnostic})
+        self.diagnostics_log.append({f"find_ground_state_LEGS_Zombie_cov ({dataset_label})" : procedure_diagnostic})
 
         self.measured_datasets.append(dataset_label)
 
@@ -2375,6 +2419,7 @@ class ground_state_solver():
     # Every method in this category:
     #   -Returns None
     #   -Initialises self.LE_sol
+    #   -Calculates derived properties of LE_sol and stores them
 
     # ---------- RHF methods
 
@@ -2463,6 +2508,9 @@ class ground_state_solver():
         self.LE_sol["sol"] = {}
         for i in range(len(basis)):
             self.LE_sol[self.occ_list_to_prom_tuple(basis[i][0], basis[i][1])] = ground_state_vector[i]
+
+        # Derived properties
+        self.derive_LE_property_reduction_matrix()
 
         self.log.write(f"Success!", 1)
         self.log.exit()
@@ -2797,6 +2845,8 @@ class ground_state_solver():
 
             self.log.exit()
 
+        # Derived properties
+        self.derive_LE_property_reduction_matrix()
 
         self.log.write(f"Success!", 1)
         self.log.exit()
@@ -2895,7 +2945,8 @@ class ground_state_solver():
                             # | ij -> kl >
                             res_sol[ (((i,), (k,)), ((j,), (l,))) ] = c2[i][j][k][l]
 
-
+        # Derived properties
+        self.derive_LE_property_reduction_matrix()
 
         # Mark as solved
         self.check_off("LE_sol")
@@ -2906,7 +2957,136 @@ class ground_state_solver():
         self.log.exit()
 
 
+    # Derived properties calculation
 
+    def derive_LE_property_reduction_matrix(self):
+        # Calculates < LE | b_i\hc b_j | LE >, where b is the Qubit (bosonic) annihilation operator and i,j span all spin-orbitals
+
+        assert "sol" in self.LE_sol
+
+        self.log.enter("Deriving the reduction matrix for the LE solution...")
+
+        self.log.write("Calculating the norm of the solution on singlets and mixed-spin doublets...")
+
+        LE_norm = 0.0
+
+        # no excitation
+        LE_norm += self.LE_sol["sol"][(((), ()), ((), ()))] * self.LE_sol["sol"][(((), ()), ((), ()))]
+
+        # singlets
+        if (1, 0) in self.LE_description["scope"]:
+            for a in range(self.mol.nao - self.S_alpha):
+                for b in range(self.S_alpha):
+                    cur_z = self.LE_sol["sol"][ (((b,), (a,)), ((), ())) ]
+                    LE_norm += cur_z * cur_z
+        if (0, 1) in self.LE_description["scope"]:
+            for a in range(self.mol.nao - self.S_beta):
+                for b in range(self.S_beta):
+                    cur_z = self.LE_sol["sol"][ (((), ()), ((b,), (a,))) ]
+                    LE_norm += cur_z * cur_z
+
+        if (1, 1) in self.LE_description["scope"]:
+            # doublets
+            for i in range(self.mol.nao - self.S_alpha):
+                for j in range(self.S_alpha):
+                    for k in range(self.mol.nao - self.S_beta):
+                        for l in range(self.S_beta):
+                            cur_z = self.LE_sol["sol"][ (((j,), (i,)), ((l,), (k,))) ]
+                            LE_norm += cur_z * cur_z
+
+        self.log.write(f"Low excitation solution norm squared: <LE | LE> = {LE_norm:0.5f}")
+        self.log.enter("Calculating reduction matrix", 1, True, tau_space = np.linspace(0, 4 * self.mol.nao * self.mol.nao, 1000 + 1))
+
+        spin_idx_dict = {"a" : 0, "b" : 1}
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
+
+        self.LE_sol["red"] = np.zeros((2 * self.mol.nao, 2 * self.mol.nao))
+
+
+        for left_sigma in ["a", "b"]:
+            for left_i in range(self.mol.nao):
+                for right_sigma in ["a", "b"]:
+                    for right_i in range(self.mol.nao):
+                        self.log.update_semaphor_event(2 * self.mol.nao * spat_to_spin_idx(left_sigma, left_i) + spat_to_spin_idx(right_sigma, right_i))
+
+                        for left_prom, left_z in self.LE_sol["sol"].items():
+                            left_prom_a, left_prom_b = left_prom
+                            left_a_from, left_a_to = left_prom_a
+                            left_b_from, left_b_to = left_prom_b
+                            left_a_occ = [1] * self.S_alpha + [0] * (self.mol.nao - self.S_alpha)
+                            left_b_occ = [1] * self.S_beta + [0] * (self.mol.nao - self.S_beta)
+                            for left_a_from_i in left_a_from:
+                                left_a_occ[left_a_from_i] = 0
+                            for left_a_to_i in left_a_to:
+                                left_a_occ[self.S_alpha + left_a_to_i] = 1
+                            for left_b_from_i in left_b_from:
+                                left_b_occ[left_b_from_i] = 0
+                            for left_b_to_i in left_b_to:
+                                left_b_occ[self.S_beta + left_b_to_i] = 1
+
+                            if left_sigma == "a":
+                                if left_a_occ[left_i] == 0:
+                                    # destroys
+                                    continue
+                                else:
+                                    left_a_occ[left_i] = 0
+                            if left_sigma == "b":
+                                if left_b_occ[left_i] == 0:
+                                    # destroys
+                                    continue
+                                else:
+                                    left_b_occ[left_i] = 0
+
+                            for right_prom, right_z in self.LE_sol["sol"].items():
+                                right_prom_a, right_prom_b = right_prom
+                                right_a_from, right_a_to = right_prom_a
+                                right_b_from, right_b_to = right_prom_b
+                                right_a_occ = [1] * self.S_alpha + [0] * (self.mol.nao - self.S_alpha)
+                                right_b_occ = [1] * self.S_beta + [0] * (self.mol.nao - self.S_beta)
+                                for right_a_from_i in right_a_from:
+                                    right_a_occ[right_a_from_i] = 0
+                                for right_a_to_i in right_a_to:
+                                    right_a_occ[self.S_alpha + right_a_to_i] = 1
+                                for right_b_from_i in right_b_from:
+                                    right_b_occ[right_b_from_i] = 0
+                                for right_b_to_i in right_b_to:
+                                    right_b_occ[self.S_beta + right_b_to_i] = 1
+
+
+                                #print(f"right prom: {right_prom}; rihgt a occ: {right_a_occ}; right b occ: {right_b_occ}")
+
+                                if right_sigma == "a":
+                                    if right_a_occ[right_i] == 0:
+                                        # destroys
+                                        continue
+                                    else:
+                                        right_a_occ[right_i] = 0
+                                if right_sigma == "b":
+                                    if right_b_occ[right_i] == 0:
+                                        # destroys
+                                        continue
+                                    else:
+                                        right_b_occ[right_i] = 0
+
+                                if np.all(left_a_occ == right_a_occ) and np.all(left_b_occ == right_b_occ):
+                                    self.LE_sol["red"][spat_to_spin_idx(left_sigma, left_i)][spat_to_spin_idx(right_sigma, right_i)] += left_z * right_z / LE_norm
+        """
+        # Now for the more intelligent, faster calculation
+        # alpha-alpha
+
+        # pi1-pi1
+        for i in range(self.S_alpha):
+            # diagonal
+
+
+            for j in range(self.S_beta):
+                # we just forbid transitionin
+        """
+
+
+        self.log.exit("Calculation")
+
+        self.log.exit()
 
 
 
@@ -2971,7 +3151,8 @@ class ground_state_solver():
         if "LE_sol" in self.checklist:
             self.disk_jockey.commit_datum_bulk("self_analysis", "LE_sol", {
                 "E" : self.LE_sol["E"],
-                "sol" : {str(k): v for k, v in self.LE_sol["sol"].items()}
+                "sol" : {str(k): v for k, v in self.LE_sol["sol"].items()},
+                "red" : self.LE_sol["red"].tolist()
                 })
             self.disk_jockey.commit_metadatum("self_analysis", "LE_sol", self.LE_description)
 
@@ -3024,7 +3205,8 @@ class ground_state_solver():
                     self.LE_description["scope"] = [tuple(prom_label) for prom_label in self.LE_description["scope"]]
                     self.LE_sol = {
                         "E" : loaded_LE_sol["E"],
-                        "sol" : {self.str_to_prom_tuple(k): v for k, v in loaded_LE_sol["sol"].items()}
+                        "sol" : {self.str_to_prom_tuple(k): v for k, v in loaded_LE_sol["sol"].items()},
+                        "red" : np.array(loaded_LE_sol["red"])
                         }
                     self.check_off("LE_sol")
                     self.log.write(f"Results from diagonalisation on a low-excitation basis loaded...", 4)
@@ -3186,6 +3368,71 @@ class ground_state_solver():
         ax.spines[:].set_visible(False)
         ax.set_xticks(np.arange(one_exc_closed_shell_hm.shape[1]+1)-.5, minor=True)
         ax.set_yticks(np.arange(one_exc_closed_shell_hm.shape[0]+1)-.5, minor=True)
+        ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
+        ax.tick_params(which="minor", bottom=False, left=False)
+
+        return(heatmap, cbar)
+
+    def plot_LE_reduction_matrix(self, spin, log_plot = True, signed = True, ax = None):
+        self.user_actions += f"plot_LE_reduction_matrix\n"
+
+        assert "LE_sol" in self.checklist
+        assert "red" in self.LE_sol
+
+        if ax is None:
+            ax = plt.gca()
+
+        if spin == "a":
+            submatrix = self.LE_sol["red"][:self.mol.nao, :self.mol.nao]
+        elif spin == "b":
+            submatrix = self.LE_sol["red"][self.mol.nao:, self.mol.nao:]
+        if log_plot and signed:
+            submatrix = - np.log(np.abs(submatrix) + 1e-20) * np.sign(submatrix + 1e-20)
+            heatmap_v_min = -10
+            heatmap_v_max = 10
+            heatmap_v_label = "Matrix element of transition; $\\pm \\ln |\\langle \\text{LE g.s.} | b^\\dag_i b_j | \\text{LE g.s.} \\rangle |$ (pos. sign for positive val.)"
+        if log_plot and not signed:
+            submatrix = np.log(np.abs(submatrix) + 1e-20)
+            heatmap_v_min = -10
+            heatmap_v_max = 0
+            heatmap_v_label = "Matrix element of transition; $\\ln |\\langle \\text{LE g.s.} | b^\\dag_i b_j | \\text{LE g.s.} \\rangle |$"
+        if not log_plot and signed:
+            #submatrix = np.abs(submatrix)
+            heatmap_v_min = -1
+            heatmap_v_max = 1
+            heatmap_v_label = "Matrix element of transition; $\\langle \\text{LE g.s.} | b^\\dag_i b_j | \\text{LE g.s.} \\rangle$"
+        if not log_plot and not signed:
+            submatrix = np.abs(submatrix)
+            heatmap_v_min = 0
+            heatmap_v_max = 1
+            heatmap_v_label = "Matrix element of transition; $|\\langle \\text{LE g.s.} | b^\\dag_i b_j | \\text{LE g.s.} \\rangle |$"
+
+        # Plot the heatmap
+        heatmap = ax.imshow(submatrix,
+                            cmap='Wistia',
+                            interpolation='none',
+                            vmin=heatmap_v_min,
+                            vmax=heatmap_v_max
+            ) # extent = functions.m_ext(one_exc_closed_shell_hm)
+
+
+        row_lab = [f"{i + 1}" for i in range(submatrix.shape[0])]
+        col_lab = [f"{i + 1}" for i in range(submatrix.shape[1])]
+
+        # Create colorbar
+        cbar = ax.figure.colorbar(heatmap, ax=ax)
+        cbar.ax.set_ylabel(heatmap_v_label, rotation=-90, va="bottom")
+
+        ax.set_xlabel("Left-side annihilation operator index $i$")
+        ax.set_ylabel("Right-side annihilation operator index $j$")
+
+        ax.set_xticks(np.arange(submatrix.shape[1]), labels=col_lab)
+        ax.set_yticks(np.arange(submatrix.shape[0]), labels=row_lab)
+
+        # Grid
+        ax.spines[:].set_visible(False)
+        ax.set_xticks(np.arange(submatrix.shape[1]+1)-.5, minor=True)
+        ax.set_yticks(np.arange(submatrix.shape[0]+1)-.5, minor=True)
         ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
         ax.tick_params(which="minor", bottom=False, left=False)
 

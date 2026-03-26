@@ -29,6 +29,48 @@ mol_solver = ground_state_solver(f"Zombie_states_testing_SCF_fixed")
 mol_solver.initialise_molecule(li2_mol, HF_method = "RHF")
 mol_solver.load_data(["self_analysis", "measured_datasets"])
 
+
+"""
+subplot_widths = []
+for i in range(len(mol_solvers)):
+    subplot_widths.append(mol_solvers[i].S_alpha)"""
+
+
+"""
+fig, ax = plt.subplots(1, 1, figsize=(12, 8)) #, figsize=(8, 6)
+#fig, axes = plt.subplots(1, 1, figsize=(12, 4), width_ratios=subplot_widths) #, figsize=(8, 6)
+fig.suptitle("Matrix elements of qubit transition operators on low-excitation g.s.")
+#fig.subplots_adjust(bottom=0, top=1, left=4, right=5
+
+im, _ = mol_solver.plot_LE_reduction_matrix(spin = "a", log_plot = True, signed = False, ax = ax)
+ax.title.set_text(f"Molecule $\\text{{Li}}_2$ (spin $\\alpha$ subspace)")
+
+fig.tight_layout()
+plt.show()"""
+
+"""
+fig, axes = plt.subplots(1, 2, figsize=(12, 8)) #, figsize=(8, 6)
+#fig, axes = plt.subplots(1, 1, figsize=(12, 4), width_ratios=subplot_widths) #, figsize=(8, 6)
+fig.suptitle("Reduction matrix analysis")
+#fig.subplots_adjust(bottom=0, top=1, left=4, right=5)
+list_of_axes = list(axes)
+
+if np.all(np.round( mol_solver.LE_sol["red"].T, 5 ) == np.round( mol_solver.LE_sol["red"], 5 )):
+    print("\nReduction matrix is symmetric!\n")
+else:
+    print("\nERROR: Reduction matrix is not symmetric!\n")
+
+im, _ = mol_solver.plot_LE_reduction_matrix(spin = "a", log_plot = True, ax = list_of_axes[0])
+list_of_axes[0].title.set_text(f"Molecule Li2 (alpha)")
+im, _ = mol_solver.plot_LE_reduction_matrix(spin = "b", log_plot = True, ax = list_of_axes[1])
+list_of_axes[1].title.set_text(f"Molecule Li2 (beta)")
+
+fig.tight_layout()
+plt.show()"""
+
+
+
+
 # Self-analysis methods
 #mol_solver.full_CI_sol()
 
@@ -51,7 +93,7 @@ mol_solver.load_data(["self_analysis", "measured_datasets"])
 
 # Sampling methods
 #N_vals_width, energy_levels_width = mol_solver.find_ground_state("SEGS_width", N = 80, N_sub = 10, dataset_label = "SEGS width")
-mol_solver.find_ground_state("LE_mixed_spin_covariance", N = 35, N_sub = 10, sigma = 1e-3, dataset_label = "LEGS_s=1e-3")
+mol_solver.find_ground_state("LE_Zombie_cov", N = 5, N_sub = 10, dataset_label = "LEGS_Zombie_small")
 
 
 # Plotting and saving
@@ -62,6 +104,6 @@ ref_energies = []
 #    ref_energies.append({"E" : trimmed_ground_state_full_ci[mol_name], "label" : "trimmed CI", "color" : functions.ref_energy_colors["trimmed CI"], "linestyle" : "dashed"})
 
 #mol_solver.plot_datasets(ref_energies)
-mol_solver.save_data()
-#mol_solver.log.close_journal()
+#mol_solver.save_data()
+mol_solver.log.close_journal()
 

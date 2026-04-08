@@ -95,6 +95,13 @@ reverse = '\033[07m'
         lightgrey = '\033[47m'
 """
 
+def st(a, w):
+    if len(str(a)) >= w:
+        return(str(a)[:w]) # we trim
+    else:
+        diff = w - len(str(a))
+        return(" " * int(diff // 2) + str(a) + " " * int(diff - diff // 2))
+
 # -----------------------------------------------------------------------------
 # ------------------------------- class Journal -------------------------------
 # -----------------------------------------------------------------------------
@@ -203,17 +210,93 @@ class Journal():
 
     # Special object printing methods
 
-    def print_matrix(self, m, label, dec_points = 5, max_rows = 10):
+    def print_matrix(self, m, label, dec_points = 5, max_rows = 11):
+
+        # First, we create the label prefix
+        print_queue = []
+        no_of_rows = min(len(m), max_rows)
+
+        pre_col = []
+        if no_of_rows == 1:
+            pre_col = ["("]
+        else:
+            pre_col = ["/"]
+            for i in range(no_of_rows - 2):
+                pre_col.append("|")
+            pre_col.append("\\")
+
+        for i in range(no_of_rows):
+            if i == no_of_rows // 2:
+                print_queue.append(f"{label} = {pre_col[i]}")
+            else:
+                print_queue.append(" " * (len(label) + 3) + f"{pre_col[i]}")
+
+
+        # Now, we calculate how many numbers we can afford to print to respect the line length
+        col_width = [0] * len(m[0])
+        for i in range(len(m)):
+            for j in range(len(m[0])):
+                cur_len = len(str(round(m[i][j], dec_points))) + 2 # the 2 is for minimal padding
+                if cur_len > col_width[j]:
+                    col_width[j] = cur_len
+
+        do_rows_need_trimming = sum(col_width) > (self.max_row_width - 2 * self.depth - len(label) - 3)
+        if do_rows_need_trimming:
+            trim_N = 0 # number of entries we can display
+            row_leeway = self.max_row_width - 2 * self.depth - len(label) - 6 - col_width[-1]
+            while(sum(col_width[:trim_N]) <= row_leeway and trim_N < len(m) - 1):
+                trim_N += 1
+            trim_N -= 1
+
+        if not do_rows_need_trimming:
+            # We can print the entire row
+            if len(m) <= max_rows:
+                # we can print the entire matrix
+                for i in range(len(m)):
+                    for j in range(len(m[i]) - 1):
+                        print_queue[i] += st(str(round(m[i][j], dec_points)), col_width[j])
+                    print_queue[i] += " " + st(str(round(m[i][len(m[i]) - 1], dec_points)), col_width[-1] - 2)
+            else:
+                # we trim after max_rows - 2
+                for i in range(max_rows - 2):
+                    for j in range(len(m[i]) - 1):
+                        print_queue[i] += st(str(round(m[i][j], dec_points)), col_width[j])
+                    print_queue[i] += " " + st(str(round(m[i][len(m[i]) - 1], dec_points)), col_width[-1] - 2)
+                for j in range(len(m[0]) - 1):
+                    print_queue[max_rows - 2] += st("...", col_width[j])
+                print_queue[max_rows - 2] += " " + st("...", col_width[-1] - 2)
+                for j in range(len(m[-1]) - 1):
+                    print_queue[max_rows - 1] += st(str(round(m[-1][j], dec_points)), col_width[j])
+                print_queue[max_rows - 1] += " " + st(str(round(m[-1][len(m[-1]) - 1], dec_points)), col_width[-1] - 2)
+        else:
+            # we have to trim the number of entries per row
+            if len(m) <= max_rows:
+                # we can print all rows
+                for i in range(len(m)):
+                    for j in range(trim_N):
+                        print_queue[i] += st(str(round(m[i][j], dec_points)), col_width[j])
+                    print_queue[i] += "... " + st(str(round(m[i][len(m[i]) - 1], dec_points)), col_width[-1] - 2)
+            else:
+                # we trim rows and columns
+                for i in range(max_rows - 2):
+                    for j in range(trim_N):
+                        print_queue[i] += st(str(round(m[i][j], dec_points)), col_width[j])
+                    print_queue[i] += "... " + st(str(round(m[i][len(m[i]) - 1], dec_points)), col_width[-1] - 2)
+                for j in range(trim_N):
+                    print_queue[max_rows - 2] += st("...", col_width[j])
+                print_queue[max_rows - 2] += "    " + st("...", col_width[-1] - 2)
+                for j in range(trim_N):
+                    print_queue[max_rows - 1] += st(str(round(m[-1][j], dec_points)), col_width[j])
+                print_queue[max_rows - 1] += "... " + st(str(round(m[-1][len(m[-1]) - 1], dec_points)), col_width[-1] - 2)
+
+        for line in print_queue:
+            self.write(line)
+
+
 
 
     def print_table(self, table_name, column_names, row_names, list_of_rows, subtable_borders = [], header_separation = 2):
         # column_names[N], row_names[M], list_of_rows[M][N]
-        def st(a, w):
-            if len(str(a)) >= w:
-                return(str(a)[:w]) # we trim
-            else:
-                diff = w - len(str(a))
-                return(" " * int(diff // 2) + str(a) + " " * int(diff - diff // 2))
 
         print_queue = [] # each line is an element
 

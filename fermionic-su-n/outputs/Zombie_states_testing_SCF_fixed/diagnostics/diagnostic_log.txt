@@ -1,3 +1,1 @@
 ----------------- Zombie_states_testing_SCF_fixed diagnostic log -----------------
-find_ground_state_LEGS_Zombie_cov (LEGS_Zombie_small)
-    Full sample condition number = [1.0, np.float64(12.711875895779285), np.float64(18.52332579257843), np.float64(58.22448666876728), np.float64(90.37583842395225), np.float64(440.6213587792442)]

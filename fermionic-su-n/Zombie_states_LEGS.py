@@ -27,7 +27,7 @@ trimmed_ground_state_full_ci = {
 
 mol_solver = ground_state_solver(f"Zombie_states_testing_SCF_fixed")
 mol_solver.initialise_molecule(li2_mol, HF_method = "RHF")
-mol_solver.load_data(["self_analysis", "measured_datasets"])
+#mol_solver.load_data(["self_analysis"])
 
 
 """
@@ -51,7 +51,7 @@ plt.show()"""
 """
 fig, axes = plt.subplots(1, 2, figsize=(12, 8)) #, figsize=(8, 6)
 #fig, axes = plt.subplots(1, 1, figsize=(12, 4), width_ratios=subplot_widths) #, figsize=(8, 6)
-fig.suptitle("Reduction matrix analysis")
+fig.suptitle("Transition prevalence matrix analysis")
 #fig.subplots_adjust(bottom=0, top=1, left=4, right=5)
 list_of_axes = list(axes)
 
@@ -60,19 +60,19 @@ if np.all(np.round( mol_solver.LE_sol["red"].T, 5 ) == np.round( mol_solver.LE_s
 else:
     print("\nERROR: Reduction matrix is not symmetric!\n")
 
-im, _ = mol_solver.plot_LE_reduction_matrix(spin = "a", log_plot = True, ax = list_of_axes[0])
+im, _ = mol_solver.plot_LE_SRRM(spin = "a", log_plot = True, ax = list_of_axes[0])
 list_of_axes[0].title.set_text(f"Molecule Li2 (alpha)")
-im, _ = mol_solver.plot_LE_reduction_matrix(spin = "b", log_plot = True, ax = list_of_axes[1])
+im, _ = mol_solver.plot_LE_SRRM(spin = "b", log_plot = True, ax = list_of_axes[1])
 list_of_axes[1].title.set_text(f"Molecule Li2 (beta)")
 
 fig.tight_layout()
-plt.show()"""
-
+plt.show()
+"""
 
 
 
 # Self-analysis methods
-#mol_solver.full_CI_sol()
+mol_solver.full_CI_sol()
 
 #cur_SECS_heatmap, cur_SECS_restricted_energy = mol_solver.solve_on_single_excitation_closed_shell()
 
@@ -83,7 +83,7 @@ plt.show()"""
 #    mol_solver.log.write(f"  {i+1}) Coef = {top_sim_exc_states[i][0]:0.4f}; occ. = {top_sim_exc_states[i][1]} (prom {top_sim_exc_states[i][2]})")
 #mol_solver.log.exit()
 
-#mol_solver.find_LE_solution("SE", diag_alg = "SCF")
+mol_solver.find_LE_solution("SE", diag_alg = "SCF")
 
 
 # First, let's check if LE sol SE (CISD SCF for UHF) works the way we expect by comparing its output (especially c1, c2) to an explicit calculation
@@ -93,7 +93,10 @@ plt.show()"""
 
 # Sampling methods
 #N_vals_width, energy_levels_width = mol_solver.find_ground_state("SEGS_width", N = 80, N_sub = 10, dataset_label = "SEGS width")
-mol_solver.find_ground_state("LE_Zombie_cov", N = 5, N_sub = 10, dataset_label = "LEGS_Zombie_small")
+
+
+
+#mol_solver.find_ground_state("LE_Zombie_cov_SRRM_alt", N = 20, N_sub = 20, dataset_label = "LEGS_Zombie_small_SRRM")
 
 
 # Plotting and saving
@@ -104,6 +107,6 @@ ref_energies = []
 #    ref_energies.append({"E" : trimmed_ground_state_full_ci[mol_name], "label" : "trimmed CI", "color" : functions.ref_energy_colors["trimmed CI"], "linestyle" : "dashed"})
 
 #mol_solver.plot_datasets(ref_energies)
-#mol_solver.save_data()
-mol_solver.log.close_journal()
+mol_solver.save_data()
+#mol_solver.log.close_journal()
 

@@ -25,9 +25,9 @@ trimmed_ground_state_full_ci = {
     }
 
 
-mol_solver = ground_state_solver(f"LE_SRRM_covprop_testing")
+mol_solver = ground_state_solver(f"LE_SRRM_N_sub_testing")
 mol_solver.initialise_molecule(li2_mol, HF_method = "RHF")
-mol_solver.load_data(["self_analysis", "measured_datasets"])
+mol_solver.load_data(["self_analysis"])
 
 
 """
@@ -107,10 +107,10 @@ plt.show()"""
 #N_vals_width, energy_levels_width = mol_solver.find_ground_state("SEGS_width", N = 80, N_sub = 10, dataset_label = "SEGS width")
 
 
-#for cov_prop in np.arange(0.1, 0.7, 0.1):
-#    mol_solver.find_ground_state("LE_Zombie_cov_SRRM_alt", N = 20, N_sub = 20, cov_proportion = cov_prop, dataset_label = f"LEGS_SRRM_covprop={cov_prop}")
+for N_sub_val in [10, 20, 30, 50, 75, 100]:
+    mol_solver.find_ground_state("LE_Zombie_cov_SRRM_alt", N = 20, N_sub = N_sub_val, cov_proportion = 0.0, dataset_label = f"LEGS_SRRM_N_sub={N_sub_val}")
 
-mol_solver.find_ground_state("LE_Zombie_cov_SRRM_alt", N = 20, N_sub = 20, cov_proportion = 0.0, dataset_label = f"LEGS_SRRM_covprop=0.0")
+#mol_solver.find_ground_state("LE_Zombie_cov_SRRM_alt", N = 20, N_sub = 20, cov_proportion = 0.0, dataset_label = f"LEGS_SRRM_covprop=0.0")
 #mol_solver.find_ground_state("LE_Zombie_cov_SRRM_alt", N = 20, N_sub = 20, cov_proportion = 0.9, dataset_label = f"LEGS_SRRM_covprop=0.9")
 
 
@@ -121,7 +121,7 @@ ref_energies = []
 #if mol_name in trimmed_ground_state_full_ci:
 #    ref_energies.append({"E" : trimmed_ground_state_full_ci[mol_name], "label" : "trimmed CI", "color" : functions.ref_energy_colors["trimmed CI"], "linestyle" : "dashed"})
 
-mol_solver.plot_datasets_against_param("cov_proportion", reference_energies = None)
+#mol_solver.plot_datasets_against_param("cov_proportion", reference_energies = None)
 mol_solver.save_data()
 #mol_solver.log.close_journal()
 

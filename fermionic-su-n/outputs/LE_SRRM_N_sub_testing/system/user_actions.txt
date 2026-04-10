@@ -1,0 +1,10 @@
+initialised solver LE_SRRM_N_sub_testing
+initialise_molecule [M = 20, S = 6]
+load_data
+find_ground_state_LEGS_Zombie_cov_SRRM_alt [N = 20, N_sub = 10, cov_proportion = 0.0]
+find_ground_state_LEGS_Zombie_cov_SRRM_alt [N = 20, N_sub = 20, cov_proportion = 0.0]
+find_ground_state_LEGS_Zombie_cov_SRRM_alt [N = 20, N_sub = 30, cov_proportion = 0.0]
+find_ground_state_LEGS_Zombie_cov_SRRM_alt [N = 20, N_sub = 50, cov_proportion = 0.0]
+find_ground_state_LEGS_Zombie_cov_SRRM_alt [N = 20, N_sub = 75, cov_proportion = 0.0]
+find_ground_state_LEGS_Zombie_cov_SRRM_alt [N = 20, N_sub = 100, cov_proportion = 0.0]
+save_data

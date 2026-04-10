@@ -1,0 +1,5 @@
+initialised solver LE_SOPM_test
+initialise_molecule [M = 20, S = 6]
+load_data
+find_ground_state_LEGS_Zombie_cov_SOPM [N = 10, N_sub = 10]
+save_data

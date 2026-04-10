@@ -25,9 +25,9 @@ trimmed_ground_state_full_ci = {
     }
 
 
-mol_solver = ground_state_solver(f"LE_SRRM_N_sub_testing")
+mol_solver = ground_state_solver(f"LE_SOPM_test")
 mol_solver.initialise_molecule(li2_mol, HF_method = "RHF")
-mol_solver.load_data(["self_analysis"])
+mol_solver.load_data(["self_analysis", "measured_datasets"])
 
 
 """
@@ -51,18 +51,18 @@ plt.show()"""
 """
 fig, axes = plt.subplots(1, 2, figsize=(12, 8)) #, figsize=(8, 6)
 #fig, axes = plt.subplots(1, 1, figsize=(12, 4), width_ratios=subplot_widths) #, figsize=(8, 6)
-fig.suptitle("Transition prevalence matrix analysis")
+fig.suptitle("Simultaneous occupancy proportion matrix")
 #fig.subplots_adjust(bottom=0, top=1, left=4, right=5)
 list_of_axes = list(axes)
 
-if np.all(np.round( mol_solver.LE_sol["red"].T, 5 ) == np.round( mol_solver.LE_sol["red"], 5 )):
-    print("\nReduction matrix is symmetric!\n")
-else:
-    print("\nERROR: Reduction matrix is not symmetric!\n")
+#if np.all(np.round( mol_solver.LE_sol["red"].T, 5 ) == np.round( mol_solver.LE_sol["red"], 5 )):
+#    print("\nReduction matrix is symmetric!\n")
+#else:
+#    print("\nERROR: Reduction matrix is not symmetric!\n")
 
-im, _ = mol_solver.plot_LE_SRRM(spin = "a", log_plot = True, ax = list_of_axes[0])
+im, _ = mol_solver.plot_LE_SOPM(spin = "a", log_plot = True, ax = list_of_axes[0])
 list_of_axes[0].title.set_text(f"Molecule Li2 (alpha)")
-im, _ = mol_solver.plot_LE_SRRM(spin = "b", log_plot = True, ax = list_of_axes[1])
+im, _ = mol_solver.plot_LE_SOPM(spin = "b", log_plot = True, ax = list_of_axes[1])
 list_of_axes[1].title.set_text(f"Molecule Li2 (beta)")
 
 fig.tight_layout()
@@ -107,21 +107,24 @@ plt.show()"""
 #N_vals_width, energy_levels_width = mol_solver.find_ground_state("SEGS_width", N = 80, N_sub = 10, dataset_label = "SEGS width")
 
 
-for N_sub_val in [10, 20, 30, 50, 75, 100]:
-    mol_solver.find_ground_state("LE_Zombie_cov_SRRM_alt", N = 20, N_sub = N_sub_val, cov_proportion = 0.0, dataset_label = f"LEGS_SRRM_N_sub={N_sub_val}")
+#for N_sub_val in [10, 20, 30, 50, 75, 100]:
+#    mol_solver.find_ground_state("LE_Zombie_cov_SOPM", N = 20, N_sub = N_sub_val, dataset_label = f"LEGS_SRRM_N_sub={N_sub_val}")
 
-#mol_solver.find_ground_state("LE_Zombie_cov_SRRM_alt", N = 20, N_sub = 20, cov_proportion = 0.0, dataset_label = f"LEGS_SRRM_covprop=0.0")
-#mol_solver.find_ground_state("LE_Zombie_cov_SRRM_alt", N = 20, N_sub = 20, cov_proportion = 0.9, dataset_label = f"LEGS_SRRM_covprop=0.9")
+mol_solver.find_ground_state("LE_Zombie_cov_SOPM", N = 10, N_sub = 10, dataset_label = f"LEGS_SOPM_test")
+#for cov_prop in np.arange(0.1, 0.9, 0.1):
+#    mol_solver.find_ground_state("LE_Zombie_cov_SRRM_mirror", N = 10, N_sub = 10, cov_proportion = cov_prop, dataset_label = f"LEGS_SRRM_trim_cp={cov_prop:0.1f}")
 
 
 # Plotting and saving
 #mol_solver.print_singlet_info()
 
+mol_name = "Li2"
 ref_energies = []
 #if mol_name in trimmed_ground_state_full_ci:
 #    ref_energies.append({"E" : trimmed_ground_state_full_ci[mol_name], "label" : "trimmed CI", "color" : functions.ref_energy_colors["trimmed CI"], "linestyle" : "dashed"})
 
-#mol_solver.plot_datasets_against_param("cov_proportion", reference_energies = None)
+#mol_solver.plot_datasets_against_param("cov_proportion", reference_energies = ref_energies)
+mol_solver.plot_datasets(reference_energies = ref_energies)
 mol_solver.save_data()
 #mol_solver.log.close_journal()
 

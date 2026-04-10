@@ -1,0 +1,8 @@
+{
+  "method": "LEGS_Zombie_cov_SOPM",
+  "params": {
+    "N": 10,
+    "N_sub": 10,
+    "cov_proportion": 0.9
+  }
+}

@@ -1,0 +1,95 @@
+Initialising molecule solver LE_SOPM_test at log_verbosity = 5
+| Initialising Data Storage Manager...
+| Initialising self-analysis properties...
+\_
+Initialising molecule...
+| Building molecule...
+| | There are 10 atomic orbitals, each able to hold 2 electrons of opposing spin.
+| | The molecule is occupied by 6 electrons in total: 3 with spin alpha, 3 with spin beta.
+| | The molecule consists of the following atoms: ['Li', 'Li']
+| | The atomic orbitals are ordered as follows: ['0 Li 1s    ', '0 Li 2s    ', '0 Li 2px   ', '0 Li 2py   ', '0 Li 2pz   ', '1 Li 1s    ', '1 Li 2s    ', '1 Li 2px   ', '1 Li 2py   ', '1 Li 2pz   ']
+| | The nuclear repulsion energy is 1.8000000000000003
+| | Calculating 1e integrals...
+| | Calculating 2e integrals...
+| \_
+| Performing mean-field calculations to determine the molecular orbitals...
+| | Mean field method: Restricted Hartree-Fock (selected by user)
+| | Finding the molecular orbitals using mean-field approximations...
+| | Done! Reference state energy is -14.63864
+| | Transforming 1e and 2e integrals to MO basis...
+| \_
+| Reference state analysis
+| | Occupied orbitals:
+| |   -in the spin-alpha subspace: [0, 1, 2]
+| |   -in the spin-beta subspace:  [0, 1, 2]
+| | Testing each CS type Hamiltonian overlap evaluation against the reference state...
+| |   -For Thouless: E_ref = -14.63864, which agrees with the true value
+| |   -For Qubit: E_ref = -14.63864, which agrees with the true value
+| \_
+\_
+Loading data from the disk...
+| Reading files on disk...
+| Restoring self-analysis values...
+| | Results from SCF performed on the full CI loaded...
+| | Results from diagonalisation on a low-excitation basis loaded...
+| |   -environment: RHF
+| |   -specification: SE
+| |   -scope: [(0, 0), (1, 0), (0, 1), (1, 1)]
+| |   -description: at most one excitation in each spin subspace
+| |   -parameters:
+| |     -diag_alg: SCF
+| \_
+| Restoring measured datasets...
+| | Loading dataset 'LEGS_SOPM_trim_cp=0.9'...
+| | | Results from dataset 'LEGS_SOPM_trim_cp=0.9' loaded.
+| | |   -sampling method: LEGS_Zombie_cov_SOPM
+| | |   -parameters:
+| | |     -N: 10
+| | |     -N_sub: 10
+| | |     -cov_proportion: 0.9
+| | \_
+| | Loading dataset 'LEGS_SOPM_std_for_pi0'...
+| | | Results from dataset 'LEGS_SOPM_std_for_pi0' loaded.
+| | |   -sampling method: LEGS_Zombie_cov_SOPM
+| | |   -parameters:
+| | |     -N: 10
+| | |     -N_sub: 10
+| | |     -cov_proportion: 0.9
+| | \_
+| \_
+\_
+Obtaining the ground state with the method "LEGS Zombie cov SOPM" [N = 10, N_sub = 10]
+|  LE Zombie diag. [93m|[0m mean   std     var    gershgorin disc  leeway   leeway % 
+| [93m-------------------------------------------------------------------------------------[0m
+|         1        [93m|[0m 0.0    1.0     1.0        1.1055       -0.1055   -10.5   
+|         2        [93m|[0m 0.0   1.0714  1.1478      1.1079       0.0399     3.5    
+|         3        [93m|[0m 0.0   0.0293  0.0009      0.0553       -0.0544  -6346.2  
+|         4        [93m|[0m 0.0   0.0865  0.0075       0.004       0.0035     46.3   
+|         5        [93m|[0m 0.0   0.0934  0.0087      0.0051       0.0037     42.0   
+|         6        [93m|[0m 0.0   0.0934  0.0087      0.0051       0.0037     42.0   
+|         7        [93m|[0m 0.0   0.0599  0.0036      0.0013       0.0023     62.8   
+|         8        [93m|[0m 0.0   0.0033   0.0          0.0          0.0      98.5   
+|         9        [93m|[0m 0.0   0.0033   0.0          0.0          0.0      98.5   
+|        10        [93m|[0m 0.0   0.032   0.001       0.0002       0.0008     80.3   
+| [93m-------------------------------------------------------------------------------------[0m
+|                     [93m/[0m   1.0    1.0712   0.02669  0.00194  0.00244  0.00244  0.00064   0.0    0.0   0.0001 
+|                     [93m|[0m 1.0712   1.14779  0.0286   0.00208  0.00261  0.00261  0.00069   0.0    0.0   0.0001 
+|                     [93m|[0m 0.02669  0.0286   0.00086    0.0      0.0      0.0      0.0     0.0    0.0     0.0  
+|                     [93m|[0m 0.00194  0.00208    0.0    0.00749    0.0      0.0      0.0     0.0    0.0     0.0  
+|                     [93m|[0m 0.00244  0.00261    0.0      0.0    0.00872    0.0      0.0     0.0    0.0     0.0  
+| covariance matrix = [93m|[0m 0.00244  0.00261    0.0      0.0      0.0    0.00872    0.0     0.0    0.0     0.0  
+|                     [93m|[0m 0.00064  0.00069    0.0      0.0      0.0      0.0    0.00358   0.0    0.0     0.0  
+|                     [93m|[0m   0.0      0.0      0.0      0.0      0.0      0.0      0.0    1e-05   0.0     0.0  
+|                     [93m|[0m   0.0      0.0      0.0      0.0      0.0      0.0      0.0     0.0   1e-05    0.0  
+|                     [93m\[0m 0.0001   0.0001     0.0      0.0      0.0      0.0      0.0     0.0    0.0   0.00102
+| Conditioned sampling with ground state search on 10 states, each taken from 10 random states begins at 22:27:55
+| | Conditioned sampling with ground state search on 10 states, each taken from 10 random states waiting for the first event...
+| \_ Evaluation finished at 22:32:29 (duration 4 min 34 sec)                                                                                                 
+| Measured datasets: ['LEGS_SOPM_trim_cp=0.9', 'LEGS_SOPM_std_for_pi0', 'LEGS_SOPM_test']
+\_
+Plotting obtained measurements...
+| Collecting data from dataset 'LEGS_SOPM_trim_cp=0.9'...
+| Collecting data from dataset 'LEGS_SOPM_std_for_pi0'...
+| Collecting data from dataset 'LEGS_SOPM_test'...
+| Displaying plot...
+\_

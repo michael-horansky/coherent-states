@@ -25,9 +25,9 @@ trimmed_ground_state_full_ci = {
     }
 
 
-mol_solver = ground_state_solver(f"Zombie_states_testing_SCF_fixed")
+mol_solver = ground_state_solver(f"LE_SRRM_covprop_testing")
 mol_solver.initialise_molecule(li2_mol, HF_method = "RHF")
-#mol_solver.load_data(["self_analysis"])
+mol_solver.load_data(["self_analysis", "measured_datasets"])
 
 
 """
@@ -66,13 +66,25 @@ im, _ = mol_solver.plot_LE_SRRM(spin = "b", log_plot = True, ax = list_of_axes[1
 list_of_axes[1].title.set_text(f"Molecule Li2 (beta)")
 
 fig.tight_layout()
-plt.show()
+plt.show()"""
+
 """
+fig, ax = plt.subplots(1, 1, figsize=(12, 8)) #, figsize=(8, 6)
+#fig, axes = plt.subplots(1, 1, figsize=(12, 4), width_ratios=subplot_widths) #, figsize=(8, 6)
+fig.suptitle("Closed-shell reduction matrix analysis")
+#fig.subplots_adjust(bottom=0, top=1, left=4, right=5)
+
+im, _ = mol_solver.plot_LE_CSRM(log_plot = True, ax = ax)
+ax.title.set_text(f"Molecule Li2")
+
+fig.tight_layout()
+plt.show()"""
+
 
 
 
 # Self-analysis methods
-mol_solver.full_CI_sol()
+#mol_solver.full_CI_sol()
 
 #cur_SECS_heatmap, cur_SECS_restricted_energy = mol_solver.solve_on_single_excitation_closed_shell()
 
@@ -83,7 +95,7 @@ mol_solver.full_CI_sol()
 #    mol_solver.log.write(f"  {i+1}) Coef = {top_sim_exc_states[i][0]:0.4f}; occ. = {top_sim_exc_states[i][1]} (prom {top_sim_exc_states[i][2]})")
 #mol_solver.log.exit()
 
-mol_solver.find_LE_solution("SE", diag_alg = "SCF")
+#mol_solver.find_LE_solution("SE", diag_alg = "SCF")
 
 
 # First, let's check if LE sol SE (CISD SCF for UHF) works the way we expect by comparing its output (especially c1, c2) to an explicit calculation
@@ -95,8 +107,11 @@ mol_solver.find_LE_solution("SE", diag_alg = "SCF")
 #N_vals_width, energy_levels_width = mol_solver.find_ground_state("SEGS_width", N = 80, N_sub = 10, dataset_label = "SEGS width")
 
 
+#for cov_prop in np.arange(0.1, 0.7, 0.1):
+#    mol_solver.find_ground_state("LE_Zombie_cov_SRRM_alt", N = 20, N_sub = 20, cov_proportion = cov_prop, dataset_label = f"LEGS_SRRM_covprop={cov_prop}")
 
-#mol_solver.find_ground_state("LE_Zombie_cov_SRRM_alt", N = 20, N_sub = 20, dataset_label = "LEGS_Zombie_small_SRRM")
+mol_solver.find_ground_state("LE_Zombie_cov_SRRM_alt", N = 20, N_sub = 20, cov_proportion = 0.0, dataset_label = f"LEGS_SRRM_covprop=0.0")
+#mol_solver.find_ground_state("LE_Zombie_cov_SRRM_alt", N = 20, N_sub = 20, cov_proportion = 0.9, dataset_label = f"LEGS_SRRM_covprop=0.9")
 
 
 # Plotting and saving
@@ -106,7 +121,7 @@ ref_energies = []
 #if mol_name in trimmed_ground_state_full_ci:
 #    ref_energies.append({"E" : trimmed_ground_state_full_ci[mol_name], "label" : "trimmed CI", "color" : functions.ref_energy_colors["trimmed CI"], "linestyle" : "dashed"})
 
-#mol_solver.plot_datasets(ref_energies)
+mol_solver.plot_datasets_against_param("cov_proportion", reference_energies = None)
 mol_solver.save_data()
 #mol_solver.log.close_journal()
 

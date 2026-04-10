@@ -27,36 +27,62 @@ Initialising molecule...
 | |   -For Qubit: E_ref = -14.63864, which agrees with the true value
 | \_
 \_
-Performing SCF on full CI...
-| FCI solver initialised...
-| Regularising solution as a dict of tuples...
-| Ground state energy as calculated by SCF (full configuration) = -14.66737
-\_
-Obtaining low-excitation solution with env. RHF, spec SE...
-| Solving on a single-excitation closed-shell basis using SCF on a CISD basis...
-| | SCF on CISD basis...
-| | | Obtained CISD solution (basis length = 463)
-| | | Ground state energy: -14.66726 (compare to full CI: -14.66737)
-| | | Regularising solution as a dict of tuples...
-| | \_
-| | Deriving the reduction matrix for the LE solution...
-| | | Calculating the norm of the solution on singlets and mixed-spin doublets...
-| | | Low excitation solution norm squared:
-| | |   -for all singlet and mixed-doublet excitations: <LE | LE> = 0.99999
-| | |   -for closed-shell mixed-doublet excitations: <LE | LE> = 0.99118
-| | | Calculating reduction matrix begins at 20:07:43
-| | | | Calculating reduction matrix waiting for the first event...
-| | | \_ Calculation finished at 20:11:09 (duration 3 min 26 sec)                               
-| | | Calculating closed-shell reduction matrix begins at 20:11:09
-| | | | Calculating closed-shell reduction matrix waiting for the first event...
-| | | \_ Calculation finished at 20:11:34 (duration 25 sec 112 ms)                                          
-| | | Calculating transition prevalence matrix begins at 20:11:34
-| | | | Calculating transition prevalence matrix waiting for the first event...
-| | | \_ Calculation finished at 20:11:34 (duration 9 ms)                                                  
-| | | Calculating spin-reduced reduction matrix begins at 20:11:34
-| | | | Calculating spin-reduced reduction matrix waiting for the first event...
-| | | \_ Calculation finished at 20:13:18 (duration 1 min 44 sec)                                            
-| | \_
-| | Success!
+Loading data from the disk...
+| Reading files on disk...
+| Restoring self-analysis values...
+| | Results from SCF performed on the full CI loaded...
+| | Results from diagonalisation on a low-excitation basis loaded...
+| |   -environment: RHF
+| |   -specification: SE
+| |   -scope: [(0, 0), (1, 0), (0, 1), (1, 1)]
+| |   -description: at most one excitation in each spin subspace
+| |   -parameters:
+| |     -diag_alg: SCF
 | \_
+\_
+Obtaining the ground state with the method "LEGS Zombie cov SRRM alt" [N = 20, N_sub = 20]
+|  LE Zombie diag. | mean   std     var    gershgorin disc  leeway  
+| ------------------------------------------------------------------
+|         1        | 0.0    1.0     1.0        0.0334       0.9666  
+|         2        | 0.0   1.0714  1.1478      0.0364       1.1114  
+|         3        | 0.0   0.0293  0.0009      0.5728       -0.5719 
+|         4        | 0.0   0.0865  0.0075        0.0        0.0075  
+|         5        | 0.0   0.0934  0.0087      0.2001       -0.1914 
+|         6        | 0.0   0.0934  0.0087      0.2001       -0.1914 
+|         7        | 0.0   0.0599  0.0036      0.1769       -0.1733 
+|         8        | 0.0   0.0033   0.0        0.0198       -0.0198 
+|         9        | 0.0   0.0033   0.0        0.0198       -0.0198 
+|        10        | 0.0   0.032   0.001        0.108       -0.107  
+| ------------------------------------------------------------------
+|                     /   1.0       0.0       0.0       0.0    -0.00451  -0.00451  -0.00615  -0.00509  -0.00509   -0.008 
+|                     |   0.0     1.14779     0.0       0.0    -0.00472  -0.00472  -0.00513  -0.00653  -0.00653  -0.00875
+|                     |   0.0       0.0     0.00086     0.0    -0.16808  -0.16808  -0.1448   -0.00683  -0.00683  -0.07818
+|                     |   0.0       0.0       0.0     0.00749    0.0       0.0       0.0       0.0       0.0       0.0   
+|                     | -0.00451  -0.00472  -0.16808    0.0    0.00872   -0.00946  -0.00816  -0.0004   -0.0004   -0.00442
+| covariance matrix = | -0.00451  -0.00472  -0.16808    0.0    -0.00946  0.00872   -0.00816  -0.0004   -0.0004   -0.00442
+|                     | -0.00615  -0.00513  -0.1448     0.0    -0.00816  -0.00816  0.00358   -0.00035  -0.00035  -0.00382
+|                     | -0.00509  -0.00653  -0.00683    0.0    -0.0004   -0.0004   -0.00035   1e-05     -4e-05   -0.00021
+|                     | -0.00509  -0.00653  -0.00683    0.0    -0.0004   -0.0004   -0.00035   -4e-05    1e-05    -0.00021
+|                     \  -0.008   -0.00875  -0.07818    0.0    -0.00442  -0.00442  -0.00382  -0.00021  -0.00021  0.00102 
+| Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...
+|  LE Zombie diag. | mean   std     var    gershgorin disc  leeway 
+| -----------------------------------------------------------------
+|         1        | 0.0    1.0     1.0        0.0038       0.9962 
+|         2        | 0.0   1.0714  1.1478      0.0038       1.144  
+|         3        | 0.0   0.0293  0.0009      0.0002       0.0007 
+|         4        | 0.0   0.0865  0.0075        0.0        0.0075 
+|         5        | 0.0   0.0934  0.0087      0.0033       0.0055 
+|         6        | 0.0   0.0934  0.0087       0.004       0.0047 
+|         7        | 0.0   0.0599  0.0036      0.0025       0.0011 
+|         8        | 0.0   0.0033   0.0          0.0         0.0   
+|         9        | 0.0   0.0033   0.0          0.0         0.0   
+|        10        | 0.0   0.032   0.001       0.0009       0.0001 
+| -----------------------------------------------------------------
+| Conditioned sampling with ground state search on 20 states, each taken from 20 random states begins at 16:22:30
+| | Conditioned sampling with ground state search on 20 states, each taken from 20 random states waiting for the first event...
+| \_ Evaluation finished at 16:56:46 (duration 34 min 16 sec)                                                                                                 
+\_
+Plotting obtained measurements...
+| Collecting data from dataset 'LEGS_Zombie_small_SRRM'...
+| Displaying plot...
 \_

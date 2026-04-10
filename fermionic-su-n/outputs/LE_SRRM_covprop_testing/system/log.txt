@@ -1,0 +1,172 @@
+Initialising molecule solver LE_SRRM_covprop_testing at log_verbosity = 5
+| Initialising Data Storage Manager...
+| Initialising self-analysis properties...
+\_
+Initialising molecule...
+| Building molecule...
+| | There are 10 atomic orbitals, each able to hold 2 electrons of opposing spin.
+| | The molecule is occupied by 6 electrons in total: 3 with spin alpha, 3 with spin beta.
+| | The molecule consists of the following atoms: ['Li', 'Li']
+| | The atomic orbitals are ordered as follows: ['0 Li 1s    ', '0 Li 2s    ', '0 Li 2px   ', '0 Li 2py   ', '0 Li 2pz   ', '1 Li 1s    ', '1 Li 2s    ', '1 Li 2px   ', '1 Li 2py   ', '1 Li 2pz   ']
+| | The nuclear repulsion energy is 1.8000000000000003
+| | Calculating 1e integrals...
+| | Calculating 2e integrals...
+| \_
+| Performing mean-field calculations to determine the molecular orbitals...
+| | Mean field method: Restricted Hartree-Fock (selected by user)
+| | Finding the molecular orbitals using mean-field approximations...
+| | Done! Reference state energy is -14.63864
+| | Transforming 1e and 2e integrals to MO basis...
+| \_
+| Reference state analysis
+| | Occupied orbitals:
+| |   -in the spin-alpha subspace: [0, 1, 2]
+| |   -in the spin-beta subspace:  [0, 1, 2]
+| | Testing each CS type Hamiltonian overlap evaluation against the reference state...
+| |   -For Thouless: E_ref = -14.63864, which agrees with the true value
+| |   -For Qubit: E_ref = -14.63864, which agrees with the true value
+| \_
+\_
+Loading data from the disk...
+| Reading files on disk...
+| Restoring self-analysis values...
+| | Results from SCF performed on the full CI loaded...
+| | Results from diagonalisation on a low-excitation basis loaded...
+| |   -environment: RHF
+| |   -specification: SE
+| |   -scope: [(0, 0), (1, 0), (0, 1), (1, 1)]
+| |   -description: at most one excitation in each spin subspace
+| |   -parameters:
+| |     -diag_alg: SCF
+| \_
+| Restoring measured datasets...
+| | Loading dataset 'LEGS_SRRM_covprop=0.8'...
+| | | Results from dataset 'LEGS_SRRM_covprop=0.8' loaded.
+| | |   -sampling method: LEGS_Zombie_cov_SRRM_alt
+| | |   -parameters:
+| | |     -N: 20
+| | |     -N_sub: 20
+| | |     -cov_proportion: 0.8
+| | \_
+| | Loading dataset 'LEGS_SRRM_covprop=0.9'...
+| | | Results from dataset 'LEGS_SRRM_covprop=0.9' loaded.
+| | |   -sampling method: LEGS_Zombie_cov_SRRM_alt
+| | |   -parameters:
+| | |     -N: 20
+| | |     -N_sub: 20
+| | |     -cov_proportion: 0.9
+| | \_
+| | Loading dataset 'LEGS_SRRM_covprop=0.7'...
+| | | Results from dataset 'LEGS_SRRM_covprop=0.7' loaded.
+| | |   -sampling method: LEGS_Zombie_cov_SRRM_alt
+| | |   -parameters:
+| | |     -N: 20
+| | |     -N_sub: 20
+| | |     -cov_proportion: 0.7
+| | \_
+| | Loading dataset 'LEGS_SRRM_covprop=0.1'...
+| | | Results from dataset 'LEGS_SRRM_covprop=0.1' loaded.
+| | |   -sampling method: LEGS_Zombie_cov_SRRM_alt
+| | |   -parameters:
+| | |     -N: 20
+| | |     -N_sub: 20
+| | |     -cov_proportion: 0.1
+| | \_
+| | Loading dataset 'LEGS_SRRM_covprop=0.2'...
+| | | Results from dataset 'LEGS_SRRM_covprop=0.2' loaded.
+| | |   -sampling method: LEGS_Zombie_cov_SRRM_alt
+| | |   -parameters:
+| | |     -N: 20
+| | |     -N_sub: 20
+| | |     -cov_proportion: 0.2
+| | \_
+| | Loading dataset 'LEGS_SRRM_covprop=0.3'...
+| | | Results from dataset 'LEGS_SRRM_covprop=0.3' loaded.
+| | |   -sampling method: LEGS_Zombie_cov_SRRM_alt
+| | |   -parameters:
+| | |     -N: 20
+| | |     -N_sub: 20
+| | |     -cov_proportion: 0.3
+| | \_
+| | Loading dataset 'LEGS_SRRM_covprop=0.4'...
+| | | Results from dataset 'LEGS_SRRM_covprop=0.4' loaded.
+| | |   -sampling method: LEGS_Zombie_cov_SRRM_alt
+| | |   -parameters:
+| | |     -N: 20
+| | |     -N_sub: 20
+| | |     -cov_proportion: 0.4
+| | \_
+| | Loading dataset 'LEGS_SRRM_covprop=0.5'...
+| | | Results from dataset 'LEGS_SRRM_covprop=0.5' loaded.
+| | |   -sampling method: LEGS_Zombie_cov_SRRM_alt
+| | |   -parameters:
+| | |     -N: 20
+| | |     -N_sub: 20
+| | |     -cov_proportion: 0.5
+| | \_
+| | Loading dataset 'LEGS_SRRM_covprop=0.6'...
+| | | Results from dataset 'LEGS_SRRM_covprop=0.6' loaded.
+| | |   -sampling method: LEGS_Zombie_cov_SRRM_alt
+| | |   -parameters:
+| | |     -N: 20
+| | |     -N_sub: 20
+| | |     -cov_proportion: 0.6
+| | \_
+| \_
+\_
+Obtaining the ground state with the method "LEGS Zombie cov SRRM alt" [N = 20, N_sub = 20, cov_proportion = 0.0]
+|  LE Zombie diag. [93m|[0m mean   std     var    gershgorin disc  leeway   leeway %  
+| [93m--------------------------------------------------------------------------------------[0m
+|         1        [93m|[0m 0.0    1.0     1.0        0.0323       0.9677     96.8    
+|         2        [93m|[0m 0.0   1.0714  1.1478      0.0326       1.1152     97.2    
+|         3        [93m|[0m 0.0   0.0293  0.0009       0.57        -0.5692  -66357.0  
+|         4        [93m|[0m 0.0   0.0865  0.0075        0.0        0.0075     100.0   
+|         5        [93m|[0m 0.0   0.0934  0.0087       0.198       -0.1893   -2172.0  
+|         6        [93m|[0m 0.0   0.0934  0.0087       0.198       -0.1893   -2172.0  
+|         7        [93m|[0m 0.0   0.0599  0.0036      0.1768       -0.1732   -4831.8  
+|         8        [93m|[0m 0.0   0.0033   0.0        0.0178       -0.0178  -162250.5 
+|         9        [93m|[0m 0.0   0.0033   0.0        0.0178       -0.0178  -162250.5 
+|        10        [93m|[0m 0.0   0.032   0.001       0.1079       -0.1069  -10465.8  
+| [93m--------------------------------------------------------------------------------------[0m
+|                     [93m/[0m   1.0       0.0       0.0       0.0    -0.00424  -0.00424  -0.00615  -0.00483  -0.00483   -0.008 
+|                     [93m|[0m   0.0     1.14779     0.0       0.0    -0.00386  -0.00386  -0.00513  -0.00548  -0.00548  -0.00875
+|                     [93m|[0m   0.0       0.0     0.00086     0.0    -0.1673   -0.1673   -0.1448   -0.00623  -0.00623  -0.07818
+|                     [93m|[0m   0.0       0.0       0.0     0.00749    0.0       0.0       0.0       0.0       0.0       0.0   
+|                     [93m|[0m -0.00424  -0.00386  -0.1673     0.0    0.00872   -0.00937  -0.00812  -0.00036  -0.00036  -0.0044 
+| covariance matrix = [93m|[0m -0.00424  -0.00386  -0.1673     0.0    -0.00937  0.00872   -0.00812  -0.00036  -0.00036  -0.0044 
+|                     [93m|[0m -0.00615  -0.00513  -0.1448     0.0    -0.00812  -0.00812  0.00358   -0.00032  -0.00032  -0.00382
+|                     [93m|[0m -0.00483  -0.00548  -0.00623    0.0    -0.00036  -0.00036  -0.00032   1e-05     -3e-05   -0.00019
+|                     [93m|[0m -0.00483  -0.00548  -0.00623    0.0    -0.00036  -0.00036  -0.00032   -3e-05    1e-05    -0.00019
+|                     [93m\[0m  -0.008   -0.00875  -0.07818    0.0    -0.0044   -0.0044   -0.00382  -0.00019  -0.00019  0.00102 
+| Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...
+|  LE Zombie diag. [93m|[0m mean   std     var    gershgorin disc  leeway  leeway % 
+| [93m------------------------------------------------------------------------------------[0m
+|         1        [93m|[0m 0.0    1.0     1.0          0.0         1.0     100.0   
+|         2        [93m|[0m 0.0   1.0714  1.1478        0.0        1.1478   100.0   
+|         3        [93m|[0m 0.0   0.0293  0.0009        0.0        0.0009   100.0   
+|         4        [93m|[0m 0.0   0.0865  0.0075        0.0        0.0075   100.0   
+|         5        [93m|[0m 0.0   0.0934  0.0087        0.0        0.0087   100.0   
+|         6        [93m|[0m 0.0   0.0934  0.0087        0.0        0.0087   100.0   
+|         7        [93m|[0m 0.0   0.0599  0.0036        0.0        0.0036   100.0   
+|         8        [93m|[0m 0.0   0.0033   0.0          0.0         0.0     100.0   
+|         9        [93m|[0m 0.0   0.0033   0.0          0.0         0.0     100.0   
+|        10        [93m|[0m 0.0   0.032   0.001         0.0        0.001    100.0   
+| [93m------------------------------------------------------------------------------------[0m
+| Conditioned sampling with ground state search on 20 states, each taken from 20 random states begins at 00:30:53
+| | Conditioned sampling with ground state search on 20 states, each taken from 20 random states waiting for the first event...
+| \_ Evaluation finished at 01:05:15 (duration 34 min 22 sec)                                                                                                 
+| Measured datasets: ['LEGS_SRRM_covprop=0.8', 'LEGS_SRRM_covprop=0.9', 'LEGS_SRRM_covprop=0.7', 'LEGS_SRRM_covprop=0.1', 'LEGS_SRRM_covprop=0.2', 'LEGS_SRRM_covprop=0.3', 'LEGS_SRRM_covprop=0.4', 'LEGS_SRRM_covprop=0.5', 'LEGS_SRRM_covprop=0.6', 'LEGS_SRRM_covprop=0.0']
+\_
+Plotting obtained measurements against parameter 'cov_proportion'...
+| Collecting data from dataset 'LEGS_SRRM_covprop=0.8'...
+| Collecting data from dataset 'LEGS_SRRM_covprop=0.9'...
+| Collecting data from dataset 'LEGS_SRRM_covprop=0.7'...
+| Collecting data from dataset 'LEGS_SRRM_covprop=0.1'...
+| Collecting data from dataset 'LEGS_SRRM_covprop=0.2'...
+| Collecting data from dataset 'LEGS_SRRM_covprop=0.3'...
+| Collecting data from dataset 'LEGS_SRRM_covprop=0.4'...
+| Collecting data from dataset 'LEGS_SRRM_covprop=0.5'...
+| Collecting data from dataset 'LEGS_SRRM_covprop=0.6'...
+| Collecting data from dataset 'LEGS_SRRM_covprop=0.0'...
+| Displaying plot...
+\_

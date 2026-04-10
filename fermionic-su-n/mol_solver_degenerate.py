@@ -1949,6 +1949,7 @@ class ground_state_solver():
         # kwargs:
         #     -N: Sample size
         #     -N_sub: Subsample size
+        #     -cov_proportion: Maximum ratio of the Gershgorin disc to the diagonal term in the cov matrix. Default is 0.9
         #     ------------------------
         #     -dataset_label: if present, this will label the dataset in disc jockey. Otherwise, label is generated from other kwargs.
 
@@ -1962,19 +1963,31 @@ class ground_state_solver():
         else:
             N_subsample = 1
 
+        if "cov_proportion" in kwargs:
+            cov_proportion = kwargs["cov_proportion"]
+        else:
+            cov_proportion = 0.9
+
 
         if "dataset_label" in kwargs:
             dataset_label = kwargs["dataset_label"]
         else:
             dataset_label = f"LEGS_Zombie_cov_SRRM_alt_{N}_{N_subsample}"
 
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov SRRM alt\" [N = {N}, N_sub = {N_subsample}]", 1)
+        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov SRRM alt\" [N = {N}, N_sub = {N_subsample}, cov_proportion = {cov_proportion}]", 1)
 
 
         # Disk jockey node creation and metadata storage
         self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
-        self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {"N" : N, "N_sub" : N_subsample})
-        self.user_actions += f"find_ground_state_LEGS_Zombie_cov_SRRM_alt [N = {N}, N_sub = {N_subsample}]\n"
+        self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {
+                "method" : "LEGS_Zombie_cov_SRRM_alt", # required
+                "params" : {
+                    "N" : N,
+                    "N_sub" : N_subsample,
+                    "cov_proportion" : cov_proportion
+                }
+            })
+        self.user_actions += f"find_ground_state_LEGS_Zombie_cov_SRRM_alt [N = {N}, N_sub = {N_subsample}, cov_proportion = {cov_proportion}]\n"
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
@@ -2046,7 +2059,7 @@ class ground_state_solver():
                 variances[spat_to_spin_idx("b", i)] = var_alpha * (sq_means[spat_to_spin_idx("b", i)] - means[spat_to_spin_idx("b", i)] * means[spat_to_spin_idx("b", i)])
 
         cov = np.diag(variances)"""
-
+        """
         cov_alpha = 1 # the off-diagonal rescaling free parameter
 
         # initialise covariances
@@ -2078,6 +2091,38 @@ class ground_state_solver():
                     cur_cov = 1.0 / self.S_beta * self.LE_sol["SRRM"][spat_to_spin_idx("b", i)][j] - means[spat_to_spin_idx("b", i)] * means[spat_to_spin_idx("b", j)]
                     cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] = cov_alpha * cur_cov
                     cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("b", i)] = cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] # conjugate?
+        """
+        cov_alpha = 1 # the off-diagonal rescaling free parameter
+
+        # initialise covariances
+        # alpha-alpha
+        for i in range(self.mol.nao):
+            for j in range(i + 1, self.mol.nao):
+                if i < self.S_alpha and j < self.S_alpha:
+                    # agnostic
+                    continue
+                elif i < self.S_alpha and j > self.S_alpha:
+                    cur_cov = - (self.LE_sol["SRRM"][spat_to_spin_idx("a", i)][j] - means[spat_to_spin_idx("a", i)] * means[spat_to_spin_idx("a", j)]) # always neg
+                    cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = cov_alpha * cur_cov
+                    cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
+                elif i > self.S_alpha and j > self.S_alpha:
+                    cur_cov = - (1.0 / self.S_alpha * self.LE_sol["SRRM"][spat_to_spin_idx("a", i)][j] - means[spat_to_spin_idx("a", i)] * means[spat_to_spin_idx("a", j)])
+                    cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = cov_alpha * cur_cov
+                    cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
+        # beta-beta
+        for i in range(self.mol.nao):
+            for j in range(i + 1, self.mol.nao):
+                if i < self.S_beta and j < self.S_beta:
+                    # agnostic
+                    continue
+                elif i < self.S_beta and j > self.S_beta:
+                    cur_cov = - (self.LE_sol["SRRM"][spat_to_spin_idx("b", i)][j] - means[spat_to_spin_idx("b", i)] * means[spat_to_spin_idx("b", j)])
+                    cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] = cov_alpha * cur_cov
+                    cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("b", i)] = cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] # conjugate?
+                elif i > self.S_beta and j > self.S_beta:
+                    cur_cov = - (1.0 / self.S_beta * self.LE_sol["SRRM"][spat_to_spin_idx("b", i)][j] - means[spat_to_spin_idx("b", i)] * means[spat_to_spin_idx("b", j)])
+                    cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] = cov_alpha * cur_cov
+                    cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("b", i)] = cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] # conjugate?
 
         # alpha-beta
         # We remain agnostic!
@@ -2091,12 +2136,13 @@ class ground_state_solver():
                 np.round(np.sqrt(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]), dec_point),
                 np.round(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
                 np.round(np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) - cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
-                np.round(2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])), dec_point)
+                np.round(2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])), dec_point),
+                np.round(100 * (2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) ) / cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], 1)
                 ])
 
         self.log.print_table(
             table_name = "LE Zombie diag.",
-            column_names = ["mean", "std", "var", "gershgorin disc", "leeway"],
+            column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
             row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
@@ -2105,22 +2151,23 @@ class ground_state_solver():
 
         # -------------- making sure covariances dont overshadow the variances ----------------
 
-        spin_symmetry_coef = 0.9 # cov between i_a and i_b
-
 
         #self.log.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
         #for i in range(2 * self.mol.nao):
         #    cov[i][i] = np.sum(np.abs(cov[i]))
         self.log.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...")
         for i in range(2 * self.mol.nao):
-            row_coef = (np.sum(np.abs(cov[i])) - cov[i][i] * (1 - spin_symmetry_coef)) / (cov[i][i] * (1 - spin_symmetry_coef))
-            if row_coef > 1.0:
+            if np.sum(np.abs(cov[i])) - cov[i][i] == 0.0:
+                # No off-diagonal terms, we protect against div by zero
+                continue
+            row_coef = (cov[i][i] * cov_proportion) / (np.sum(np.abs(cov[i])) - cov[i][i])
+            if row_coef < 1.0:
                 # negative leeway
                 for j in range(2 * self.mol.nao):
                     if i == j:
                         continue
-                    cov[i][j] /= row_coef
-                    cov[j][i] /= row_coef
+                    cov[i][j] *= row_coef
+                    cov[j][i] *= row_coef
         """
 
 
@@ -2129,7 +2176,7 @@ class ground_state_solver():
 
         # but let's encode the goofy thing
         #for i in range(self.mol.nao):
-        #    cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", i)] = np.sqrt(variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("b", i)]) * spin_symmetry_coef
+        #    cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", i)] = np.sqrt(variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("b", i)]) * (1 - cov_proportion)
         #    cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", i)]
 
         diagnostic_table = []
@@ -2139,12 +2186,13 @@ class ground_state_solver():
                 np.round(np.sqrt(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]), dec_point),
                 np.round(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
                 np.round(np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) - cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
-                np.round(2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])), dec_point)
+                np.round(2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])), dec_point),
+                np.round(100 * (2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) ) / cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], 1)
                 ])
 
         self.log.print_table(
             table_name = "LE Zombie diag.",
-            column_names = ["mean", "std", "var", "gershgorin disc", "leeway"],
+            column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
             row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
@@ -2198,9 +2246,12 @@ class ground_state_solver():
 
         self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
         self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
+        self.disk_jockey.commit_metadatum(dataset_label, "result_energy_states", {"E_g" : cur_sample.E_ground[-1]})
         self.diagnostics_log.append({f"find_ground_state_LEGS_Zombie_cov_SRRM_alt ({dataset_label})" : procedure_diagnostic})
 
         self.measured_datasets.append(dataset_label)
+
+        self.log.write(f"Measured datasets: {self.measured_datasets}")
 
         self.log.exit()
         return(N_vals, convergence_sols)
@@ -4153,10 +4204,17 @@ class ground_state_solver():
                 self.log.enter("Restoring measured datasets...", 3)
                 for loaded_dataset in self.disk_jockey.metadata["system"]["log"]["measured_datasets"]:
                     if loaded_dataset not in self.measured_datasets:
-                        self.log.write(f"Restoring dataset '{loaded_dataset}'...", 4)
+                        self.log.enter(f"Loading dataset '{loaded_dataset}'...", 4)
                         for dataset_datum in self.disk_jockey.data_nodes[loaded_dataset]:
                             self.disk_jockey.load_datum(loaded_dataset, dataset_datum)
                         self.measured_datasets.append(loaded_dataset)
+                        self.log.write(f"Results from dataset '{loaded_dataset}' loaded.", 4)
+                        self.log.write(f"  -sampling method: {self.disk_jockey.metadata[loaded_dataset]["basis_samples"]["method"]}", 4)
+                        self.log.write(f"  -parameters:", 4)
+                        for param_name, param_val in self.disk_jockey.metadata[loaded_dataset]["basis_samples"]["params"].items():
+                            self.log.write(f"    -{param_name}: {param_val}", 4)
+
+                        self.log.exit()
                     else:
                         self.log.write("WARNING: Attempted to load a dataset which exists in internal checklist. Data from the disk was ignored.", 0)
                 self.log.exit()
@@ -4170,7 +4228,7 @@ class ground_state_solver():
         # Plots energy against configuration size
         self.log.enter("Plotting obtained measurements...", 1)
 
-        plt.title(f"{self.ID}")
+        plt.title(f"[{self.ID}] Ground state estimate with Monte Carlo")
         plt.xlabel("Basis size")
         plt.ylabel("E [Hartree]")
 
@@ -4210,6 +4268,73 @@ class ground_state_solver():
                 if "linestyle" in ref_energy:
                     ref_linestyle = ref_energy["linestyle"]
                 plt.axhline(y = ref_e, label = ref_label, color = ref_color, linestyle = ref_linestyle)
+
+        self.log.write(f"Displaying plot...", 5)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+        self.log.exit()
+
+    def plot_datasets_against_param(self, param_name, param_label = None, reference_energies = None):
+        # plots only the final value of each dataset against a parameter value in the dataset's metadata
+        # each dataset has to contain the given parameter name in its basis_samples metadata
+        # param_label is a HR label
+        if param_label is None:
+            param_label = param_name
+
+        self.log.enter(f"Plotting obtained measurements against parameter '{param_name}'...", 1)
+
+        plt.title(f"[{self.ID}] Ground state estimate against {param_label}")
+        plt.xlabel(param_label)
+        plt.ylabel("E [Hartree]")
+
+        param_space = []
+        ground_state_energy_space = []
+
+        for i in range(len(self.measured_datasets)):
+            self.log.write(f"Collecting data from dataset '{self.measured_datasets[i]}'...", 5)
+            ds_val = self.disk_jockey.data_bulks[self.measured_datasets[i]]["result_energy_states"]
+            # ds_val is a list of dicts - here we cast it into plottable arrays
+            N_space = []
+            E_space = []
+            for row in ds_val:
+                N_space.append(row["N"])
+                E_space.append(row["E [H]"])
+
+            max_N_i = np.argmax(N_space)
+            min_E = E_space[max_N_i]
+
+            param_space.append(self.disk_jockey.metadata[self.measured_datasets[i]]["basis_samples"]["params"][param_name])
+            ground_state_energy_space.append(min_E)
+
+        if "mol_init" in self.checklist:
+            plt.axhline(y = self.reference_state_energy, label = "ref state", color = functions.ref_energy_colors["ref state"])
+        if "full_CI_sol" in self.checklist:
+            plt.axhline(y = self.ci_energy, label = "full CI", color = functions.ref_energy_colors["full CI"])
+        if "LE_sol" in self.checklist:
+            # LE ground state
+            plt.axhline(y = self.LE_sol["E"], label = "LE CI", color = functions.ref_energy_colors["LE CI"])
+            # LE mean-value uncorrelated state
+            #LE_no_cor = [CS_Thouless(self.mol.nao, self.S_alpha, self.LE_sol["exp"]["a"]), CS_Thouless(self.mol.nao, self.S_beta, self.LE_sol["exp"]["b"])]
+            #LE_no_cor_E = self.H_overlap(LE_no_cor, LE_no_cor).real
+            #plt.axhline(y = LE_no_cor_E, label = "LE-mean CS", color = functions.ref_energy_colors["LE CI"], linestyle = "dashed")
+
+
+
+        if reference_energies is not None:
+            for ref_energy in reference_energies:
+                ref_e = ref_energy["E"]
+                ref_label = ref_energy["label"]
+                ref_color = "blue"
+                if "color" in ref_energy:
+                    ref_color = ref_energy["color"]
+                ref_linestyle = "solid"
+                if "linestyle" in ref_energy:
+                    ref_linestyle = ref_energy["linestyle"]
+                plt.axhline(y = ref_e, label = ref_label, color = ref_color, linestyle = ref_linestyle)
+
+        plt.scatter(param_space, ground_state_energy_space, label = "$E_{min}$ in datasets", marker = "x")
 
         self.log.write(f"Displaying plot...", 5)
         plt.legend()
@@ -4364,6 +4489,73 @@ class ground_state_solver():
         ax.set_yticks(np.arange(submatrix.shape[0]+1)-.5, minor=True)
         ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
         ax.tick_params(which="minor", bottom=False, left=False)
+
+        return(heatmap, cbar)
+
+    def plot_LE_CSRM(self, log_plot = True, signed = True, ax = None):
+        self.user_actions += f"plot_LE_CSRM\n"
+
+        assert "LE_sol" in self.checklist
+        assert "CSRM" in self.LE_sol
+
+        self.log.enter("Plotting the closed-shell reduction matrix...")
+        self.log.print_matrix(self.LE_sol["CSRM"], "CSRM")
+
+        if ax is None:
+            ax = plt.gca()
+
+        submatrix = np.array(self.LE_sol["CSRM"])
+        if log_plot and signed:
+            submatrix = - np.log(np.abs(submatrix) + 1e-20) * np.sign(submatrix + 1e-20)
+            heatmap_v_min = -10
+            heatmap_v_max = 10
+            heatmap_v_label = "Matrix element of transition; $\\pm \\ln |\\langle \\text{LE g.s.} | b^\\dag_i b_j | \\text{LE g.s.} \\rangle |$ (pos. sign for positive val.)"
+        if log_plot and not signed:
+            submatrix = np.log(np.abs(submatrix) + 1e-20)
+            heatmap_v_min = -10
+            heatmap_v_max = 0
+            heatmap_v_label = "Matrix element of transition; $\\ln |\\langle \\text{LE g.s.} | b^\\dag_i b_j | \\text{LE g.s.} \\rangle |$"
+        if not log_plot and signed:
+            #submatrix = np.abs(submatrix)
+            heatmap_v_min = -1
+            heatmap_v_max = 1
+            heatmap_v_label = "Matrix element of transition; $\\langle \\text{LE g.s.} | b^\\dag_i b_j | \\text{LE g.s.} \\rangle$"
+        if not log_plot and not signed:
+            submatrix = np.abs(submatrix)
+            heatmap_v_min = 0
+            heatmap_v_max = 1
+            heatmap_v_label = "Matrix element of transition; $|\\langle \\text{LE g.s.} | b^\\dag_i b_j | \\text{LE g.s.} \\rangle |$"
+
+        # Plot the heatmap
+        heatmap = ax.imshow(submatrix,
+                            cmap='Wistia',
+                            interpolation='none',
+                            vmin=heatmap_v_min,
+                            vmax=heatmap_v_max
+            ) # extent = functions.m_ext(one_exc_closed_shell_hm)
+
+
+        row_lab = [f"{i + 1}" for i in range(submatrix.shape[0])]
+        col_lab = [f"{i + 1}" for i in range(submatrix.shape[1])]
+
+        # Create colorbar
+        cbar = ax.figure.colorbar(heatmap, ax=ax)
+        cbar.ax.set_ylabel(heatmap_v_label, rotation=-90, va="bottom")
+
+        ax.set_xlabel("Left-side annihilation operator index $i$")
+        ax.set_ylabel("Right-side annihilation operator index $j$")
+
+        ax.set_xticks(np.arange(submatrix.shape[1]), labels=col_lab)
+        ax.set_yticks(np.arange(submatrix.shape[0]), labels=row_lab)
+
+        # Grid
+        ax.spines[:].set_visible(False)
+        ax.set_xticks(np.arange(submatrix.shape[1]+1)-.5, minor=True)
+        ax.set_yticks(np.arange(submatrix.shape[0]+1)-.5, minor=True)
+        ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
+        ax.tick_params(which="minor", bottom=False, left=False)
+
+        self.log.exit()
 
         return(heatmap, cbar)
 

@@ -1,5 +1,5 @@
 initialised solver Zombie_states_testing_SCF_fixed
 initialise_molecule [M = 20, S = 6]
-full_CI_sol
-find_LE_solution_SE [diag_alg = 'SCF']
+load_data
+find_ground_state_LEGS_Zombie_cov_SRRM_alt [N = 20, N_sub = 20]
 save_data

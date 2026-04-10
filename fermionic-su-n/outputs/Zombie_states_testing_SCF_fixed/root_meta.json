@@ -15,6 +15,10 @@
     ],
     "diagnostics": [
       "diagnostic_log"
+    ],
+    "LEGS_Zombie_small_SRRM": [
+      "basis_samples",
+      "result_energy_states"
     ]
   },
   "data_bulk_types": {
@@ -33,6 +37,10 @@
     },
     "diagnostics": {
       "diagnostic_log": "txt"
+    },
+    "LEGS_Zombie_small_SRRM": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
     }
   },
   "metadata_types": {
@@ -51,6 +59,10 @@
     },
     "diagnostics": {
       "diagnostic_log": "json"
+    },
+    "LEGS_Zombie_small_SRRM": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
     }
   }
 }

@@ -218,12 +218,21 @@ class Journal():
 
         pre_col = []
         if no_of_rows == 1:
-            pre_col = ["("]
+            if self.fancy_printing:
+                pre_col = [color.BRIGHT_YELLOW + "(" + color.END]
+            else:
+                pre_col = ["("]
         else:
-            pre_col = ["/"]
-            for i in range(no_of_rows - 2):
-                pre_col.append("|")
-            pre_col.append("\\")
+            if self.fancy_printing:
+                pre_col = [color.BRIGHT_YELLOW + "/" + color.END]
+                for i in range(no_of_rows - 2):
+                    pre_col.append(color.BRIGHT_YELLOW + "|" + color.END)
+                pre_col.append(color.BRIGHT_YELLOW + "\\" + color.END)
+            else:
+                pre_col = ["/"]
+                for i in range(no_of_rows - 2):
+                    pre_col.append("|")
+                pre_col.append("\\")
 
         for i in range(no_of_rows):
             if i == no_of_rows // 2:
@@ -300,6 +309,11 @@ class Journal():
 
         print_queue = [] # each line is an element
 
+        if self.fancy_printing:
+            vert_sep = color.BRIGHT_YELLOW + "|" + color.END
+        else:
+            vert_sep = "|"
+
         max_len_row_names = len(str(table_name))
         for row_name in row_names:
             if len(str(row_name)) > max_len_row_names:
@@ -313,22 +327,28 @@ class Journal():
                 if max_len_by_column[j] < len(str(list_of_rows[i][j])):
                     max_len_by_column[j] = len(str(list_of_rows[i][j]))
 
-        header_str = st(table_name, max_len_row_names + header_separation) + "|"
+        header_str = st(table_name, max_len_row_names + header_separation) + vert_sep
         for i in range(len(column_names)):
             header_str += st(column_names[i], max_len_by_column[i] + header_separation)
             if i in subtable_borders:
-                header_str += "|"
+                header_str += vert_sep
 
         print_queue.append(header_str)
-        print_queue.append("-" * len(header_str))
+        if self.fancy_printing:
+            print_queue.append(color.BRIGHT_YELLOW + "-" * len(header_str) + color.END)
+        else:
+            print_queue.append("-" * len(header_str))
         for i in range(len(row_names)):
-            cur_str = st(row_names[i], max_len_row_names + header_separation) + "|"
+            cur_str = st(row_names[i], max_len_row_names + header_separation) + vert_sep
             for j in range(len(column_names)):
                 cur_str += st(list_of_rows[i][j], max_len_by_column[j] + header_separation)
                 if j in subtable_borders:
-                    cur_str += "|"
+                    cur_str += vert_sep
             print_queue.append(cur_str)
-        print_queue.append("-" * len(header_str))
+        if self.fancy_printing:
+            print_queue.append(color.BRIGHT_YELLOW + "-" * len(header_str) + color.END)
+        else:
+            print_queue.append("-" * len(header_str))
 
         for line in print_queue:
             self.write(line)

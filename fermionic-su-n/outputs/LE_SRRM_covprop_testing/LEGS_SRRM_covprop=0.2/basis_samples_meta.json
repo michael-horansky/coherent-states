@@ -1,0 +1,8 @@
+{
+  "method": "LEGS_Zombie_cov_SRRM_alt",
+  "params": {
+    "N": 20,
+    "N_sub": 20,
+    "cov_proportion": 0.2
+  }
+}

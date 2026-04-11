@@ -1,0 +1,5 @@
+initialised solver LE_RSOPM_testing
+initialise_molecule [M = 20, S = 6]
+load_data
+find_ground_state_LEGS_Zombie_cov_RSOPM [N = 20, N_sub = 20]
+save_data

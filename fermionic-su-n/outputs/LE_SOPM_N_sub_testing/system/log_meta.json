@@ -1,0 +1,15 @@
+{
+  "checklist": [
+    "mol_init",
+    "full_CI_sol",
+    "LE_sol"
+  ],
+  "measured_datasets": [
+    "LEGS_SOPM_N_sub=10",
+    "LEGS_SOPM_N_sub=20",
+    "LEGS_SOPM_N_sub=30",
+    "LEGS_SOPM_N_sub=50",
+    "LEGS_SOPM_N_sub=75",
+    "LEGS_SOPM_N_sub=100"
+  ]
+}

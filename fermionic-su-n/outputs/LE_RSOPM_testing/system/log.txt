@@ -1,0 +1,85 @@
+Initialising molecule solver LE_RSOPM_testing at log_verbosity = 5
+| Initialising Data Storage Manager...
+| Initialising self-analysis properties...
+\_
+Initialising molecule...
+| Building molecule...
+| | There are 10 atomic orbitals, each able to hold 2 electrons of opposing spin.
+| | The molecule is occupied by 6 electrons in total: 3 with spin alpha, 3 with spin beta.
+| | The molecule consists of the following atoms: ['Li', 'Li']
+| | The atomic orbitals are ordered as follows: ['0 Li 1s    ', '0 Li 2s    ', '0 Li 2px   ', '0 Li 2py   ', '0 Li 2pz   ', '1 Li 1s    ', '1 Li 2s    ', '1 Li 2px   ', '1 Li 2py   ', '1 Li 2pz   ']
+| | The nuclear repulsion energy is 1.8000000000000003
+| | Calculating 1e integrals...
+| | Calculating 2e integrals...
+| \_
+| Performing mean-field calculations to determine the molecular orbitals...
+| | Mean field method: Restricted Hartree-Fock (selected by user)
+| | Finding the molecular orbitals using mean-field approximations...
+| | Done! Reference state energy is -14.63864
+| | Transforming 1e and 2e integrals to MO basis...
+| \_
+| Reference state analysis
+| | Occupied orbitals:
+| |   -in the spin-alpha subspace: [0, 1, 2]
+| |   -in the spin-beta subspace:  [0, 1, 2]
+| | Testing each CS type Hamiltonian overlap evaluation against the reference state...
+| |   -For Thouless: E_ref = -14.63864, which agrees with the true value
+| |   -For Qubit: E_ref = -14.63864, which agrees with the true value
+| \_
+\_
+Loading data from the disk...
+| Reading files on disk...
+| Restoring self-analysis values...
+| | Results from SCF performed on the full CI loaded...
+| | Results from diagonalisation on a low-excitation basis loaded...
+| |   -environment: RHF
+| |   -specification: SE
+| |   -scope: [(0, 0), (1, 0), (0, 1), (1, 1)]
+| |   -description: at most one excitation in each spin subspace
+| |   -parameters:
+| |     -diag_alg: SCF
+| \_
+| Restoring measured datasets...
+| | Loading dataset 'LEGS_RSOPM_test_no_S_factor'...
+| | | Results from dataset 'LEGS_RSOPM_test_no_S_factor' loaded.
+| | |   -sampling method: LEGS_Zombie_cov_RSOPM
+| | |   -parameters:
+| | |     -N: 20
+| | |     -N_sub: 20
+| | \_
+| \_
+\_
+Obtaining the ground state with the method "LEGS Zombie cov RSOPM" [N = 20, N_sub = 20]
+|  LE Zombie diag. [93m|[0m mean   std     var    gershgorin disc  leeway  leeway % 
+| [93m------------------------------------------------------------------------------------[0m
+|         1        [93m|[0m 0.0   0.9996  0.9992        0.0        0.9992   100.0   
+|         2        [93m|[0m 0.0   0.9996  0.9993        0.0        0.9993   100.0   
+|         3        [93m|[0m 0.0   0.1481  0.0219        0.0        0.0219   100.0   
+|         4        [93m|[0m 0.0   0.4982  0.2482        0.0        0.2482   100.0   
+|         5        [93m|[0m 0.0   0.5376  0.289         0.0        0.289    100.0   
+|         6        [93m|[0m 0.0   0.5376  0.289         0.0        0.289    100.0   
+|         7        [93m|[0m 0.0   0.3448  0.1189        0.0        0.1189   100.0   
+|         8        [93m|[0m 0.0   0.0191  0.0004        0.0        0.0004   100.0   
+|         9        [93m|[0m 0.0   0.0191  0.0004        0.0        0.0004   100.0   
+|        10        [93m|[0m 0.0   0.184   0.0339        0.0        0.0339   100.0   
+| [93m------------------------------------------------------------------------------------[0m
+|                     [93m/[0m 0.99916    0.0      0.0      0.0      0.0      0.0      0.0      0.0      0.0      0.0  
+|                     [93m|[0m   0.0    0.99927    0.0      0.0      0.0      0.0      0.0      0.0      0.0      0.0  
+|                     [93m|[0m   0.0      0.0    0.02193    0.0      0.0      0.0      0.0      0.0      0.0      0.0  
+|                     [93m|[0m   0.0      0.0      0.0    0.24821    0.0      0.0      0.0      0.0      0.0      0.0  
+|                     [93m|[0m   0.0      0.0      0.0      0.0    0.28899    0.0      0.0      0.0      0.0      0.0  
+| covariance matrix = [93m|[0m   0.0      0.0      0.0      0.0      0.0    0.28899    0.0      0.0      0.0      0.0  
+|                     [93m|[0m   0.0      0.0      0.0      0.0      0.0      0.0    0.11886    0.0      0.0      0.0  
+|                     [93m|[0m   0.0      0.0      0.0      0.0      0.0      0.0      0.0    0.00036    0.0      0.0  
+|                     [93m|[0m   0.0      0.0      0.0      0.0      0.0      0.0      0.0      0.0    0.00036    0.0  
+|                     [93m\[0m   0.0      0.0      0.0      0.0      0.0      0.0      0.0      0.0      0.0    0.03387
+| Conditioned sampling with ground state search on 20 states, each taken from 20 random states begins at 19:22:12
+| | Conditioned sampling with ground state search on 20 states, each taken from 20 random states waiting for the first event...
+| \_ Evaluation finished at 19:56:19 (duration 34 min 7 sec)                                                                                                  
+| Measured datasets: ['LEGS_RSOPM_test_no_S_factor', 'LEGS_RSOPM_test_no_cov']
+\_
+Plotting obtained measurements...
+| Collecting data from dataset 'LEGS_RSOPM_test_no_S_factor'...
+| Collecting data from dataset 'LEGS_RSOPM_test_no_cov'...
+| Displaying plot...
+\_

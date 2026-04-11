@@ -1,0 +1,7 @@
+{
+  "method": "LEGS_Zombie_cov_RSOPM",
+  "params": {
+    "N": 20,
+    "N_sub": 20
+  }
+}

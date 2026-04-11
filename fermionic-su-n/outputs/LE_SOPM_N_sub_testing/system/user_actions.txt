@@ -1,0 +1,4 @@
+initialised solver LE_SOPM_N_sub_testing
+initialise_molecule [M = 20, S = 6]
+load_data
+save_data

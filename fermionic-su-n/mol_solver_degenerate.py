@@ -156,6 +156,7 @@ class ground_state_solver():
             "LE_Zombie_cov_SRRM_alt" : self.find_ground_state_LEGS_Zombie_cov_SRRM_alt,
             "LE_Zombie_cov_SRRM_mirror" : self.find_ground_state_LEGS_Zombie_cov_SRRM_mirror,
             "LE_Zombie_cov_SOPM" : self.find_ground_state_LEGS_Zombie_cov_SOPM,
+            "LE_Zombie_cov_RSOPM" : self.find_ground_state_LEGS_Zombie_cov_RSOPM,
             "krylov" : self.find_ground_state_krylov,
             "imag_timeprop" : self.find_ground_state_imaginary_timeprop
         }
@@ -2725,6 +2726,198 @@ class ground_state_solver():
         self.log.exit()
         return(N_vals, convergence_sols)
 
+    def find_ground_state_LEGS_Zombie_cov_RSOPM(self, **kwargs):
+
+        # This method uses Zombie (Qubit) states.
+        # It looks at the total norm of the states in | LE > which have i-th MO
+        # occupied, i.e. < LE | b_i\hc b_i | LE >, and uses this to estimate
+        # E[z_i^2].
+        # The means are equal to sigmas, and the sample is then multiplied by a random sign mask
+
+        # The difference from ALT is that when considering b_i b_j acting on one spin subspace, we sum over the abs values
+        # of all contributions from the other spin subspace to account for simultaneous excitations!
+
+        # kwargs:
+        #     -N: Sample size
+        #     -N_sub: Subsample size
+        #     ------------------------
+        #     -dataset_label: if present, this will label the dataset in disc jockey. Otherwise, label is generated from other kwargs.
+
+        # -------------------- Parameter initialisation
+
+        assert "N" in kwargs
+        N = kwargs["N"]
+
+        if "N_sub" in kwargs:
+            N_subsample = kwargs["N_sub"]
+        else:
+            N_subsample = 1
+
+        if "dataset_label" in kwargs:
+            dataset_label = kwargs["dataset_label"]
+        else:
+            dataset_label = f"LEGS_Zombie_cov_RSOPM_{N}_{N_subsample}"
+
+        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov RSOPM\" [N = {N}, N_sub = {N_subsample}]", 1)
+
+
+        # Disk jockey node creation and metadata storage
+        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
+        self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {
+                "method" : "LEGS_Zombie_cov_RSOPM", # required
+                "params" : {
+                    "N" : N,
+                    "N_sub" : N_subsample
+                }
+            })
+        self.user_actions += f"find_ground_state_LEGS_Zombie_cov_RSOPM [N = {N}, N_sub = {N_subsample}]\n"
+        procedure_diagnostic = []
+
+        if "LE_sol" not in self.checklist:
+            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            self.log.exit()
+            return(None)
+
+        # We now manually sample Thouless states guided by the LE solution
+        cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
+
+        # We find the means and the covariances
+        spin_idx_dict = {"a" : 0, "b" : 1}
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
+        means = np.zeros( 2 * self.mol.nao )
+        sq_means = np.zeros( 2 * self.mol.nao )
+        variances = np.zeros( 2 * self.mol.nao )
+        cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
+
+
+
+        dec_point = 4
+
+        # -------------------- Variances --------------------
+
+        # Trying to reproduce dima's approach with all means set to zero
+        #variances = np.array(([1.0, 1.0, 1e-4, 1e-6, 1e-6] + [0] * 5) * 2)
+        #means = np.sqrt(np.array(np.sqrt(variances))) # mu = sigma
+        #variances = np.array(([1.0, 1.0, 1e-4, 1e-6, 1e-6, 1e-6, 1e-7, 1e-8, 1e-8, 1e-7]) * 2)
+        #cov = np.diag(variances)
+
+
+        for i in range(self.S_alpha):
+            variances[spat_to_spin_idx("a", i)] = self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]
+        for i in range(self.S_alpha, self.mol.nao):
+            variances[spat_to_spin_idx("a", i)] = self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]
+        for i in range(self.S_beta):
+            variances[spat_to_spin_idx("b", i)] = self.LE_sol["RSOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)]
+        for i in range(self.S_beta, self.mol.nao):
+            variances[spat_to_spin_idx("b", i)] = self.LE_sol["RSOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)]
+        cov = np.diag(variances)
+
+
+        cov_alpha = 1 # the off-diagonal rescaling free parameter
+
+        # initialise covariances
+
+        # note that the off-diagonal terms in RSOPM are just correlations.
+        # So cov_ij = SOPM_ij * sqrt(var_i * var_j)
+
+        # alpha-alpha
+        """for i in range(self.mol.nao):
+            for j in range(i + 1, self.mol.nao):
+                cur_cov = self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] * np.sqrt(variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("a", j)])
+                cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = cov_alpha * cur_cov
+                cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
+        # beta-beta
+        for i in range(self.mol.nao):
+            for j in range(i + 1, self.mol.nao):
+                cur_cov = self.LE_sol["RSOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] * np.sqrt(variances[spat_to_spin_idx("b", i)] * variances[spat_to_spin_idx("b", j)])
+                cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] = cov_alpha * cur_cov
+                cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("b", i)] = cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] # conjugate?
+
+        # alpha-beta
+        # We remain agnostic! Because even tho this should work perfectly, I'm not sure how the gershgorin stuff will work
+        """
+        diagnostic_table = []
+        for i in range(self.mol.nao):
+            diagnostic_table.append([
+                np.round(means[spat_to_spin_idx("a", i)], dec_point),
+                np.round(np.sqrt(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]), dec_point),
+                np.round(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
+                np.round(np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) - cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
+                np.round(2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])), dec_point),
+                np.round(100 * (2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) ) / cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], 1)
+                ])
+
+        self.log.print_table(
+            table_name = "LE Zombie diag.",
+            column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
+            row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+            list_of_rows = diagnostic_table
+            )
+
+        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+
+        # -------------- making sure covariances dont overshadow the variances ----------------
+
+        eigvals, eigvecs = np.linalg.eigh(cov)
+        min_eigval = min(eigvals)
+        if min_eigval <= 0.0:
+            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+
+        # We pre-sample the parameters
+        rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
+
+        raw_Z_sample = [
+            np.zeros((N, N_subsample, self.mol.nao)),
+            np.zeros((N, N_subsample, self.mol.nao))
+            ]
+        for n in range(N):
+            for n_sub in range(N_subsample):
+                for i in range(self.mol.nao):
+                    raw_Z_sample[0][n][n_sub][i] = rand_X[n * N_subsample + n_sub][spat_to_spin_idx("a", i)]
+                    raw_Z_sample[1][n][n_sub][i] = raw_Z_sample[0][n][n_sub][i] #rand_X[n * N_subsample + n_sub][spat_to_spin_idx("b", i)] #
+
+        N_vals = [1]
+        convergence_sols = [self.reference_state_energy]
+
+        msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
+        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
+        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+
+        for n in range(N):
+            # We add the best out of 10 random states
+            cur_subsample = []
+            for n_sub in range(N_subsample):
+
+                rand_z_alpha = CS_Qubit(self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = CS_Qubit(self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                cur_subsample.append([rand_z_alpha, rand_z_beta])
+
+            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            N_vals.append(cur_sample.N)
+            convergence_sols.append(cur_sample.E_ground[-1])
+
+        procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
+
+        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
+        self.log.exit("Evaluation")
+
+        csv_sol = [] # list of rows
+        for i in range(len(N_vals)):
+            csv_sol.append({"N" : N_vals[i], "E [H]" : float(convergence_sols[i])})
+
+
+        self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
+        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
+        self.disk_jockey.commit_metadatum(dataset_label, "result_energy_states", {"E_g" : cur_sample.E_ground[-1]})
+        self.diagnostics_log.append({f"find_ground_state_LEGS_Zombie_cov_RSOPM ({dataset_label})" : procedure_diagnostic})
+
+        self.measured_datasets.append(dataset_label)
+
+        self.log.write(f"Measured datasets: {self.measured_datasets}")
+
+        self.log.exit()
+        return(N_vals, convergence_sols)
+
 
 
     def find_ground_state_krylov(self, **kwargs):
@@ -4216,6 +4409,7 @@ class ground_state_solver():
         self.log.write("Calculating the norm of the solution on singlets and mixed-spin doublets...")
 
         LE_norm = 0.0
+        LE_reduced_norm = 0.0 # sans phi_0
         LE_CS_norm = 0.0
 
         # no excitation
@@ -4228,11 +4422,13 @@ class ground_state_solver():
                 for b in range(self.S_alpha):
                     cur_z = self.LE_sol["sol"][ (((b,), (a,)), ((), ())) ]
                     LE_norm += cur_z * cur_z
+                    LE_reduced_norm += cur_z * cur_z
         if (0, 1) in self.LE_description["scope"]:
             for a in range(self.mol.nao - self.S_beta):
                 for b in range(self.S_beta):
                     cur_z = self.LE_sol["sol"][ (((), ()), ((b,), (a,))) ]
                     LE_norm += cur_z * cur_z
+                    LE_reduced_norm += cur_z * cur_z
 
         if (1, 1) in self.LE_description["scope"]:
             # doublets
@@ -4242,11 +4438,13 @@ class ground_state_solver():
                         for l in range(self.S_beta):
                             cur_z = self.LE_sol["sol"][ (((j,), (i,)), ((l,), (k,))) ]
                             LE_norm += cur_z * cur_z
+                            LE_reduced_norm += cur_z * cur_z
                             if i == k and j == l:
                                 LE_CS_norm += cur_z * cur_z
 
         self.log.write(f"Low excitation solution norm squared:")
         self.log.write(f"  -for all singlet and mixed-doublet excitations: <LE | LE> = {LE_norm:0.5f}")
+        self.log.write(f"  -for all singlet and mixed-doublet excitations, ignoring the HF state: <LE | LE> = {LE_reduced_norm:0.5f}")
         self.log.write(f"  -for closed-shell mixed-doublet excitations: <LE | LE> = {LE_CS_norm:0.5f}")
         self.log.enter("Calculating reduction matrix", 1, True, tau_space = np.linspace(0, 4 * self.mol.nao * self.mol.nao, 1000 + 1))
 
@@ -4569,6 +4767,47 @@ class ground_state_solver():
 
         self.log.exit("Calculation")
 
+        self.log.enter("Calculating reduced simultanous occupancy proportion matrix", 1, True, tau_space = np.linspace(0, 4 * self.mol.nao * self.mol.nao, 1000 + 1))
+
+        self.LE_sol["RSOPM"] = np.zeros((2 * self.mol.nao, 2 * self.mol.nao))
+
+        for i_sigma in ["a", "b"]:
+            for i in range(self.mol.nao):
+                for j_sigma in ["a", "b"]:
+                    for j in range(self.mol.nao):
+                        self.log.update_semaphor_event(2 * self.mol.nao * spat_to_spin_idx(i_sigma, i) + spat_to_spin_idx(j_sigma, j))
+                        for cur_prom, cur_z in self.LE_sol["sol"].items():
+                            if cur_prom == (((), ()), ((), ())):
+                                continue
+                            cur_prom_a, cur_prom_b = cur_prom
+                            cur_a_from, cur_a_to = cur_prom_a
+                            cur_b_from, cur_b_to = cur_prom_b
+                            cur_a_occ = [1] * self.S_alpha + [0] * (self.mol.nao - self.S_alpha)
+                            cur_b_occ = [1] * self.S_beta + [0] * (self.mol.nao - self.S_beta)
+                            for cur_a_from_i in cur_a_from:
+                                cur_a_occ[cur_a_from_i] = 0
+                            for cur_a_to_i in cur_a_to:
+                                cur_a_occ[self.S_alpha + cur_a_to_i] = 1
+                            for cur_b_from_i in cur_b_from:
+                                cur_b_occ[cur_b_from_i] = 0
+                            for cur_b_to_i in cur_b_to:
+                                cur_b_occ[self.S_beta + cur_b_to_i] = 1
+
+                            if i_sigma == "a" and cur_a_occ[i] == 0:
+                                continue
+                            if i_sigma == "b" and cur_b_occ[i] == 0:
+                                continue
+                            if j_sigma == "a" and cur_a_occ[j] == 0:
+                                continue
+                            if j_sigma == "b" and cur_b_occ[j] == 0:
+                                continue
+
+                            self.LE_sol["RSOPM"][spat_to_spin_idx(i_sigma, i)][spat_to_spin_idx(j_sigma, j)] += cur_z * cur_z / LE_reduced_norm
+
+
+
+        self.log.exit("Calculation")
+
         self.log.exit()
 
 
@@ -4639,7 +4878,8 @@ class ground_state_solver():
                 "CSRM" : self.LE_sol["CSRM"].tolist(),
                 "TPM" : self.LE_sol["TPM"].tolist(),
                 "SRRM" : self.LE_sol["SRRM"].tolist(),
-                "SOPM" : self.LE_sol["SOPM"].tolist()
+                "SOPM" : self.LE_sol["SOPM"].tolist(),
+                "RSOPM" : self.LE_sol["RSOPM"].tolist()
                 })
             self.disk_jockey.commit_metadatum("self_analysis", "LE_sol", self.LE_description)
 
@@ -4697,7 +4937,8 @@ class ground_state_solver():
                         "CSRM" : np.array(loaded_LE_sol["CSRM"]),
                         "TPM" : np.array(loaded_LE_sol["TPM"]),
                         "SRRM" : np.array(loaded_LE_sol["SRRM"]),
-                        "SOPM" : np.array(loaded_LE_sol["SOPM"])
+                        "SOPM" : np.array(loaded_LE_sol["SOPM"]),
+                        "RSOPM" : np.array(loaded_LE_sol["RSOPM"])
                         }
                     self.check_off("LE_sol")
                     self.log.write(f"Results from diagonalisation on a low-excitation basis loaded...", 4)
@@ -5203,6 +5444,65 @@ class ground_state_solver():
             submatrix = np.array(self.LE_sol["SOPM"][:self.mol.nao, :self.mol.nao])
         elif spin == "b":
             submatrix = np.array(self.LE_sol["SOPM"][self.mol.nao:, self.mol.nao:])
+
+        if log_plot:
+            submatrix = np.log(submatrix + 1e-20)
+            heatmap_v_min = -10
+            heatmap_v_max = 0
+            heatmap_v_label = "Matrix element of transition; $\\ln |\\langle \\text{LE g.s.} | \\hat{S}_{ii} T_{jj} | \\text{LE g.s.} \\rangle |$"
+        else:
+            heatmap_v_min = 0
+            heatmap_v_max = 1
+            heatmap_v_label = "Matrix element of transition; $|\\langle \\text{LE g.s.} | \\hat{T}_{ii} T_{jj} | \\text{LE g.s.} \\rangle |$"
+
+        # Plot the heatmap
+        heatmap = ax.imshow(submatrix,
+                            cmap='Wistia',
+                            interpolation='none',
+                            vmin=heatmap_v_min,
+                            vmax=heatmap_v_max
+            ) # extent = functions.m_ext(one_exc_closed_shell_hm)
+
+
+        row_lab = [f"{i + 1}" for i in range(submatrix.shape[0])]
+        col_lab = [f"{i + 1}" for i in range(submatrix.shape[1])]
+
+        # Create colorbar
+        cbar = ax.figure.colorbar(heatmap, ax=ax)
+        cbar.ax.set_ylabel(heatmap_v_label, rotation=-90, va="bottom")
+
+        ax.set_xlabel("Left-side annihilation operator index $i$")
+        ax.set_ylabel("Right-side annihilation operator index $j$")
+
+        ax.set_xticks(np.arange(submatrix.shape[1]), labels=col_lab)
+        ax.set_yticks(np.arange(submatrix.shape[0]), labels=row_lab)
+
+        # Grid
+        ax.spines[:].set_visible(False)
+        ax.set_xticks(np.arange(submatrix.shape[1]+1)-.5, minor=True)
+        ax.set_yticks(np.arange(submatrix.shape[0]+1)-.5, minor=True)
+        ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
+        ax.tick_params(which="minor", bottom=False, left=False)
+
+        self.log.exit()
+
+        return(heatmap, cbar)
+
+    def plot_LE_RSOPM(self, spin = "a", log_plot = True, ax = None):
+        self.user_actions += f"plot_LE_RSOPM\n"
+
+        self.log.enter("Plotting the reduced simultanous occupancy proportion matrix...", 5)
+
+        assert "LE_sol" in self.checklist
+        assert "RSOPM" in self.LE_sol
+
+        if ax is None:
+            ax = plt.gca()
+
+        if spin == "a":
+            submatrix = np.array(self.LE_sol["RSOPM"][:self.mol.nao, :self.mol.nao])
+        elif spin == "b":
+            submatrix = np.array(self.LE_sol["RSOPM"][self.mol.nao:, self.mol.nao:])
 
         if log_plot:
             submatrix = np.log(submatrix + 1e-20)

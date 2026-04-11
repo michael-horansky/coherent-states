@@ -1,0 +1,11 @@
+{
+  "checklist": [
+    "mol_init",
+    "full_CI_sol",
+    "LE_sol"
+  ],
+  "measured_datasets": [
+    "LEGS_RSOPM_test_no_S_factor",
+    "LEGS_RSOPM_test_no_cov"
+  ]
+}

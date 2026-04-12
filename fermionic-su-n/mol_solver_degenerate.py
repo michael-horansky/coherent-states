@@ -13,6 +13,25 @@ from class_Disk_Jockey import Disk_Jockey
 import functions
 
 
+def esp(roots, order, omit = []):
+    # roots is a list
+    # order is an integer <= len(roots)
+    # omit is a list of indices on which roots is to be set to zero
+
+    if order == 0:
+        return(1.0)
+    if order == len(roots):
+        return(np.prod(roots))
+
+    partial_esp = np.zeros(order + 1)
+    partial_esp[0] = 1.0
+    for i in range(len(roots)):
+        if i in omit:
+            continue
+        for j in range(min(i + 1, order), 0, -1):
+            partial_esp[j] += roots[i] * partial_esp[j - 1]
+    return(partial_esp[order])
+
 # this solver assumes that the occupancies in the spin-alpha and spin-beta subspaces are restricted separately.
 
 
@@ -156,6 +175,7 @@ class ground_state_solver():
             "LE_Zombie_cov_SRRM_alt" : self.find_ground_state_LEGS_Zombie_cov_SRRM_alt,
             "LE_Zombie_cov_SRRM_mirror" : self.find_ground_state_LEGS_Zombie_cov_SRRM_mirror,
             "LE_Zombie_cov_SOPM" : self.find_ground_state_LEGS_Zombie_cov_SOPM,
+            "LE_Zombie_cov_SOPM_moment_matching" : self.find_ground_state_LEGS_Zombie_cov_SOPM_moment_matching,
             "LE_Zombie_cov_RSOPM" : self.find_ground_state_LEGS_Zombie_cov_RSOPM,
             "krylov" : self.find_ground_state_krylov,
             "imag_timeprop" : self.find_ground_state_imaginary_timeprop
@@ -2663,6 +2683,279 @@ class ground_state_solver():
             )
 
         self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+
+        # -------------- making sure covariances dont overshadow the variances ----------------
+
+        eigvals, eigvecs = np.linalg.eigh(cov)
+        min_eigval = min(eigvals)
+        if min_eigval <= 0.0:
+            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+
+        # We pre-sample the parameters
+        rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
+
+        raw_Z_sample = [
+            np.zeros((N, N_subsample, self.mol.nao)),
+            np.zeros((N, N_subsample, self.mol.nao))
+            ]
+        for n in range(N):
+            for n_sub in range(N_subsample):
+                for i in range(self.mol.nao):
+                    raw_Z_sample[0][n][n_sub][i] = rand_X[n * N_subsample + n_sub][spat_to_spin_idx("a", i)]
+                    raw_Z_sample[1][n][n_sub][i] = raw_Z_sample[0][n][n_sub][i] #rand_X[n * N_subsample + n_sub][spat_to_spin_idx("b", i)] #
+
+        N_vals = [1]
+        convergence_sols = [self.reference_state_energy]
+
+        msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
+        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
+        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+
+        for n in range(N):
+            # We add the best out of 10 random states
+            cur_subsample = []
+            for n_sub in range(N_subsample):
+
+                rand_z_alpha = CS_Qubit(self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = CS_Qubit(self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                cur_subsample.append([rand_z_alpha, rand_z_beta])
+
+            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            N_vals.append(cur_sample.N)
+            convergence_sols.append(cur_sample.E_ground[-1])
+
+        procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
+
+        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
+        self.log.exit("Evaluation")
+
+        csv_sol = [] # list of rows
+        for i in range(len(N_vals)):
+            csv_sol.append({"N" : N_vals[i], "E [H]" : float(convergence_sols[i])})
+
+
+        self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
+        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
+        self.disk_jockey.commit_metadatum(dataset_label, "result_energy_states", {"E_g" : cur_sample.E_ground[-1]})
+        self.diagnostics_log.append({f"find_ground_state_LEGS_Zombie_cov_SOPM ({dataset_label})" : procedure_diagnostic})
+
+        self.measured_datasets.append(dataset_label)
+
+        self.log.write(f"Measured datasets: {self.measured_datasets}")
+
+        self.log.exit()
+        return(N_vals, convergence_sols)
+
+    def find_ground_state_LEGS_Zombie_cov_SOPM_moment_matching(self, **kwargs):
+
+        # This method uses Zombie (Qubit) states.
+        # It looks at the total norm of the states in | LE > which have i-th MO
+        # occupied, i.e. < LE | b_i\hc b_i | LE >, and uses this to estimate
+        # E[z_i^2].
+        # The means are equal to sigmas, and the sample is then multiplied by a random sign mask
+
+        # The difference from ALT is that when considering b_i b_j acting on one spin subspace, we sum over the abs values
+        # of all contributions from the other spin subspace to account for simultaneous excitations!
+
+        # kwargs:
+        #     -N: Sample size
+        #     -N_sub: Subsample size
+        #     -eta: step-size for moment matching; default 1e-8
+        #     ------------------------
+        #     -dataset_label: if present, this will label the dataset in disc jockey. Otherwise, label is generated from other kwargs.
+
+        # -------------------- Parameter initialisation
+
+        assert "N" in kwargs
+        N = kwargs["N"]
+
+        if "N_sub" in kwargs:
+            N_subsample = kwargs["N_sub"]
+        else:
+            N_subsample = 1
+
+        if "eta" in kwargs:
+            eta = kwargs["eta"]
+        else:
+            eta = 1e-2
+
+        if "dataset_label" in kwargs:
+            dataset_label = kwargs["dataset_label"]
+        else:
+            dataset_label = f"LEGS_Zombie_cov_SOPM_moment_matching_{N}_{N_subsample}"
+
+        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov SOPM moment matching\" [N = {N}, N_sub = {N_subsample}, eta = {eta}]", 1)
+
+
+        # Disk jockey node creation and metadata storage
+        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
+        self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {
+                "method" : "LEGS_Zombie_cov_SOPM_moment_matching", # required
+                "params" : {
+                    "N" : N,
+                    "N_sub" : N_subsample,
+                    "eta" : eta
+                }
+            })
+        self.user_actions += f"find_ground_state_LEGS_Zombie_cov_SOPM_moment_matching [N = {N}, N_sub = {N_subsample}, eta = {eta}]\n"
+        procedure_diagnostic = []
+
+        if "LE_sol" not in self.checklist:
+            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            self.log.exit()
+            return(None)
+
+        # We now manually sample Thouless states guided by the LE solution
+        cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
+
+        # We find the means and the covariances
+        spin_idx_dict = {"a" : 0, "b" : 1}
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
+        means = np.zeros( 2 * self.mol.nao )
+        sq_means = np.zeros( 2 * self.mol.nao )
+        variances = np.zeros( 2 * self.mol.nao )
+        cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
+
+
+
+        dec_point = 4
+
+        # -------------------- Variances --------------------
+
+        # We use moment-matching to estimate the no-covariance variances
+
+        # initial guess
+        # should we actually use the hole approach from SOPM or just straight up RSOPM?
+        # idea: use SOPM to get <z_i^2>, then transform the first S values using the hole approach
+        # BUT! The constraint sum A_i only works for RSOPM, and only if the reduced LE sol is properly normalised!
+
+        # Firstly, we renormalise RSOPM to satisfy the constraint
+        RSOPM_tr = np.trace(self.LE_sol["RSOPM"])
+        self.log.write(f"Trace of RSOPM = {RSOPM_tr}; expected value is S = {self.S_alpha + self.S_beta}; renormalising...")
+        RSOPM_renorm = self.LE_sol["RSOPM"] * (self.S_alpha + self.S_beta) / RSOPM_tr
+
+        def cur_scale(c_y):
+            return(esp(np.exp(c_y), self.S_alpha + self.S_beta))
+
+        # Now, we construct the initial values
+        y_0 = np.zeros(2 * self.mol.nao)
+        for i in range(2 * self.mol.nao):
+            y_0[i] = np.log(RSOPM_renorm[i][i])
+        y_0_norm_sq = cur_scale(y_0)
+        self.log.write(f"Norm squared of initial guess is {y_0_norm_sq} (type {type(y_0_norm_sq)}). Renormalising...")
+        """"
+        z^2 = e^y
+        {z|z} = e_S(z^2) = e_S(e^y)
+        Let y = y + c
+        then e^y = e^c.e^y
+        then {z|z} = {z|z} . e^Sc
+        We want e^Sc = 1 / cur scale
+        hence c = -ln(cur_scale) / S
+        """
+
+        y_0 -= np.log(y_0_norm_sq) / (self.S_alpha + self.S_beta)
+        y_0_norm_sq = cur_scale(y_0)
+        self.log.write(f"Norm squared of initial guess was renormalised to {y_0_norm_sq}.")
+
+
+        cur_y = np.array(y_0)
+        max_err = 1e-2
+        # Now, we converge the solution
+        cur_err = 1e10
+        # Cannot track max step because that converges to counteract the renorm step!
+        while(cur_err > max_err):
+            # We calculate the step and execute it
+            y_step = np.zeros(2 * self.mol.nao)
+            cur_norm_sq = cur_scale(cur_y)
+            for i in range(2 * self.mol.nao):
+                y_step[i] = RSOPM_renorm[i][i] - np.exp(cur_y[i]) * esp(np.exp(cur_y), self.S_alpha + self.S_beta - 1, omit = [i]) / cur_norm_sq
+            cur_y += eta * y_step
+
+            # We calculate the err size
+            cur_err = np.sqrt(np.sum(y_step ** 2))
+            self.log.write(f"Cur err size in terms of z^2 is {cur_err}")
+
+            # We project y onto the norm = 1 surface
+            cur_y -= np.log(cur_scale(cur_y)) / (self.S_alpha + self.S_beta)
+
+        # Now we convert back to the variances
+        variances = np.exp(cur_y)
+        cov = np.diag(variances)
+        # The diagnostic
+        A_i_actual = np.zeros(2 * self.mol.nao)
+        final_norm_sq = esp(variances, self.S_alpha + self.S_beta)
+        self.log.write(f"Final norm squared = {final_norm_sq}")
+        for i in range(2 * self.mol.nao):
+            A_i_actual[i] = variances[i] * esp(variances, self.S_alpha + self.S_beta - 1, omit = [i]) / final_norm_sq
+
+        diagnostic_table = []
+        diagnostic_row_names = []
+        for i in range(self.mol.nao):
+            diagnostic_table.append([
+                np.round(RSOPM_renorm[i][i], 6),
+                np.round(A_i_actual[i], 6),
+                np.round(100 * (1 - A_i_actual[i] / RSOPM_renorm[i][i]), 1)
+                ])
+            diagnostic_row_names.append(f"{i + 1}(a)")
+        for i in range(self.mol.nao, 2 * self.mol.nao):
+            diagnostic_table.append([
+                np.round(RSOPM_renorm[i][i], 6),
+                np.round(A_i_actual[i], 6),
+                np.round(100 * (1 - A_i_actual[i] / RSOPM_renorm[i][i]), 1)
+                ])
+            diagnostic_row_names.append(f"{i + 1}(b)")
+
+        self.log.print_table(
+            table_name = "<S_i> diagnostic>",
+            column_names = ["< LE | S_i | LE >", "< Z | S_i | Z >", "Err %"],
+            row_names = diagnostic_row_names,
+            list_of_rows = diagnostic_table
+            )
+        """
+        cov_alpha = 1 # the off-diagonal rescaling free parameter
+
+        # initialise covariances
+
+        # note that the off-diagonal terms in SOPM are just correlations.
+        # So cov_ij = SOPM_ij * sqrt(var_i * var_j)
+
+        # alpha-alpha
+        for i in range(self.mol.nao):
+            for j in range(i + 1, self.mol.nao):
+                cur_cov = self.LE_sol["SOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] * np.sqrt(variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("a", j)])
+                cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = cov_alpha * cur_cov
+                cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
+        # beta-beta
+        for i in range(self.mol.nao):
+            for j in range(i + 1, self.mol.nao):
+                cur_cov = self.LE_sol["SOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] * np.sqrt(variances[spat_to_spin_idx("b", i)] * variances[spat_to_spin_idx("b", j)])
+                cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] = cov_alpha * cur_cov
+                cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("b", i)] = cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] # conjugate?
+
+        # alpha-beta
+        # We remain agnostic! Because even tho this should work perfectly, I'm not sure how the gershgorin stuff will work
+        """
+
+        diagnostic_table = []
+        for i in range(self.mol.nao):
+            diagnostic_table.append([
+                np.round(means[spat_to_spin_idx("a", i)], dec_point),
+                np.round(np.sqrt(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]), dec_point),
+                np.round(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
+                np.round(np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) - cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
+                np.round(2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])), dec_point),
+                np.round(100 * (2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) ) / cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], 1)
+                ])
+
+        self.log.print_table(
+            table_name = "LE Zombie diag.",
+            column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
+            row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+            list_of_rows = diagnostic_table
+            )
+
+        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+
 
         # -------------- making sure covariances dont overshadow the variances ----------------
 

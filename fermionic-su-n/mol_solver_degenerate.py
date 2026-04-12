@@ -175,8 +175,8 @@ class ground_state_solver():
             "LE_Zombie_cov_SRRM_alt" : self.find_ground_state_LEGS_Zombie_cov_SRRM_alt,
             "LE_Zombie_cov_SRRM_mirror" : self.find_ground_state_LEGS_Zombie_cov_SRRM_mirror,
             "LE_Zombie_cov_SOPM" : self.find_ground_state_LEGS_Zombie_cov_SOPM,
-            "LE_Zombie_cov_SOPM_moment_matching" : self.find_ground_state_LEGS_Zombie_cov_SOPM_moment_matching,
             "LE_Zombie_cov_RSOPM" : self.find_ground_state_LEGS_Zombie_cov_RSOPM,
+            "LE_Zombie_cov_RSOPM_moment_matching" : self.find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching,
             "krylov" : self.find_ground_state_krylov,
             "imag_timeprop" : self.find_ground_state_imaginary_timeprop
         }
@@ -2746,7 +2746,7 @@ class ground_state_solver():
         self.log.exit()
         return(N_vals, convergence_sols)
 
-    def find_ground_state_LEGS_Zombie_cov_SOPM_moment_matching(self, **kwargs):
+    def find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching(self, **kwargs):
 
         # This method uses Zombie (Qubit) states.
         # It looks at the total norm of the states in | LE > which have i-th MO
@@ -2777,27 +2777,27 @@ class ground_state_solver():
         if "eta" in kwargs:
             eta = kwargs["eta"]
         else:
-            eta = 1e-2
+            eta = 1e-1
 
         if "dataset_label" in kwargs:
             dataset_label = kwargs["dataset_label"]
         else:
-            dataset_label = f"LEGS_Zombie_cov_SOPM_moment_matching_{N}_{N_subsample}"
+            dataset_label = f"LEGS_Zombie_cov_RSOPM_moment_matching_{N}_{N_subsample}"
 
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov SOPM moment matching\" [N = {N}, N_sub = {N_subsample}, eta = {eta}]", 1)
+        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov RSOPM moment matching\" [N = {N}, N_sub = {N_subsample}, eta = {eta}]", 1)
 
 
         # Disk jockey node creation and metadata storage
         self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
         self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {
-                "method" : "LEGS_Zombie_cov_SOPM_moment_matching", # required
+                "method" : "LEGS_Zombie_cov_RSOPM_moment_matching", # required
                 "params" : {
                     "N" : N,
                     "N_sub" : N_subsample,
                     "eta" : eta
                 }
             })
-        self.user_actions += f"find_ground_state_LEGS_Zombie_cov_SOPM_moment_matching [N = {N}, N_sub = {N_subsample}, eta = {eta}]\n"
+        self.user_actions += f"find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching [N = {N}, N_sub = {N_subsample}, eta = {eta}]\n"
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
@@ -2828,90 +2828,10 @@ class ground_state_solver():
         # should we actually use the hole approach from SOPM or just straight up RSOPM?
         # idea: use SOPM to get <z_i^2>, then transform the first S values using the hole approach
         # BUT! The constraint sum A_i only works for RSOPM, and only if the reduced LE sol is properly normalised!
-
-        # Firstly, we renormalise RSOPM to satisfy the constraint
-        RSOPM_tr = np.trace(self.LE_sol["RSOPM"])
-        self.log.write(f"Trace of RSOPM = {RSOPM_tr}; expected value is S = {self.S_alpha + self.S_beta}; renormalising...")
-        RSOPM_renorm = self.LE_sol["RSOPM"] * (self.S_alpha + self.S_beta) / RSOPM_tr
-
-        def cur_scale(c_y):
-            return(esp(np.exp(c_y), self.S_alpha + self.S_beta))
-
-        # Now, we construct the initial values
-        y_0 = np.zeros(2 * self.mol.nao)
-        for i in range(2 * self.mol.nao):
-            y_0[i] = np.log(RSOPM_renorm[i][i])
-        y_0_norm_sq = cur_scale(y_0)
-        self.log.write(f"Norm squared of initial guess is {y_0_norm_sq} (type {type(y_0_norm_sq)}). Renormalising...")
-        """"
-        z^2 = e^y
-        {z|z} = e_S(z^2) = e_S(e^y)
-        Let y = y + c
-        then e^y = e^c.e^y
-        then {z|z} = {z|z} . e^Sc
-        We want e^Sc = 1 / cur scale
-        hence c = -ln(cur_scale) / S
-        """
-
-        y_0 -= np.log(y_0_norm_sq) / (self.S_alpha + self.S_beta)
-        y_0_norm_sq = cur_scale(y_0)
-        self.log.write(f"Norm squared of initial guess was renormalised to {y_0_norm_sq}.")
-
-
-        cur_y = np.array(y_0)
-        max_err = 1e-2
-        # Now, we converge the solution
-        cur_err = 1e10
-        # Cannot track max step because that converges to counteract the renorm step!
-        while(cur_err > max_err):
-            # We calculate the step and execute it
-            y_step = np.zeros(2 * self.mol.nao)
-            cur_norm_sq = cur_scale(cur_y)
-            for i in range(2 * self.mol.nao):
-                y_step[i] = RSOPM_renorm[i][i] - np.exp(cur_y[i]) * esp(np.exp(cur_y), self.S_alpha + self.S_beta - 1, omit = [i]) / cur_norm_sq
-            cur_y += eta * y_step
-
-            # We calculate the err size
-            cur_err = np.sqrt(np.sum(y_step ** 2))
-            self.log.write(f"Cur err size in terms of z^2 is {cur_err}")
-
-            # We project y onto the norm = 1 surface
-            cur_y -= np.log(cur_scale(cur_y)) / (self.S_alpha + self.S_beta)
-
-        # Now we convert back to the variances
-        variances = np.exp(cur_y)
+        variances = self.LE_sol["RNCS"] ** 2 # <z_i^2>, taking <z_i> = 0
         cov = np.diag(variances)
-        # The diagnostic
-        A_i_actual = np.zeros(2 * self.mol.nao)
-        final_norm_sq = esp(variances, self.S_alpha + self.S_beta)
-        self.log.write(f"Final norm squared = {final_norm_sq}")
-        for i in range(2 * self.mol.nao):
-            A_i_actual[i] = variances[i] * esp(variances, self.S_alpha + self.S_beta - 1, omit = [i]) / final_norm_sq
 
-        diagnostic_table = []
-        diagnostic_row_names = []
-        for i in range(self.mol.nao):
-            diagnostic_table.append([
-                np.round(RSOPM_renorm[i][i], 6),
-                np.round(A_i_actual[i], 6),
-                np.round(100 * (1 - A_i_actual[i] / RSOPM_renorm[i][i]), 1)
-                ])
-            diagnostic_row_names.append(f"{i + 1}(a)")
-        for i in range(self.mol.nao, 2 * self.mol.nao):
-            diagnostic_table.append([
-                np.round(RSOPM_renorm[i][i], 6),
-                np.round(A_i_actual[i], 6),
-                np.round(100 * (1 - A_i_actual[i] / RSOPM_renorm[i][i]), 1)
-                ])
-            diagnostic_row_names.append(f"{i + 1}(b)")
 
-        self.log.print_table(
-            table_name = "<S_i> diagnostic>",
-            column_names = ["< LE | S_i | LE >", "< Z | S_i | Z >", "Err %"],
-            row_names = diagnostic_row_names,
-            list_of_rows = diagnostic_table
-            )
-        """
         cov_alpha = 1 # the off-diagonal rescaling free parameter
 
         # initialise covariances
@@ -2922,19 +2842,19 @@ class ground_state_solver():
         # alpha-alpha
         for i in range(self.mol.nao):
             for j in range(i + 1, self.mol.nao):
-                cur_cov = self.LE_sol["SOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] * np.sqrt(variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("a", j)])
+                cur_cov = np.sqrt(self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] * variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("a", j)])
                 cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = cov_alpha * cur_cov
                 cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
         # beta-beta
         for i in range(self.mol.nao):
             for j in range(i + 1, self.mol.nao):
-                cur_cov = self.LE_sol["SOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] * np.sqrt(variances[spat_to_spin_idx("b", i)] * variances[spat_to_spin_idx("b", j)])
+                cur_cov = np.sqrt(self.LE_sol["RSOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] * variances[spat_to_spin_idx("b", i)] * variances[spat_to_spin_idx("b", j)])
                 cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] = cov_alpha * cur_cov
                 cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("b", i)] = cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] # conjugate?
 
         # alpha-beta
         # We remain agnostic! Because even tho this should work perfectly, I'm not sure how the gershgorin stuff will work
-        """
+
 
         diagnostic_table = []
         for i in range(self.mol.nao):
@@ -3010,7 +2930,7 @@ class ground_state_solver():
         self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
         self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
         self.disk_jockey.commit_metadatum(dataset_label, "result_energy_states", {"E_g" : cur_sample.E_ground[-1]})
-        self.diagnostics_log.append({f"find_ground_state_LEGS_Zombie_cov_SOPM ({dataset_label})" : procedure_diagnostic})
+        self.diagnostics_log.append({f"find_ground_state_LEGS_Zombie_cov_RSOPM ({dataset_label})" : procedure_diagnostic})
 
         self.measured_datasets.append(dataset_label)
 
@@ -3625,9 +3545,6 @@ class ground_state_solver():
 
         H_nuc = self.mol.energy_nuc() * alpha_overlap * beta_overlap
         return(H_one_term + H_two_term + H_nuc)
-
-
-
 
 
     def find_ground_state(self, method, **kwargs):
@@ -4941,7 +4858,7 @@ class ground_state_solver():
         self.log.exit("Calculation")
 
 
-        self.log.enter("Calculating spin-reduced reduction matrix", 1, True, tau_space = np.linspace(0, 4 * self.mol.nao * self.mol.nao, 1000 + 1))
+        self.log.enter("Calculating spin-reduced reduction matrix", 1, True, tau_space = np.linspace(0, 2 * self.mol.nao * self.mol.nao, 1000 + 1))
 
         self.LE_sol["SRRM"] = np.zeros((2 * self.mol.nao, self.mol.nao))
 
@@ -5101,6 +5018,113 @@ class ground_state_solver():
 
         self.log.exit("Calculation")
 
+
+        # Now we calculate the reduced null-coherent state (RNCS)
+        # The RNCS is simply a Qubit CS for which every expected occupancy
+        # matches the LE solution after projecting out |HF>
+
+        self.log.enter("Calculating the reduced null-coherent state...")
+
+        # Firstly, we renormalise RSOPM to satisfy the constraint
+        RSOPM_tr = np.trace(self.LE_sol["RSOPM"])
+        self.log.write(f"Trace of RSOPM = {RSOPM_tr}; expected value is S = {self.S_alpha + self.S_beta}; renormalising...")
+        RSOPM_renorm = self.LE_sol["RSOPM"] * (self.S_alpha + self.S_beta) / RSOPM_tr
+
+        def cur_scale(c_y):
+            return(esp(np.exp(c_y), self.S_alpha + self.S_beta))
+
+        # Now, we construct the initial values
+        y_0 = np.zeros(2 * self.mol.nao)
+        for i in range(2 * self.mol.nao):
+            y_0[i] = np.log(RSOPM_renorm[i][i])
+        y_0_norm_sq = cur_scale(y_0)
+        self.log.write(f"Norm squared of initial guess is {y_0_norm_sq}. Renormalising...")
+        """"
+        z^2 = e^y
+        {z|z} = e_S(z^2) = e_S(e^y)
+        Let y = y + c
+        then e^y = e^c.e^y
+        then {z|z} = {z|z} . e^Sc
+        We want e^Sc = 1 / cur scale
+        hence c = -ln(cur_scale) / S
+        """
+
+        y_0 -= np.log(y_0_norm_sq) / (self.S_alpha + self.S_beta)
+        y_0_norm_sq = cur_scale(y_0)
+        self.log.write(f"Norm squared of initial guess was renormalised to {y_0_norm_sq}.")
+
+        # --------------- Gradient descent to find the solution -----------------
+        # Parameters
+        eta = 0.1
+        max_err = 1e-3
+        self.log.write("Parameters for the gradient descent:")
+        self.log.write(f"  -eta (step size) = {eta}")
+        self.log.write(f"  -epsilon (max allowed error) = {max_err}")
+
+        cur_y = np.array(y_0)
+
+        # Now, we converge the solution
+        cur_err = 10 * max_err # a bogus val to enter the while loop
+        # Cannot track max step because that converges to counteract the renorm step!
+        self.log.enter("Calculating z_i to match reduced mode occupancies", 1, True, tau_space = np.linspace(0, 1, 1000 + 1))
+        init_err = None
+        while(cur_err > max_err):
+            # We calculate the step and execute it
+            y_step = np.zeros(2 * self.mol.nao)
+            cur_norm_sq = cur_scale(cur_y)
+            for i in range(2 * self.mol.nao):
+                y_step[i] = RSOPM_renorm[i][i] - np.exp(cur_y[i]) * esp(np.exp(cur_y), self.S_alpha + self.S_beta - 1, omit = [i]) / cur_norm_sq
+            cur_y += eta * y_step
+
+            # We calculate the err size
+            cur_err = np.sqrt(np.sum(y_step ** 2))
+            if init_err is None:
+                init_err = cur_err
+            else:
+                self.log.update_semaphor_event((init_err - cur_err) / (init_err - max_err))
+
+            # We project y onto the norm = 1 surface
+            cur_y -= np.log(cur_scale(cur_y)) / (self.S_alpha + self.S_beta)
+
+        self.log.exit("Calculation")
+
+        # Now we convert back to the null-CS
+        z_null_sq = np.exp(cur_y)
+        self.LE_sol["RNCS"] = np.sqrt(z_null_sq)
+        # The diagnostic
+        A_i_actual = np.zeros(2 * self.mol.nao)
+        final_norm_sq = esp(z_null_sq, self.S_alpha + self.S_beta)
+        self.log.write(f"Final norm squared = {final_norm_sq}")
+        for i in range(2 * self.mol.nao):
+            A_i_actual[i] = z_null_sq[i] * esp(z_null_sq, self.S_alpha + self.S_beta - 1, omit = [i]) / final_norm_sq
+
+        diagnostic_table = []
+        diagnostic_row_names = []
+        for i in range(self.mol.nao):
+            diagnostic_table.append([
+                np.round(RSOPM_renorm[i][i], 6),
+                np.round(A_i_actual[i], 6),
+                np.round(100 * (1 - A_i_actual[i] / RSOPM_renorm[i][i]), 1)
+                ])
+            diagnostic_row_names.append(f"{i + 1}(a)")
+        for i in range(self.mol.nao, 2 * self.mol.nao):
+            diagnostic_table.append([
+                np.round(RSOPM_renorm[i][i], 6),
+                np.round(A_i_actual[i], 6),
+                np.round(100 * (1 - A_i_actual[i] / RSOPM_renorm[i][i]), 1)
+                ])
+            diagnostic_row_names.append(f"{i + 1 - self.mol.nao}(b)")
+
+        self.log.print_table(
+            table_name = "<S_i> diagnostic>",
+            column_names = ["< LE | S_i | LE >", "< Z | S_i | Z >", "Err %"],
+            row_names = diagnostic_row_names,
+            list_of_rows = diagnostic_table
+            )
+
+        self.log.exit()
+
+
         self.log.exit()
 
 
@@ -5172,7 +5196,8 @@ class ground_state_solver():
                 "TPM" : self.LE_sol["TPM"].tolist(),
                 "SRRM" : self.LE_sol["SRRM"].tolist(),
                 "SOPM" : self.LE_sol["SOPM"].tolist(),
-                "RSOPM" : self.LE_sol["RSOPM"].tolist()
+                "RSOPM" : self.LE_sol["RSOPM"].tolist(),
+                "RNCS" : self.LE_sol["RNCS"].tolist()
                 })
             self.disk_jockey.commit_metadatum("self_analysis", "LE_sol", self.LE_description)
 
@@ -5231,7 +5256,8 @@ class ground_state_solver():
                         "TPM" : np.array(loaded_LE_sol["TPM"]),
                         "SRRM" : np.array(loaded_LE_sol["SRRM"]),
                         "SOPM" : np.array(loaded_LE_sol["SOPM"]),
-                        "RSOPM" : np.array(loaded_LE_sol["RSOPM"])
+                        "RSOPM" : np.array(loaded_LE_sol["RSOPM"]),
+                        "RNCS" : np.array(loaded_LE_sol["RNCS"])
                         }
                     self.check_off("LE_sol")
                     self.log.write(f"Results from diagonalisation on a low-excitation basis loaded...", 4)

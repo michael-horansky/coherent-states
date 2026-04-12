@@ -16,15 +16,11 @@
     "diagnostics": [
       "diagnostic_log"
     ],
-    "LEGS_SOPM_moment_matching_test": [
+    "LEGS_RSOPM_moment_matching_N_sub=10": [
       "basis_samples",
       "result_energy_states"
     ],
-    "LEGS_RSOPM_moment_matching_test": [
-      "basis_samples",
-      "result_energy_states"
-    ],
-    "LEGS_RSOPM_moment_matching_test_sqrt": [
+    "LEGS_RSOPM_moment_matching_N_sub=20": [
       "basis_samples",
       "result_energy_states"
     ]
@@ -46,15 +42,11 @@
     "diagnostics": {
       "diagnostic_log": "txt"
     },
-    "LEGS_SOPM_moment_matching_test": {
+    "LEGS_RSOPM_moment_matching_N_sub=10": {
       "basis_samples": "pkl",
       "result_energy_states": "csv"
     },
-    "LEGS_RSOPM_moment_matching_test": {
-      "basis_samples": "pkl",
-      "result_energy_states": "csv"
-    },
-    "LEGS_RSOPM_moment_matching_test_sqrt": {
+    "LEGS_RSOPM_moment_matching_N_sub=20": {
       "basis_samples": "pkl",
       "result_energy_states": "csv"
     }
@@ -76,15 +68,11 @@
     "diagnostics": {
       "diagnostic_log": "json"
     },
-    "LEGS_SOPM_moment_matching_test": {
+    "LEGS_RSOPM_moment_matching_N_sub=10": {
       "basis_samples": "json",
       "result_energy_states": "pkl"
     },
-    "LEGS_RSOPM_moment_matching_test": {
-      "basis_samples": "json",
-      "result_energy_states": "pkl"
-    },
-    "LEGS_RSOPM_moment_matching_test_sqrt": {
+    "LEGS_RSOPM_moment_matching_N_sub=20": {
       "basis_samples": "json",
       "result_energy_states": "pkl"
     }

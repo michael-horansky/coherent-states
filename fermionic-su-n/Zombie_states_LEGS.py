@@ -25,9 +25,9 @@ trimmed_ground_state_full_ci = {
     }
 
 
-mol_solver = ground_state_solver(f"LE_SOPM_moment_matching_test")
+mol_solver = ground_state_solver(f"LE_RSOPM_moment_matching_N_sub_testing")
 mol_solver.initialise_molecule(li2_mol, HF_method = "RHF")
-mol_solver.load_data(["self_analysis"])
+mol_solver.load_data(["self_analysis", "measured_datasets"])
 
 
 """
@@ -110,10 +110,11 @@ plt.show()"""
 #for N_sub_val in [10, 20, 30, 50, 75, 100]:
 #    mol_solver.find_ground_state("LE_Zombie_cov_SOPM", N = 20, N_sub = N_sub_val, dataset_label = f"LEGS_SOPM_N_sub={N_sub_val}")
 
-mol_solver.find_ground_state("LE_Zombie_cov_SOPM_moment_matching", N = 10, N_sub = 10, dataset_label = f"LEGS_SOPM_moment_matching_test")
+mol_solver.find_ground_state("LE_Zombie_cov_RSOPM_moment_matching", N = 30, N_sub = 20, dataset_label = f"LEGS_RSOPM_moment_matching_N_sub=20")
 #for cov_prop in np.arange(0.1, 0.9, 0.1):
 #    mol_solver.find_ground_state("LE_Zombie_cov_SRRM_mirror", N = 10, N_sub = 10, cov_proportion = cov_prop, dataset_label = f"LEGS_SRRM_trim_cp={cov_prop:0.1f}")
 
+# TODO move the moment matching to LE sol properties, so we dont always calculate it again and again! Therefore eta isnt a free param of the sampling!!
 
 # Plotting and saving
 #mol_solver.print_singlet_info()

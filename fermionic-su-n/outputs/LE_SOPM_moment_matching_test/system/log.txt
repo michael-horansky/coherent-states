@@ -39,18 +39,67 @@ Loading data from the disk...
 | |   -parameters:
 | |     -diag_alg: SCF
 | \_
-| Restoring measured datasets...
-| | Loading dataset 'LEGS_SOPM_moment_matching_test'...
-| | | Results from dataset 'LEGS_SOPM_moment_matching_test' loaded.
-| | |   -sampling method: LEGS_Zombie_cov_SOPM_moment_matching
-| | |   -parameters:
-| | |     -N: 10
-| | |     -N_sub: 10
-| | |     -eta: 0.01
-| | \_
-| \_
+\_
+Obtaining the ground state with the method "LEGS Zombie cov RSOPM moment matching" [N = 30, N_sub = 20, eta = 0.1]
+| Trace of RSOPM = 5.9999999999999964; expected value is S = 6; renormalising...
+| Norm squared of initial guess is 7.307736243774139 (type <class 'numpy.float64'>). Renormalising...
+| Norm squared of initial guess was renormalised to 0.9999999999999997.
+| Calculating z_i to match reduced mode occupancies begins at 15:52:58
+| | Calculating z_i to match reduced mode occupancies waiting for the first event...
+| \_ Calculation finished at 15:53:06 (duration 7 sec 306 ms)                                                   
+| Final norm squared = 1.0000000000000002
+|  <S_i> diagnostic> [93m|[0m < LE | S_i | LE >  < Z | S_i | Z >  Err % 
+| [93m------------------------------------------------------------------------[0m
+|        1(a)        [93m|[0m     0.999161          0.998825       0.0  
+|        2(a)        [93m|[0m     0.999269          0.998897       0.0  
+|        3(a)        [93m|[0m     0.021929          0.021931      -0.0  
+|        4(a)        [93m|[0m     0.248206          0.248206      -0.0  
+|        5(a)        [93m|[0m      0.28899          0.288991      -0.0  
+|        6(a)        [93m|[0m      0.28899          0.288991      -0.0  
+|        7(a)        [93m|[0m     0.118856          0.118857      -0.0  
+|        8(a)        [93m|[0m     0.000364          0.000716      -96.8 
+|        9(a)        [93m|[0m     0.000364          0.000716      -96.8 
+|        10(a)       [93m|[0m     0.033871          0.033872      -0.0  
+|        1(b)        [93m|[0m     0.999161          0.998825       0.0  
+|        2(b)        [93m|[0m     0.999269          0.998897       0.0  
+|        3(b)        [93m|[0m     0.021929          0.021931      -0.0  
+|        4(b)        [93m|[0m     0.248206          0.248206      -0.0  
+|        5(b)        [93m|[0m      0.28899          0.288991      -0.0  
+|        6(b)        [93m|[0m      0.28899          0.288991      -0.0  
+|        7(b)        [93m|[0m     0.118856          0.118857      -0.0  
+|        8(b)        [93m|[0m     0.000364          0.000716      -96.8 
+|        9(b)        [93m|[0m     0.000364          0.000716      -96.8 
+|        10(b)       [93m|[0m     0.033871          0.033872      -0.0  
+| [93m------------------------------------------------------------------------[0m
+|  LE Zombie diag. [93m|[0m mean   std     var    gershgorin disc  leeway   leeway % 
+| [93m-------------------------------------------------------------------------------------[0m
+|         1        [93m|[0m 0.0    2.59   6.7081       7.062       -0.3539    -5.3   
+|         2        [93m|[0m 0.0   2.6732  7.1462      7.0665       0.0798     1.1    
+|         3        [93m|[0m 0.0   0.0174  0.0003      0.0876       -0.0873  -28732.2 
+|         4        [93m|[0m 0.0   0.0624  0.0039      0.0492       -0.0453  -1164.4  
+|         5        [93m|[0m 0.0   0.0683  0.0047      0.0581       -0.0534  -1146.6  
+|         6        [93m|[0m 0.0   0.0683  0.0047      0.0581       -0.0534  -1146.6  
+|         7        [93m|[0m 0.0   0.0415  0.0017      0.0227       -0.0209  -1213.2  
+|         8        [93m|[0m 0.0   0.0031   0.0        0.0001       -0.0001   -708.6  
+|         9        [93m|[0m 0.0   0.0031   0.0        0.0001       -0.0001   -708.6  
+|        10        [93m|[0m 0.0   0.0217  0.0005      0.0063       -0.0058  -1237.7  
+| [93m-------------------------------------------------------------------------------------[0m
+|                     [93m/[0m 6.70806  6.92319  0.0431   0.0242   0.02859  0.02859  0.01115  4e-05  4e-05  0.00311
+|                     [93m|[0m 6.92319  7.14623  0.04449  0.02498  0.02951  0.02951  0.01151  4e-05  4e-05  0.0032 
+|                     [93m|[0m 0.0431   0.04449  0.0003     0.0      0.0      0.0      0.0     0.0    0.0     0.0  
+|                     [93m|[0m 0.0242   0.02498    0.0    0.00389    0.0      0.0      0.0     0.0    0.0     0.0  
+|                     [93m|[0m 0.02859  0.02951    0.0      0.0    0.00466    0.0      0.0     0.0    0.0     0.0  
+| covariance matrix = [93m|[0m 0.02859  0.02951    0.0      0.0      0.0    0.00466    0.0     0.0    0.0     0.0  
+|                     [93m|[0m 0.01115  0.01151    0.0      0.0      0.0      0.0    0.00173   0.0    0.0     0.0  
+|                     [93m|[0m  4e-05    4e-05     0.0      0.0      0.0      0.0      0.0    1e-05   0.0     0.0  
+|                     [93m|[0m  4e-05    4e-05     0.0      0.0      0.0      0.0      0.0     0.0   1e-05    0.0  
+|                     [93m\[0m 0.00311  0.0032     0.0      0.0      0.0      0.0      0.0     0.0    0.0   0.00047
+| Conditioned sampling with ground state search on 30 states, each taken from 20 random states begins at 15:53:06
+| | Conditioned sampling with ground state search on 30 states, each taken from 20 random states waiting for the first event...
+| \_ Evaluation finished at 17:09:41 (duration 1 hours 17 min)                                                                                                
+| Measured datasets: ['LEGS_RSOPM_moment_matching_test_sqrt']
 \_
 Plotting obtained measurements...
-| Collecting data from dataset 'LEGS_SOPM_moment_matching_test'...
+| Collecting data from dataset 'LEGS_RSOPM_moment_matching_test_sqrt'...
 | Displaying plot...
 \_

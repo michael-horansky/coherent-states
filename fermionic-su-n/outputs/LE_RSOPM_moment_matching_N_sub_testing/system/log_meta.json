@@ -5,6 +5,7 @@
     "LE_sol"
   ],
   "measured_datasets": [
-    "LEGS_RSOPM_moment_matching_test_sqrt"
+    "LEGS_RSOPM_moment_matching_N_sub=10",
+    "LEGS_RSOPM_moment_matching_N_sub=20"
   ]
 }

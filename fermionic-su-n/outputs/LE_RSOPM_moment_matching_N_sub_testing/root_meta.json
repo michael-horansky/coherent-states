@@ -23,6 +23,22 @@
     "LEGS_RSOPM_moment_matching_N_sub=20": [
       "basis_samples",
       "result_energy_states"
+    ],
+    "LEGS_RSOPM_moment_matching_N_sub=30": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "LEGS_RSOPM_moment_matching_N_sub=50": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "LEGS_RSOPM_moment_matching_N_sub=75": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "LEGS_RSOPM_moment_matching_N_sub=100": [
+      "basis_samples",
+      "result_energy_states"
     ]
   },
   "data_bulk_types": {
@@ -49,6 +65,22 @@
     "LEGS_RSOPM_moment_matching_N_sub=20": {
       "basis_samples": "pkl",
       "result_energy_states": "csv"
+    },
+    "LEGS_RSOPM_moment_matching_N_sub=30": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "LEGS_RSOPM_moment_matching_N_sub=50": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "LEGS_RSOPM_moment_matching_N_sub=75": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "LEGS_RSOPM_moment_matching_N_sub=100": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
     }
   },
   "metadata_types": {
@@ -73,6 +105,22 @@
       "result_energy_states": "pkl"
     },
     "LEGS_RSOPM_moment_matching_N_sub=20": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "LEGS_RSOPM_moment_matching_N_sub=30": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "LEGS_RSOPM_moment_matching_N_sub=50": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "LEGS_RSOPM_moment_matching_N_sub=75": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "LEGS_RSOPM_moment_matching_N_sub=100": {
       "basis_samples": "json",
       "result_energy_states": "pkl"
     }

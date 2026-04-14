@@ -1,5 +1,5 @@
 
-from class_Semaphor import Semaphor
+from utils.class_Semaphor import Semaphor
 
 # -----------------------------------------------------------------------------
 # -------------------------- Typographical constants --------------------------
@@ -457,4 +457,32 @@ class Journal():
         if ans in Journal.answer_strings["no"]:
             self.write(question + "(Answered 'no')", prevent_printing_on_the_fly = True)
             return(False)
+
+# -----------------------------------------------------------------------------
+# --------------------------- class DisabledJournal ---------------------------
+# -----------------------------------------------------------------------------
+# Pass this as a Journal to prevent printing without throwing exceptions on
+# method calls
+
+class DisabledJournal():
+    def __init__(self, verbosity = 0, print_on_the_fly = True, fancy_printing = True, max_row_width = 200):
+        pass
+
+    def write(self, msg, v = -1, prevent_printing_on_the_fly = False):
+        pass
+
+    def enter(self, header, v = -1, semaphored = False, **kwargs):
+        pass
+
+    def exit(self, end_message = None):
+        pass
+
+    def print_matrix(self, m, label, dec_points = 5, max_rows = 11):
+        pass
+
+    def print_table(self, table_name, column_names, row_names, list_of_rows, subtable_borders = [], header_separation = 2):
+        pass
+
+    def update_semaphor_event(self, tau):
+        pass
 

@@ -2,7 +2,7 @@
   "method": "LEGS_Zombie_cov_RSOPM_moment_matching",
   "params": {
     "N": 30,
-    "N_sub": 10,
+    "N_sub": 100,
     "eta": 0.1
   }
 }

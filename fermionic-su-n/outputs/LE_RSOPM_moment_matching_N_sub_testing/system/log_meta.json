@@ -6,6 +6,10 @@
   ],
   "measured_datasets": [
     "LEGS_RSOPM_moment_matching_N_sub=10",
-    "LEGS_RSOPM_moment_matching_N_sub=20"
+    "LEGS_RSOPM_moment_matching_N_sub=20",
+    "LEGS_RSOPM_moment_matching_N_sub=30",
+    "LEGS_RSOPM_moment_matching_N_sub=50",
+    "LEGS_RSOPM_moment_matching_N_sub=75",
+    "LEGS_RSOPM_moment_matching_N_sub=100"
   ]
 }

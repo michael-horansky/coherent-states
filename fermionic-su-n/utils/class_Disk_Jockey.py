@@ -154,14 +154,18 @@ class Disk_Jockey():
         # datum_name specifies filename
 
         if (not self.did_load_from_disk):
-            response = self.journal_instance.ask_yes_no("WARNING: Saving to an existing data directory. Data may be owerwritten. Proceed?")
-            #print("WARNING: Saving to an existing data directory. Data may be owerwritten. Proceed? (y/n)")
-            if response == False:
-                # Do not proceed--instead, we alter storage path to a unique string
-                self.make_dir_name_unique()
+            if self.journal_instance is not None:
+                response = self.journal_instance.ask_yes_no("WARNING: Saving to an existing data directory. Data may be owerwritten. Proceed?")
+                #print("WARNING: Saving to an existing data directory. Data may be owerwritten. Proceed? (y/n)")
+                if response == False:
+                    # Do not proceed--instead, we alter storage path to a unique string
+                    self.make_dir_name_unique()
+                else:
+                    # Proceed and mark loading as safe
+                    self.did_load_from_disk = True
             else:
-                # Proceed and mark loading as safe
-                self.did_load_from_disk = True
+                # If no log, we assume "no" and create a new unique dir name
+                self.make_dir_name_unique()
 
         if self.is_data_initialised[data_group][datum_name]:
             # datum bulk
@@ -213,7 +217,7 @@ class Disk_Jockey():
     def load_datum(self, data_group, datum_name):
         self.did_load_from_disk = True
 
-        if self.is_data_initialised[data_group][datum_name]:
+        if self.is_data_initialised[data_group][datum_name] and self.journal_instance is not None:
             self.journal_instance.write(f"WARNING: Overwriting an initialised data node at '{data_group}/{datum_name}' with data from disk.")
         # metadata
         metadatum_path = Path(self.metadata_directory(data_group, datum_name))
@@ -247,7 +251,7 @@ class Disk_Jockey():
                 self.commit_datum_bulk(data_group, datum_name, pickle.load(datum_bulk_file))
 
             datum_bulk_file.close()
-        else:
+        elif self.journal_instance is not None:
             self.journal_instance.write(f"WARNING: Failed to load node at '{data_group}/{datum_name}' from disk: No such file.")
 
     def save_root_metadata(self):

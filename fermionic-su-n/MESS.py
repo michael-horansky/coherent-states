@@ -1,17 +1,36 @@
+# -----------------------------------------------------------------------------
+# --------------- MESS - Molecular Electronic Structure Solver ----------------
+# -----------------------------------------------------------------------------
+# Big MESS is a Monte Carlo solver which obtains the electronic ground state
+# under the Born-Oppenheimer approximation by sampling a specific parameter
+# space in the vicinity of the Hartree-Fock state | HF >.
+# MESS provides a library of particular parameter spaces and sampling methods,
+# where
+#     -param. spaces are given by various Particle-preserving Coherent States
+#     -sampling methods include naive sampling, CISD-guided sampling, and more
+
+
+
+# ------------------------------ Module imports -------------------------------
+# Standard modules
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
-
+# PySCF
 from pyscf import gto, scf, cc, ao2mo, ci, fci, pbc
-
+# Coherent states
 from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_Qubit import CS_Qubit
 from coherent_states.CS_sample import CS_sample
-
+# Data objects
+from data_objects.class_DO_Molecule import DO_Molecule
+from data_objects.class_DO_Measurement import DO_Measurement
+# Utilities
 from utils.class_Journal import Journal
 from utils.class_Disk_Jockey import Disk_Jockey
 import utils.functions as functions
 
+# ---------------------------- Auxiliary functions ----------------------------
 
 def esp(roots, order, omit = []):
     # roots is a list
@@ -32,52 +51,9 @@ def esp(roots, order, omit = []):
             partial_esp[j] += roots[i] * partial_esp[j - 1]
     return(partial_esp[order])
 
-# this solver assumes that the occupancies in the spin-alpha and spin-beta subspaces are restricted separately.
+# -------------------------------- class MESS ---------------------------------
 
-
-# water molecule
-mol = gto.Mole()
-mol.build(
-    atom = '''O 0 0 0; H  0 1 0; H 0 0 1''',
-    basis = 'sto-3g')
-
-# Notice: STO-type orbital basis is a linear combination of GTOs, which are a product of a real-valued radial function and the complex spherical harmonics.
-# Since the two-body integrals have full rotational symmetry, and the radial dependence is given by a real-valued function, their values are always real.
-# The single-body integrals reflect the angular dependence of the AOs, and as such will be complex-valued.
-
-
-
-# For the AOs, PySCF uses Mulliken's notation: https://gqcg-res.github.io/knowdes/two-electron-integrals.html
-
-# YES SYMMETRY
-
-one_body_kin = mol.intor('int1e_kin', hermi = 1)
-one_body_nuc = mol.intor('int1e_nuc', hermi = 1)
-H_one_body = one_body_kin + one_body_nuc
-
-# As for the s8 symmetry:
-#   The exchange i <-> j, k <-> l is trivial (this is the s4 symmetry). This means we can always choose j >= i, l >= k.
-H_ERI = mol.intor('int2e', aosym = "s8")
-
-def get_nonascending_pairs(l):
-    # for indices in l
-    if isinstance(l, int):
-        l = list(range(l))
-    res = []
-    for a in range(len(l)):
-        for b in range(a + 1):
-            res.append([l[a], l[b]])
-    return(res)
-
-ao_pairs = get_nonascending_pairs(mol.nao)
-all_indices = get_nonascending_pairs(ao_pairs)
-
-# The all_indices list is used as a translation between the s8-symmetrised flat array of int2e and the indices pqrs
-
-
-
-
-class ground_state_solver():
+class MESS():
 
     ###########################################################################
     # --------------- STATIC METHODS, CONSTRUCTORS, DESCRIPTORS ---------------
@@ -107,12 +83,6 @@ class ground_state_solver():
         "diagnostics" : {"diagnostic_log" : "txt"} # Condition numbers, eigenvalue min-max ratios, norms etc
     }
 
-    mean_field_methods = {
-        "RHF" : scf.RHF,
-        "UHF" : scf.UHF
-    }
-
-
     def __init__(self, ID, log_verbosity = 5):
 
         self.ID = ID
@@ -129,7 +99,7 @@ class ground_state_solver():
         # Data Storage Manager
         self.log.write("Initialising Data Storage Manager...", 1)
         self.disk_jockey = Disk_Jockey(f"outputs/{self.ID}", self.log)
-        self.disk_jockey.create_data_nodes(ground_state_solver.data_nodes) # Each solver call adds a new node dynamically
+        self.disk_jockey.create_data_nodes(MESS.data_nodes) # Each solver call adds a new node dynamically
 
         self.user_actions = f"initialised solver {self.ID}\n"
         self.diagnostics_log = []
@@ -531,17 +501,17 @@ class ground_state_solver():
         # We sample around the HF null guess, i.e. Z = 0
         # We include one extra basis vector - the null point itself!
         self.log.write(f"Sampling the Z-parameter space with provided methods.", 3)
-        cur_CS_sample = [[ground_state_solver.coherent_state_types[CS_type].null_state(self.mol.nao, self.S_alpha), ground_state_solver.coherent_state_types[CS_type].null_state(self.mol.nao, self.S_beta)]]
+        cur_CS_sample = [[MESS.coherent_state_types[CS_type].null_state(self.mol.nao, self.S_alpha), MESS.coherent_state_types[CS_type].null_state(self.mol.nao, self.S_beta)]]
         for i in range(N - 1):
 
             if assume_spin_symmetry:
-                new_sample_state = ground_state_solver.coherent_state_types[CS_type].random_state(self.mol.nao, self.S_alpha, sampling_method)
+                new_sample_state = MESS.coherent_state_types[CS_type].random_state(self.mol.nao, self.S_alpha, sampling_method)
                 cur_CS_sample.append([new_sample_state, new_sample_state])
 
             else:
                 cur_CS_sample.append([
-                    ground_state_solver.coherent_state_types[CS_type].random_state(self.mol.nao, self.S_alpha, sampling_method),
-                    ground_state_solver.coherent_state_types[CS_type].random_state(self.mol.nao, self.S_beta, sampling_method)
+                    MESS.coherent_state_types[CS_type].random_state(self.mol.nao, self.S_alpha, sampling_method),
+                    MESS.coherent_state_types[CS_type].random_state(self.mol.nao, self.S_beta, sampling_method)
                     ])
 
         basis_samples_bulk = []
@@ -832,7 +802,7 @@ class ground_state_solver():
         cur_SECS_heatmap = self.LE_sol["exp"]
 
         # We now manually sample Thouless states guided by the SECS heatmap
-        cur_sample = CS_sample(self, ground_state_solver.coherent_state_types[CS_type], add_ref_state = True)
+        cur_sample = CS_sample(self, MESS.coherent_state_types[CS_type], add_ref_state = True)
 
 
         # Here, depending on the CS type, we set up the normal distribution parameters
@@ -877,8 +847,8 @@ class ground_state_solver():
             # We add the best out of 10 random states
             cur_subsample = []
             for n_sub in range(N_subsample):
-                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, np.random.normal(centres_alpha, widths_alpha, shape_alpha))
-                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, np.random.normal(centres_beta, widths_beta, shape_beta))
+                rand_z_alpha = MESS.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, np.random.normal(centres_alpha, widths_alpha, shape_alpha))
+                rand_z_beta = MESS.coherent_state_types[CS_type](self.mol.nao, self.S_beta, np.random.normal(centres_beta, widths_beta, shape_beta))
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -1058,7 +1028,7 @@ class ground_state_solver():
         cur_LE_heatmap = self.LE_sol["exp"] #["g"/"a"/"b"/"ab"] for first order
 
         # We now manually sample Thouless states guided by the SECS heatmap
-        cur_sample = CS_sample(self, ground_state_solver.coherent_state_types[CS_type], add_ref_state = True)
+        cur_sample = CS_sample(self, MESS.coherent_state_types[CS_type], add_ref_state = True)
 
         # We flatten the heatmap
         len_a = self.S_alpha * (self.mol.nao - self.S_alpha)
@@ -1126,8 +1096,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                rand_z_alpha = MESS.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = MESS.coherent_state_types[CS_type](self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -1215,7 +1185,7 @@ class ground_state_solver():
         cur_LE_heatmap = self.LE_sol["exp"] #["g"/"a"/"b"/"ab"] for first order
 
         # We now manually sample Thouless states guided by the SECS heatmap
-        cur_sample = CS_sample(self, ground_state_solver.coherent_state_types[CS_type], add_ref_state = True)
+        cur_sample = CS_sample(self, MESS.coherent_state_types[CS_type], add_ref_state = True)
 
         # We flatten the heatmap
         len_a = self.S_alpha * (self.mol.nao - self.S_alpha)
@@ -1288,8 +1258,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                rand_z_alpha = MESS.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = MESS.coherent_state_types[CS_type](self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -3402,8 +3372,8 @@ class ground_state_solver():
         found_states = 0
         while(True):
             cur_state = [
-                ground_state_solver.coherent_state_types[state_type].random_state(self.M, self.S, sampling_method),
-                ground_state_solver.coherent_state_types[state_type].random_state(self.M, self.S, sampling_method)
+                MESS.coherent_state_types[state_type].random_state(self.M, self.S, sampling_method),
+                MESS.coherent_state_types[state_type].random_state(self.M, self.S, sampling_method)
                 ]
             if inclusion(cur_state):
                 print("Success!")

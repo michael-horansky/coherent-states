@@ -1,5 +1,10 @@
 initialised solver LE_RSOPM_moment_matching_N_sub_testing
 initialise_molecule [M = 20, S = 6]
 load_data
+find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching [N = 30, N_sub = 10, eta = 0.1]
 find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching [N = 30, N_sub = 20, eta = 0.1]
+find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching [N = 30, N_sub = 30, eta = 0.1]
+find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching [N = 30, N_sub = 50, eta = 0.1]
+find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching [N = 30, N_sub = 75, eta = 0.1]
+find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching [N = 30, N_sub = 100, eta = 0.1]
 save_data

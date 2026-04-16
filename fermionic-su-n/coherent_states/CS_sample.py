@@ -75,15 +75,19 @@ class CS_sample:
 
     # Some more interesting methods, which may use the solver object and its methods
 
-    def add_best_of_subsample(self, subsample, max_cond = 1e8, update_semaphor = False, semaphor_offset = None):
+    def add_best_of_subsample(self, subsample, max_cond = 1e8, update_semaphor = False, semaphor_offset = None, condition = 'H', reject_high_overlap = False):
         # Selects one vector from subsample which minimises ground state energy
         # when added to the sample
         # subsample can either be a list of basis vectors or a z tensor ndarray
+        # condition is either H or S; the candidate which lowers the eigenvalue of the condition matrix the most is selected
 
 
         if update_semaphor and semaphor_offset is None:
             # we assume that every step has the same sized subsample
-            semaphor_offset = len(subsample) * ((self.N + 1) * self.N / 2.0 - 1) + 1
+            if condition == "H":
+                semaphor_offset = len(subsample) * ((self.N + 1) * self.N / 2.0 - 1) + 1
+            if condition == "S":
+                semaphor_offset = (self.N + 1) * self.N / 2.0
 
         aug_S = np.zeros((self.N + 1, self.N + 1), dtype=complex)
         aug_H = np.zeros((self.N + 1, self.N + 1), dtype=complex)
@@ -96,50 +100,104 @@ class CS_sample:
         best_self_E = None
         best_S_part = None
         best_H_part = None
+        best_addition_proj = 1.0
+
+        S_inv = np.linalg.inv(self.S)
+        new_overlaps = np.zeros(self.N, dtype = complex)
 
         do_we_create_samples = isinstance(subsample, np.ndarray)
 
-        for i in range(len(subsample)):
-            if do_we_create_samples:
-                # We have to actually create the thing
-                candidate = [self.CS_class(self.M, self.S_alpha, subsample[i][0]), self.CS_class(self.M, self.S_beta, subsample[i][1])]
-            else:
-                candidate = subsample[i]
-            # We augment the overlap matrix
-            for a in range(self.N):
-                aug_S[a][self.N] = self.basis[a][0].norm_overlap(candidate[0]) * self.basis[a][1].norm_overlap(candidate[1])
-                aug_S[self.N][a] = np.conjugate(aug_S[a][self.N])
-            aug_S[self.N][self.N] = 1.0
-            # We augment the Hamiltonian matrix
-            for a in range(self.N):
-                aug_H[a][self.N] = self.solver.H_overlap(self.basis[a], candidate)
+        if condition == "H":
+
+            for i in range(len(subsample)):
+                if do_we_create_samples:
+                    # We have to actually create the thing
+                    candidate = [self.CS_class(self.M, self.S_alpha, subsample[i][0]), self.CS_class(self.M, self.S_beta, subsample[i][1])]
+                else:
+                    candidate = subsample[i]
+                # We augment the overlap matrix
+                for a in range(self.N):
+                    aug_S[a][self.N] = self.basis[a][0].norm_overlap(candidate[0]) * self.basis[a][1].norm_overlap(candidate[1])
+                    aug_S[self.N][a] = np.conjugate(aug_S[a][self.N])
+                aug_S[self.N][self.N] = 1.0
+
+                if reject_high_overlap:
+                    candidate_proj = np.dot(np.conjugate(aug_S[:self.N,self.N]), S_inv @ aug_S[:self.N,self.N])
+                    if candidate_proj > best_addition_proj:
+                        # We reject this state without calculating the new min E because it is not orthogonal enough
+                        self.solver.log.update_semaphor_event(semaphor_offset + (i + 1) * (self.N + 1))
+                        continue
+
+                # We augment the Hamiltonian matrix
+                for a in range(self.N):
+                    aug_H[a][self.N] = self.solver.H_overlap(self.basis[a], candidate)
+
+                    if update_semaphor:
+                        self.solver.log.update_semaphor_event(semaphor_offset + i * (self.N + 1) + a + 1)
+
+                    aug_H[self.N][a] = np.conjugate(aug_H[a][self.N])
+                aug_H[self.N][self.N] = self.solver.H_overlap(candidate, candidate)
 
                 if update_semaphor:
-                    self.solver.log.update_semaphor_event(semaphor_offset + i * (self.N + 1) + a + 1)
+                    self.solver.log.update_semaphor_event(semaphor_offset + (i + 1) * (self.N + 1))
 
-                aug_H[self.N][a] = np.conjugate(aug_H[a][self.N])
-            aug_H[self.N][self.N] = self.solver.H_overlap(candidate, candidate)
+                # If candidate is (almost) linearly dependent on old basis, the
+                # process breaks down. We firstly condition the sampling based
+                # on the condition number of the overlap matrix
 
+                # Now we find the new ground state energy
+                energy_levels, _ = sp.linalg.eigh(aug_H, aug_S)
+                ground_state_index = np.argmin(energy_levels)
+                candidate_E_ground = energy_levels[ground_state_index]
+                assert candidate_E_ground < self.E_ground[self.N - 1] # By Cauchy interlacing theorem
+
+                if candidate_E_ground < min_ground_state:
+                    # This is the best so far
+                    min_ground_state = candidate_E_ground
+                    best_addition = candidate
+                    best_self_E = aug_H[self.N][self.N]
+                    best_S_part = aug_S[:,self.N].copy()
+                    best_H_part = aug_H[:,self.N].copy()
+                    if reject_high_overlap:
+                        best_addition_proj = candidate_proj
+
+        if condition == "S":
+
+            smallest_proj = 1.0
+            smallest_proj_i = -1
+
+            for i in range(len(subsample)):
+                if do_we_create_samples:
+                    # We have to actually create the thing
+                    candidate = [self.CS_class(self.M, self.S_alpha, subsample[i][0]), self.CS_class(self.M, self.S_beta, subsample[i][1])]
+                else:
+                    candidate = subsample[i]
+                # We find the norm squared of the projection onto the existing sample
+
+                for a in range(self.N):
+                    new_overlaps[a] = self.basis[a][0].norm_overlap(candidate[0]) * self.basis[a][1].norm_overlap(candidate[1])
+
+                new_proj = np.dot(np.conjugate(new_overlaps), S_inv @ new_overlaps)
+
+                if new_proj < smallest_proj:
+                    smallest_proj = new_proj
+                    smallest_proj_i = i
+                    best_S_part = np.array(new_overlaps)
+
+            # Now we calculate the H_part
+            if do_we_create_samples:
+                best_addition = [self.CS_class(self.M, self.S_alpha, subsample[smallest_proj_i][0]), self.CS_class(self.M, self.S_beta, subsample[smallest_proj_i][1])]
+            else:
+                best_addition = subsample[smallest_proj_i]
+            best_H_part = np.zeros(self.N, dtype = complex)
+            for a in range(self.N):
+                best_H_part[a] = self.solver.H_overlap(self.basis[a], best_addition)
+                if update_semaphor:
+                    self.solver.log.update_semaphor_event(semaphor_offset + a + 1)
+            best_self_E = aug_H[self.N][self.N] = self.solver.H_overlap(best_addition, best_addition)
             if update_semaphor:
-                self.solver.log.update_semaphor_event(semaphor_offset + (i + 1) * (self.N + 1))
+                self.solver.log.update_semaphor_event(semaphor_offset + self.N + 1)
 
-            # If candidate is (almost) linearly dependent on old basis, the
-            # process breaks down. We firstly condition the sampling based
-            # on the condition number of the overlap matrix
-
-            # Now we find the new ground state energy
-            energy_levels, _ = sp.linalg.eigh(aug_H, aug_S)
-            ground_state_index = np.argmin(energy_levels)
-            candidate_E_ground = energy_levels[ground_state_index]
-            assert candidate_E_ground < self.E_ground[self.N - 1] # By Cauchy interlacing theorem
-
-            if candidate_E_ground < min_ground_state:
-                # This is the best so far
-                min_ground_state = candidate_E_ground
-                best_addition = candidate
-                best_self_E = aug_H[self.N][self.N]
-                best_S_part = aug_S[:,self.N].copy()
-                best_H_part = aug_H[:,self.N].copy()
 
         # We now formally add the best candidate to state properties
         self.add_basis_vector(best_addition, best_self_E, S_part = best_S_part, H_part = best_H_part)

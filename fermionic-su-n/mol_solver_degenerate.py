@@ -2900,9 +2900,15 @@ class ground_state_solver():
         N_vals = [1]
         convergence_sols = [self.reference_state_energy]
 
+        matrix_condition = "H"
+
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        if matrix_condition == "H":
+            max_tau =  N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1
+        elif matrix_condition == "S":
+            max_tau = ((N + 2) * (N + 1) / 2 - 1) + 1
+        self.log.enter(msg, 1, True, tau_space = np.linspace(0, max_tau, 1000 + 1))
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -2913,7 +2919,7 @@ class ground_state_solver():
                 rand_z_beta = CS_Qubit(self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True, condition = matrix_condition, reject_high_overlap = True)
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 

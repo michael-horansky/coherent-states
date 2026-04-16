@@ -25,7 +25,7 @@ trimmed_ground_state_full_ci = {
     }
 
 
-mol_solver = ground_state_solver(f"LE_RSOPM_moment_matching_N_sub_testing")
+mol_solver = ground_state_solver(f"LE_RSOPM_moment_matching_min_S_N_sub_testing")
 mol_solver.initialise_molecule(li2_mol, HF_method = "RHF")
 mol_solver.load_data(["self_analysis", "measured_datasets"])
 
@@ -110,7 +110,7 @@ plt.show()"""
 #for N_sub_val in [10, 20, 30, 50, 75, 100]:
 #    mol_solver.find_ground_state("LE_Zombie_cov_RSOPM_moment_matching", N = 30, N_sub = N_sub_val, dataset_label = f"LEGS_RSOPM_moment_matching_N_sub={N_sub_val}")
 
-#mol_solver.find_ground_state("LE_Zombie_cov_RSOPM_moment_matching", N = 30, N_sub = 20, dataset_label = f"LEGS_RSOPM_moment_matching_N_sub=20")
+#mol_solver.find_ground_state("LE_Zombie_cov_RSOPM_moment_matching", N = 100, N_sub = 50, dataset_label = f"LEGS_RSOPM_moment_matching_S_filter_N_sub=50")
 #for cov_prop in np.arange(0.1, 0.9, 0.1):
 #    mol_solver.find_ground_state("LE_Zombie_cov_SRRM_mirror", N = 10, N_sub = 10, cov_proportion = cov_prop, dataset_label = f"LEGS_SRRM_trim_cp={cov_prop:0.1f}")
 
@@ -124,8 +124,8 @@ ref_energies = []
 #if mol_name in trimmed_ground_state_full_ci:
 #    ref_energies.append({"E" : trimmed_ground_state_full_ci[mol_name], "label" : "trimmed CI", "color" : functions.ref_energy_colors["trimmed CI"], "linestyle" : "dashed"})
 
-mol_solver.plot_datasets_against_param("N_sub", reference_energies = ref_energies)
-#mol_solver.plot_datasets(reference_energies = ref_energies)
-#mol_solver.save_data()
+#mol_solver.plot_datasets_against_param("N_sub", reference_energies = ref_energies)
+mol_solver.plot_datasets(reference_energies = ref_energies)
+mol_solver.save_data()
 #mol_solver.log.close_journal()
 

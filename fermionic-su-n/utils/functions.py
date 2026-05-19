@@ -114,6 +114,13 @@ def sample_with_autocorrelation_safe(mu, Sigma, n_samples):
     return (Z @ L.T + mu)  # shape (n_samples, n_x)
 
 
+# -------------- random sign mask ---------------
+def randsign_mask(s):
+    # s: shape of the output
+    # dt: dtype of output
+    return(np.random.randint(0, 2, s) * 2 - 1)
+
+
 # -----------------------------------------------------------------------------
 # ------------------------ Methods for data formatting ------------------------
 # -----------------------------------------------------------------------------

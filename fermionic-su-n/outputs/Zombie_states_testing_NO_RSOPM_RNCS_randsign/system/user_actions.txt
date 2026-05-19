@@ -1,0 +1,4 @@
+initialised solver Zombie_states_testing_NO_RSOPM_RNCS_randsign
+initialise_molecule [M = 20, S = 15]
+load_data
+save_data

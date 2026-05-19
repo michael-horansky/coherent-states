@@ -1,0 +1,139 @@
+Initialising molecule solver Zombie_states_testing_BeH_RSOPM_RNCS at log_verbosity = 5
+| Initialising Data Storage Manager...
+| Initialising self-analysis properties...
+\_
+Initialising molecule...
+| Building molecule...
+| | There are 6 atomic orbitals, each able to hold 2 electrons of opposing spin.
+| | The molecule is occupied by 5 electrons in total: 3 with spin alpha, 2 with spin beta.
+| | The molecule consists of the following atoms: ['Be', 'H']
+| | The atomic orbitals are ordered as follows: ['0 Be 1s    ', '0 Be 2s    ', '0 Be 2px   ', '0 Be 2py   ', '0 Be 2pz   ', '1 H 1s    ']
+| | The nuclear repulsion energy is 1.5772794306836013
+| | Calculating 1e integrals...
+| | Calculating 2e integrals...
+| \_
+| Performing mean-field calculations to determine the molecular orbitals...
+| | Mean field method: Unrestricted Hartree-Fock (selected by user)
+| | Finding the molecular orbitals using mean-field approximations...
+| | Done! Reference state energy is -14.93470
+| | Transforming 1e and 2e integrals to MO basis...
+| \_
+| Reference state analysis
+| | Occupied orbitals:
+| |   -in the spin-alpha subspace: [0, 1, 2]
+| |   -in the spin-beta subspace:  [0, 1]
+| | Testing each CS type Hamiltonian overlap evaluation against the reference state...
+| |   -For Thouless: E_ref = -14.93470, which agrees with the true value
+| |   -For Qubit: E_ref = -14.93470, which agrees with the true value
+| \_
+\_
+Performing SCF on full CI...
+| FCI solver initialised...
+| Regularising solution as a dict of tuples...
+| Ground state energy as calculated by SCF (full configuration) = -14.95697
+\_
+Obtaining low-excitation solution with env. UHF, spec SE...
+| Solving on a single-excitation closed-shell basis using SCF on a CISD basis...
+| | SCF on CISD basis...
+| | | Obtained CISD solution (basis length = 105)
+| | | Ground state energy: -14.95648 (compare to full CI: -14.95697)
+| | | Excitation-based Slater determinant sub-bases have lengths:
+| | |   For zero excitation: one state only (overlap 0.98723)
+| | |   For one excitation: (3, 3) on alpha, (2, 4) on beta
+| | |   For two excitations: (3, 3, 3, 3) on alpha-alpha, (2, 2, 4, 4) on beta-beta, (3, 2, 3, 4) on mixed-spin excitations
+| | | Obtaining the low-excitation prevalence matrix...
+| | \_
+| | Deriving the reduction matrix for the LE solution...
+| | | Calculating the norm of the solution on singlets and mixed-spin doublets...
+| | | Low excitation solution norm squared:
+| | |   -for all singlet and mixed-doublet excitations: <LE | LE> = 1.00000
+| | |   -for all singlet and mixed-doublet excitations, ignoring the HF state: <LE | LE> = 0.02538
+| | |   -for closed-shell mixed-doublet excitations: <LE | LE> = 0.97576
+| | | Calculating reduction matrix begins at 13:20:36
+| | | | Calculating reduction matrix waiting for the first event...
+| | | \_ Calculation finished at 13:20:40 (duration 3 sec 710 ms)                               
+| | | Calculating closed-shell reduction matrix begins at 13:20:40
+| | | | Calculating closed-shell reduction matrix waiting for the first event...
+| | | \_ Calculation finished at 13:20:41 (duration 404 ms)                                                 
+| | | Calculating transition prevalence matrix begins at 13:20:41
+| | | | Calculating transition prevalence matrix waiting for the first event...
+| | | \_ Calculation finished at 13:20:41 (duration 1 ms)                                                  
+| | | Calculating spin-reduced reduction matrix begins at 13:20:41
+| | | | Calculating spin-reduced reduction matrix waiting for the first event...
+| | | \_ Calculation finished at 13:20:42 (duration 1 sec 895 ms)                                           
+| | | Calculating simultanous occupancy proportion matrix begins at 13:20:42
+| | | | Calculating simultanous occupancy proportion matrix waiting for the first event...
+| | | \_ Calculation finished at 13:20:43 (duration 100 ms)                                                            
+| | | Calculating reduced simultanous occupancy proportion matrix begins at 13:20:43
+| | | | Calculating reduced simultanous occupancy proportion matrix waiting for the first event...
+| | | \_ Calculation finished at 13:20:43 (duration 100 ms)                                                                    
+| | | Calculating the reduced null-coherent state...
+| | | | Trace of RSOPM = 5.000000000000001; expected value is S = 5; renormalising...
+| | | | Norm squared of initial guess is 6.217186260804823. Renormalising...
+| | | | Norm squared of initial guess was renormalised to 0.9999999999999998.
+| | | | Parameters for the gradient descent:
+| | | |   -eta (step size) = 0.1
+| | | |   -epsilon (max allowed error) = 0.0001
+| | | | Calculating z_i to match reduced mode occupancies begins at 13:20:43
+| | | | | Calculating z_i to match reduced mode occupancies waiting for the first event...
+| | | | \_ Calculation finished at 13:20:47 (duration 4 sec 387 ms)                                                   
+| | | | Final norm squared = 1.0000000000000007
+| | | |  <S_i> diagnostic> [93m|[0m < LE | S_i | LE >  < Z | S_i | Z >  Err % 
+| | | | [93m------------------------------------------------------------------------[0m
+| | | |        1(a)        [93m|[0m     0.999164          0.999064       0.0  
+| | | |        2(a)        [93m|[0m     0.514097          0.514107      -0.0  
+| | | |        3(a)        [93m|[0m     0.551006          0.551016      -0.0  
+| | | |        4(a)        [93m|[0m     0.242511          0.242521      -0.0  
+| | | |        5(a)        [93m|[0m     0.242511          0.242521      -0.0  
+| | | |        6(a)        [93m|[0m      0.45071           0.45072      -0.0  
+| | | |        1(b)        [93m|[0m     0.998201          0.998202      -0.0  
+| | | |        2(b)        [93m|[0m     0.006106          0.006118      -0.2  
+| | | |        3(b)        [93m|[0m      0.21729           0.2173       -0.0  
+| | | |        4(b)        [93m|[0m     0.242511          0.242521      -0.0  
+| | | |        5(b)        [93m|[0m     0.242511          0.242521      -0.0  
+| | | |        6(b)        [93m|[0m      0.29338           0.29339      -0.0  
+| | | | [93m------------------------------------------------------------------------[0m
+| | | \_
+| | \_
+| | Success!
+| \_
+\_
+Obtaining the ground state with the method "LEGS Zombie cov RSOPM moment matching" [N = 20, N_sub = 20, N_no_cov = 0, rs = True, alpha = 1.0, eta = 0.1]
+|  LE Zombie diag. [93m|[0m mean   std      var    gershgorin disc   leeway   leeway % 
+| [93m---------------------------------------------------------------------------------------[0m
+|         1        [93m|[0m 0.0   6.139   37.6867      32.2966       5.3901     14.3   
+|         2        [93m|[0m 0.0   0.2149  0.0462       1.7144       -1.6682   -3612.5  
+|         3        [93m|[0m 0.0   0.2292  0.0525        1.894       -1.8415   -3504.8  
+|         4        [93m|[0m 0.0   0.1272  0.0162       0.6917       -0.6755   -4176.0  
+|         5        [93m|[0m 0.0   0.1272  0.0162       0.6917       -0.6755   -4176.0  
+|         6        [93m|[0m 0.0   0.1925  0.0371        1.429        -1.392   -3756.9  
+|         7        [93m|[0m 0.0   4.4282  19.6091      30.8609      -11.2519   -57.4   
+|         8        [93m|[0m 0.0   0.0187  0.0003       0.0152       -0.0148   -4258.6  
+|         9        [93m|[0m 0.0   0.1192  0.0142       0.6159       -0.6017   -4234.5  
+|        10        [93m|[0m 0.0   0.1272  0.0162       0.6917       -0.6755   -4176.0  
+|        11        [93m|[0m 0.0   0.1272  0.0162       0.6917       -0.6755   -4176.0  
+|        12        [93m|[0m 0.0   0.1429  0.0204       0.8558       -0.8354   -4089.8  
+| [93m---------------------------------------------------------------------------------------[0m
+|                     [93m/[0m 37.68672  0.94511  1.04374  0.38425  0.38425  0.79314  27.15272  0.00873  0.34106  0.38425  0.38425  0.47513
+|                     [93m|[0m 0.94511   0.04618  0.01257  0.01109  0.01109  0.01436  0.68154   0.00027  0.00928  0.01109  0.01109  0.00688
+|                     [93m|[0m 1.04374   0.01257  0.05254  0.00815  0.00815  0.02536  0.75279   0.00019  0.0106   0.00815  0.00815  0.01616
+|                     [93m|[0m 0.38425   0.01109  0.00815  0.01618    0.0      0.0    0.27693    6e-05     0.0    0.00518  0.00606    0.0  
+|                     [93m|[0m 0.38425   0.01109  0.00815    0.0    0.01618    0.0    0.27693    6e-05     0.0    0.00606  0.00518    0.0  
+| covariance matrix = [93m|[0m 0.79314   0.01436  0.02536    0.0      0.0    0.03705  0.57205   0.00024  0.00898    0.0      0.0    0.0149 
+|                     [93m|[0m 27.15272  0.68154  0.75279  0.27693  0.27693  0.57205  19.60905  0.00542  0.24599  0.27693  0.27693  0.34269
+|                     [93m|[0m 0.00873   0.00027  0.00019   6e-05    6e-05   0.00024  0.00542   0.00035   2e-05    6e-05    6e-05    4e-05 
+|                     [93m|[0m 0.34106   0.00928  0.0106     0.0      0.0    0.00898  0.24599    2e-05   0.01421    0.0      0.0      0.0  
+|                     [93m|[0m   ...       ...      ...      ...      ...      ...      ...       ...      ...      ...      ...      ...  
+|                     [93m\[0m 0.47513   0.00688  0.01616    0.0      0.0    0.0149   0.34269    4e-05     0.0      0.0      0.0    0.02043
+| Warning: Covariance matrix is not positive-semidefinite (min eig = -0.0050246810190316855)
+| Randomising parameter signs...
+| Alpha and beta spin subspace parameters sampled only based on covariance
+| Conditioned sampling with ground state search on 20 states, each taken from 20 random states begins at 13:20:47
+| | Conditioned sampling with ground state search on 20 states, each taken from 20 random states waiting for the first event...
+| \_ Evaluation finished at 13:21:28 (duration 40 sec 480 ms)                                                                                                 
+| Measured datasets: ['RNCS_20_20_rs']
+\_
+Plotting obtained measurements...
+| Collecting data from dataset 'RNCS_20_20_rs'...
+| Displaying plot...
+\_

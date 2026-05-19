@@ -1,0 +1,6 @@
+initialised solver Zombie_states_testing_BeH_RSOPM_RNCS
+initialise_molecule [M = 12, S = 5]
+full_CI_sol
+find_LE_solution_SE [diag_alg = 'SCF']
+find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching [N = 20, N_sub = 20, N_no_cov = 0, rs = True, alpha = 1.0, eta = 0.1]
+save_data

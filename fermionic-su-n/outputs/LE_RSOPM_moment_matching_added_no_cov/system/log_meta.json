@@ -1,0 +1,13 @@
+{
+  "checklist": [
+    "mol_init",
+    "full_CI_sol",
+    "LE_sol"
+  ],
+  "measured_datasets": [
+    "LEGS_RSOPM_moment_matching_S_filter_N_no_cov=0",
+    "LEGS_RSOPM_moment_matching_S_filter_N_no_cov=5",
+    "LEGS_RSOPM_moment_matching_S_filter_N_no_cov=10",
+    "LEGS_RSOPM_moment_matching_S_filter_randsign"
+  ]
+}

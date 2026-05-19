@@ -1,0 +1,15 @@
+{
+  "checklist": [
+    "mol_init",
+    "full_CI_sol",
+    "LE_sol"
+  ],
+  "measured_datasets": [
+    "RNCS_20_10_1.0",
+    "RNCS_20_10_0.9",
+    "RNCS_20_10_0.75",
+    "RNCS_20_10_0.5",
+    "RNCS_20_10_0.25",
+    "RNCS_20_10_0"
+  ]
+}

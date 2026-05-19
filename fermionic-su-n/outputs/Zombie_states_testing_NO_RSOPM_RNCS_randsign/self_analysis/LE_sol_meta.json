@@ -1,0 +1,26 @@
+{
+  "env": "UHF",
+  "spec": "SE",
+  "params": {
+    "diag_alg": "SCF"
+  },
+  "scope": [
+    [
+      0,
+      0
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      1,
+      1
+    ]
+  ],
+  "label": "at most one excitation in each spin subspace"
+}

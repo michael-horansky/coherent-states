@@ -1,0 +1,11 @@
+{
+  "method": "LEGS_Zombie_cov_RSOPM_moment_matching",
+  "params": {
+    "N": 50,
+    "N_sub": 20,
+    "N_no_cov": 0,
+    "rs": true,
+    "alpha": 1.0,
+    "eta": 0.1
+  }
+}

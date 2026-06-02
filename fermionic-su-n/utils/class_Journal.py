@@ -402,6 +402,7 @@ class Journal():
                 self.cur_semaphor_prefix_id = (self.cur_semaphor_prefix_id + 1) % len(Journal.semaphor_prefixes)
 
     def exit(self, end_message = None):
+        # If popping a semaphor, it will return the duration in ms
         last_routine = self.routine_stack.pop()
 
 
@@ -426,6 +427,8 @@ class Journal():
             self.preview_print(gradual_fg_color[self.depth % len(gradual_fg_color)] + "\\_" + color.END + exit_msg)
         else:
             self.write(f"\\_{exit_msg}", last_routine[1])
+        if was_it_semaphored:
+            return(process_duration)
 
     # Interactive element
 

@@ -26,7 +26,8 @@ trimmed_ground_state_full_ci = {
 
 
 mol_solver = ground_state_solver(f"LE_RSOPM_moment_matching_added_no_cov")
-mol_solver.initialise_molecule(li2_mol, HF_method = "RHF")
+#mol_solver = ground_state_solver(f"Zombie_states_N2_RSOPM_RNCS")
+mol_solver.initialise_molecule(n2_mol, HF_method = "RHF")
 mol_solver.load_data(["self_analysis", "measured_datasets"])
 
 
@@ -84,7 +85,7 @@ plt.show()"""
 
 
 # Self-analysis methods
-#mol_solver.full_CI_sol()
+mol_solver.full_CI_sol()
 
 #cur_SECS_heatmap, cur_SECS_restricted_energy = mol_solver.solve_on_single_excitation_closed_shell()
 
@@ -95,7 +96,7 @@ plt.show()"""
 #    mol_solver.log.write(f"  {i+1}) Coef = {top_sim_exc_states[i][0]:0.4f}; occ. = {top_sim_exc_states[i][1]} (prom {top_sim_exc_states[i][2]})")
 #mol_solver.log.exit()
 
-#mol_solver.find_LE_solution("SE", diag_alg = "SCF")
+mol_solver.find_LE_solution("SE", diag_alg = "SCF")
 
 
 # First, let's check if LE sol SE (CISD SCF for UHF) works the way we expect by comparing its output (especially c1, c2) to an explicit calculation
@@ -120,7 +121,7 @@ plt.show()"""
 
 
 
-#mol_solver.find_ground_state("LE_Zombie_cov_RSOPM_moment_matching", N = 100, N_sub = 50, N_no_cov = 0, rs = True, dataset_label = f"LEGS_RSOPM_moment_matching_S_filter_randsign")
+#mol_solver.find_ground_state("LE_Zombie_cov_RSOPM_moment_matching", N = 100, N_sub = 50, N_no_cov = 0, rs = True, dataset_label = f"RNCS_100_50_rs")
 
 
 
@@ -134,14 +135,14 @@ plt.show()"""
 # Plotting and saving
 #mol_solver.print_singlet_info()
 
-mol_name = "Li2"
+#mol_name = "Li2"
 ref_energies = []
 #if mol_name in trimmed_ground_state_full_ci:
 #    ref_energies.append({"E" : trimmed_ground_state_full_ci[mol_name], "label" : "trimmed CI", "color" : functions.ref_energy_colors["trimmed CI"], "linestyle" : "dashed"})
 
 #mol_solver.plot_datasets_against_param("N_sub", reference_energies = ref_energies)
 mol_solver.plot_datasets(reference_energies = ref_energies)
-#mol_solver.plot_datasets_extra(reference_energies = ref_energies)
+mol_solver.plot_datasets_extra(reference_energies = ref_energies)
 mol_solver.save_data()
 #mol_solver.log.close_journal()
 

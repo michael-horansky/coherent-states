@@ -125,7 +125,8 @@ class CS_sample:
                     candidate_proj = np.dot(np.conjugate(aug_S[:self.N,self.N]), S_inv @ aug_S[:self.N,self.N])
                     if candidate_proj > best_addition_proj:
                         # We reject this state without calculating the new min E because it is not orthogonal enough
-                        self.solver.log.update_semaphor_event(semaphor_offset + (i + 1) * (self.N + 1))
+                        if update_semaphor:
+                            self.solver.log.update_semaphor_event(semaphor_offset + (i + 1) * (self.N + 1))
                         continue
 
                 # We augment the Hamiltonian matrix

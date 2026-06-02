@@ -1,4 +1,5 @@
 initialised solver LE_RSOPM_moment_matching_added_no_cov
-initialise_molecule [M = 20, S = 6]
+initialise_molecule [M = 20, S = 14]
 load_data
+full_CI_sol
 save_data

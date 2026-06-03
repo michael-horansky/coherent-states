@@ -23,6 +23,14 @@
     "RNCS_50_50_rs": [
       "basis_samples",
       "result_energy_states"
+    ],
+    "RNCS_5_5_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "RNCS_50_50_rp": [
+      "basis_samples",
+      "result_energy_states"
     ]
   },
   "data_bulk_types": {
@@ -49,6 +57,14 @@
     "RNCS_50_50_rs": {
       "basis_samples": "pkl",
       "result_energy_states": "csv"
+    },
+    "RNCS_5_5_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "RNCS_50_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
     }
   },
   "metadata_types": {
@@ -73,6 +89,14 @@
       "result_energy_states": "pkl"
     },
     "RNCS_50_50_rs": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "RNCS_5_5_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "RNCS_50_50_rp": {
       "basis_samples": "json",
       "result_energy_states": "pkl"
     }

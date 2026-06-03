@@ -2762,7 +2762,10 @@ class ground_state_solver():
         #     -N: Sample size
         #     -N_sub: Subsample size
         #     -N_no_cov: Number of configs per subsample for which correlation is ignored
-        #     -rs: if True, the parameter signs are randomised. Default False
+        #     -phase: Three options:
+        #         -"ai": As is. Defalt option
+        #         -"rs": Random sign. The parameter signs are randomised, but kept real.
+        #         -"rp": Random phase. The parameter complex phases are randomised.
         #     -alpha: strength of correlation. Default 1.0
         #     -eta: step-size for moment matching; default 1e-8
         #     ------------------------
@@ -2784,13 +2787,11 @@ class ground_state_solver():
             N_no_cov = 0
 
         if "rs" in kwargs:
-            randomise_signs = kwargs["rs"]
+            if kwargs["rs"] in ["ai", "rs", "rp"]:
+                randomise_signs = kwargs["rs"]
         else:
-            randomise_signs = False
-        if randomise_signs:
-            rs_label = "(rs)"
-        else:
-            rs_label = "(no_rs)"
+            randomise_signs = "ai"
+        rs_label = f"({randomise_signs})"
 
         if "alpha" in kwargs:
             alpha = kwargs["alpha"]
@@ -2830,6 +2831,13 @@ class ground_state_solver():
             self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
             self.log.exit()
             return(None)
+
+        if randomise_signs == "ai":
+            self.log.write("Parameter phases are untouched after sampling.")
+        elif randomise_signs == "rs":
+            self.log.write("Parameter signs are randomised.")
+        elif randomise_signs == "rp":
+            self.log.write("Parameter phases are randomised.")
 
         # We now manually sample Thouless states guided by the LE solution
         cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
@@ -2939,14 +2947,14 @@ class ground_state_solver():
         # ...and some without
         rand_X_no_cov = np.random.randn(N * N_no_cov, 2 * self.mol.nao) * np.sqrt(variances) + means
 
-        if randomise_signs:
-            self.log.write("Randomising parameter signs...")
-            rand_X *= functions.randsign_mask(rand_X.shape)
-            rand_X_no_cov *= functions.randsign_mask(rand_X_no_cov.shape)
+        #if randomise_signs:
+        self.log.write("Randomising parameter signs...")
+        rand_X = rand_X * functions.randsign_mask(rand_X.shape, randomise_signs)
+        rand_X_no_cov = rand_X_no_cov * functions.randsign_mask(rand_X_no_cov.shape, randomise_signs)
 
         raw_Z_sample = [
-            np.zeros((N, N_subsample, self.mol.nao)),
-            np.zeros((N, N_subsample, self.mol.nao))
+            np.zeros((N, N_subsample, self.mol.nao), dtype = complex),
+            np.zeros((N, N_subsample, self.mol.nao), dtype = complex)
             ]
 
         if self.HF_method == "RHF":
@@ -3024,13 +3032,13 @@ class ground_state_solver():
             # ...and some without
             cur_rand_X_no_cov = np.random.randn(N_no_cov, 2 * self.mol.nao) * np.sqrt(variances) + means
 
-            if randomise_signs:
-                cur_rand_X *= functions.randsign_mask(cur_rand_X.shape)
-                cur_rand_X_no_cov *= functions.randsign_mask(cur_rand_X_no_cov.shape)
+            #if randomise_signs:
+            cur_rand_X = cur_rand_X * functions.randsign_mask(cur_rand_X.shape, randomise_signs)
+            cur_rand_X_no_cov = cur_rand_X_no_cov * functions.randsign_mask(cur_rand_X_no_cov.shape, randomise_signs)
 
             cur_raw_Z_sample = [
-                np.zeros((N_subsample, self.mol.nao)),
-                np.zeros((N_subsample, self.mol.nao))
+                np.zeros((N_subsample, self.mol.nao), dtype = complex),
+                np.zeros((N_subsample, self.mol.nao), dtype = complex)
                 ]
 
             for n_sub in range(N_subsample - N_no_cov):
@@ -3424,7 +3432,7 @@ class ground_state_solver():
             trim_i += 1
             if trim_i == len(N_space):
                 trim_i = 0
-                break
+                return(0.0, 0.0) # default vals for failed calc
 
 
         sqinv_N_space = np.array(1/np.sqrt(N_space))
@@ -3444,17 +3452,25 @@ class ground_state_solver():
 
         return(E_zero, E_zero_err)
 
-    def get_dataset_info(self, dataset_label):
-        if dataset_label not in self.disk_jockey.metadata.keys():
-            return(None)
-        return([
-            self.ci_energy,
-            self.reference_state_energy,
-            self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_g"],
-            self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_extrapolated"],
-            self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_extrapolated_err"],
-            self.disk_jockey.metadata[dataset_label]["result_energy_states"]["duration"]
-            ])
+    def get_dataset_info(self, dataset_label_list):
+        if isinstance(dataset_label_list, str):
+            dataset_label_list = [dataset_label_list]
+
+        res = {
+            "CI" : self.ci_energy,
+            "HF" : self.reference_state_energy
+            }
+
+        for dataset_label in dataset_label_list:
+            if dataset_label not in self.disk_jockey.data_nodes.keys():
+                continue
+            res[dataset_label] = {
+                "E_g" : self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_g"],
+                "E_extrapolated" : self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_extrapolated"],
+                "E_extrapolated_err" : self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_extrapolated_err"],
+                "duration" : self.disk_jockey.metadata[dataset_label]["result_energy_states"]["duration"]
+                }
+        return(res)
 
     ###########################################################################
     # ----------------------------- User methods ------------------------------
@@ -5525,8 +5541,11 @@ class ground_state_solver():
 
         self.log.close_journal()
 
-    def load_data(self, what_to_load = None):
+    def load_data(self, what_to_load = None, load_specific_datasets = None):
         # what_to_load is a list of magic strings
+        # load_specific_datasets specifies dataset labels which are loaded
+
+
         if what_to_load is None:
             # Default option
             self.load_data(["system", "self_analysis", "measured_datasets"])
@@ -5539,6 +5558,10 @@ class ground_state_solver():
             self.log.write("Reading files on disk...", 5)
             self.disk_jockey.load_data(["system", "diagnostics"]) # Always by default
             loaded_checklist = self.disk_jockey.metadata["system"]["log"]["checklist"]
+
+
+            if load_specific_datasets is None:
+                load_specific_datasets = self.disk_jockey.metadata["system"]["log"]["measured_datasets"]
 
             if "self_analysis" in what_to_load and "mol_init" in loaded_checklist:
                 self.log.enter("Restoring self-analysis values...", 3)
@@ -5596,8 +5619,12 @@ class ground_state_solver():
 
             if "measured_datasets" in what_to_load:
                 self.log.enter("Restoring measured datasets...", 3)
-                for loaded_dataset in self.disk_jockey.metadata["system"]["log"]["measured_datasets"]:
-                    if loaded_dataset not in self.measured_datasets:
+                for loaded_dataset in load_specific_datasets:
+                    if loaded_dataset not in self.disk_jockey.data_nodes.keys():
+                        self.log.write(f"WARNING: Requested dataset '{loaded_dataset}' not found on disk.")
+                    elif loaded_dataset in self.measured_datasets:
+                        self.log.write(f"WARNING: Requested dataset '{loaded_dataset}' initialised during computation session. Loading aborted to not overwrite session data.")
+                    else:
                         self.log.enter(f"Loading dataset '{loaded_dataset}'...", 4)
                         for dataset_datum in self.disk_jockey.data_nodes[loaded_dataset]:
                             self.disk_jockey.load_datum(loaded_dataset, dataset_datum)
@@ -5609,8 +5636,6 @@ class ground_state_solver():
                             self.log.write(f"    -{param_name}: {param_val}", 4)
 
                         self.log.exit()
-                    else:
-                        self.log.write("WARNING: Attempted to load a dataset which exists in internal checklist. Data from the disk was ignored.", 0)
                 self.log.exit()
 
             self.log.exit()

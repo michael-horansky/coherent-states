@@ -5,6 +5,7 @@
     "LE_sol"
   ],
   "measured_datasets": [
-    "RNCS_50_50_rs"
+    "RNCS_50_50_rs",
+    "RNCS_50_50_rp"
   ]
 }

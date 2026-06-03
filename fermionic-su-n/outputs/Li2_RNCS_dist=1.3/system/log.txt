@@ -45,5 +45,10 @@ Loading data from the disk...
 | | |   -sampling method: manual_sample
 | | |   -parameters:
 | | \_
+| | Loading dataset 'RNCS_50_50_rp'...
+| | | Results from dataset 'RNCS_50_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
 | \_
 \_

@@ -115,10 +115,18 @@ def sample_with_autocorrelation_safe(mu, Sigma, n_samples):
 
 
 # -------------- random sign mask ---------------
-def randsign_mask(s):
+def randsign_mask(s, mode = "ai"):
     # s: shape of the output
     # dt: dtype of output
-    return(np.random.randint(0, 2, s) * 2 - 1)
+    if mode == "ai":
+        # as is
+        return(np.ones(s))
+    if mode == "rs":
+        # random sign
+        return(np.random.randint(0, 2, s) * 2 - 1)
+    if mode == "rp":
+        # random phase
+        return(np.exp( 1j * 2.0 * np.pi * np.random.rand(*s) ))
 
 
 # -----------------------------------------------------------------------------

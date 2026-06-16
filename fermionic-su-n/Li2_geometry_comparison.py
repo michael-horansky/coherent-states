@@ -26,7 +26,7 @@ N_sub = 50
 rs = "ai"
 
 
-datasets_to_load = ["RNCS_50_50_rs", "RNCS_50_50_rp"] # None for default
+datasets_to_load = ["RNCS_50_50_rp"] # None for default
 
 
 if rs != "ai":
@@ -214,7 +214,7 @@ secax_y.set_ylabel(r'$E\ [K]$')
 ax2.plot(E_cols["c"], E_cols["HF"] - E_cols["CI"], "x", label = "ref E")
 for ds in datasets_to_load:
     ax2.plot(E_cols["c"], E_cols[ds]["E_g"] - E_cols["CI"], "x", label = ds)
-    ax2.errorbar(E_cols["c"], E_cols[ds]["E_extrapolated"] - E_cols["CI"], yerr = E_cols[ds]["E_extrapolated_err"] * E_base_err[ds], fmt = 'x', capsize = 3, label = f"{ds} (ext.)")
+    #ax2.errorbar(E_cols["c"], E_cols[ds]["E_extrapolated"] - E_cols["CI"], yerr = E_cols[ds]["E_extrapolated_err"] * E_base_err[ds], fmt = 'x', capsize = 3, label = f"{ds} (ext.)")
 
 
 ax2.legend()

@@ -1,0 +1,75 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+from pyscf import gto, scf, fci
+from molecules import *
+from mol_solver_degenerate import ground_state_solver
+from utils.class_Semaphor import Semaphor
+
+from coherent_states.CS_Thouless import CS_Thouless
+from coherent_states.CS_sample import CS_sample
+
+import utils.functions
+
+
+
+benchmark_molecules = {
+    "NO" : no_mol
+#    "N2" : n2_mol
+    }
+
+trimmed_ground_state_full_ci = {
+    "Li2" : -14.65464717398042,
+    "C2" : -74.57429774053233
+
+    }
+
+
+#mol_solver = ground_state_solver(f"Zombie_states_testing_BeH_RSOPM_RNCS")
+#mol_solver.initialise_molecule(beh_mol, HF_method = "UHF")
+mol_solver = ground_state_solver(f"Zombie_states_testing_NO_RSOPM_RNCS")
+mol_solver.initialise_molecule(no_mol, HF_method = "UHF")
+mol_solver.load_data(["self_analysis", "measured_datasets"])
+
+# Self-analysis methods
+#mol_solver.full_CI_sol()
+
+#cur_SECS_heatmap, cur_SECS_restricted_energy = mol_solver.solve_on_single_excitation_closed_shell()
+
+#mol_solver.print_UHF_low_excitation_info()
+#top_sim_exc_states = mol_solver.get_top_simultaneously_excited_states(10)
+#mol_solver.log.enter(f"Displaying top {len(top_sim_exc_states)} simultaneously-excited states...")
+#for i in range(len(top_sim_exc_states)):
+#    mol_solver.log.write(f"  {i+1}) Coef = {top_sim_exc_states[i][0]:0.4f}; occ. = {top_sim_exc_states[i][1]} (prom {top_sim_exc_states[i][2]})")
+#mol_solver.log.exit()
+
+#mol_solver.find_LE_solution("SE", diag_alg = "SCF")
+
+
+# First, let's check if LE sol SE (CISD SCF for UHF) works the way we expect by comparing its output (especially c1, c2) to an explicit calculation
+# Then, let's plot the heatmap for < LE | b_i\hc b_j | LE >
+# Then, let's try the zombie sampling!
+
+
+# Sampling methods
+#N_vals_width, energy_levels_width = mol_solver.find_ground_state("SEGS_width", N = 80, N_sub = 10, dataset_label = "SEGS width")
+#mol_solver.find_ground_state("LE_mixed_spin_covariance", N = 35, N_sub = 10, sigma = 1e-3, dataset_label = "LEGS_s=1e-3")
+
+
+#for cov_alpha in [1.0, 0.9, 0.75, 0.5, 0.25, 0]:
+#    mol_solver.find_ground_state("LE_Zombie_cov_RSOPM_moment_matching", N = 20, N_sub = 10, alpha = cov_alpha, rs = True, dataset_label = f"RNCS_20_10_{cov_alpha}")
+#mol_solver.find_ground_state("LE_Zombie_cov_RSOPM_moment_matching", N = 50, N_sub = 20, rs = True, dataset_label = f"RNCS_50_20_rs")
+
+
+# Plotting and saving
+#mol_solver.print_singlet_info()
+
+ref_energies = []
+#if mol_name in trimmed_ground_state_full_ci:
+#    ref_energies.append({"E" : trimmed_ground_state_full_ci[mol_name], "label" : "trimmed CI", "color" : functions.ref_energy_colors["trimmed CI"], "linestyle" : "dashed"})
+
+#mol_solver.plot_datasets_against_param("alpha", reference_energies = ref_energies)
+mol_solver.plot_datasets_extra(ref_energies)
+mol_solver.save_data()
+#mol_solver.log.close_journal()
+

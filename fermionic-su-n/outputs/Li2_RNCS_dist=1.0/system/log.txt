@@ -40,17 +40,6 @@ Loading data from the disk...
 | |     -diag_alg: SCF
 | \_
 | Restoring measured datasets...
-| | Loading dataset 'RNCS_50_50_rs'...
-| | | Results from dataset 'RNCS_50_50_rs' loaded.
-| | |   -sampling method: LEGS_Zombie_cov_RSOPM_moment_matching
-| | |   -parameters:
-| | |     -N: 50
-| | |     -N_sub: 50
-| | |     -N_no_cov: 0
-| | |     -rs: True
-| | |     -alpha: 1.0
-| | |     -eta: 0.1
-| | \_
 | | Loading dataset 'RNCS_50_50_rp'...
 | | | Results from dataset 'RNCS_50_50_rp' loaded.
 | | |   -sampling method: LEGS_Zombie_cov_RSOPM_moment_matching

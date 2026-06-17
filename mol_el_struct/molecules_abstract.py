@@ -1,5 +1,6 @@
 # This is a standardised file which defines common molecules, so that other source files can just reference this one
 
+import numpy as np
 from pyscf import gto
 
 class AbstractMolecule():
@@ -41,7 +42,7 @@ class AbstractMolecule():
 # Li2: bond length ≈ 2.673 Å = 5.0512375675 Bohr
 # placed symmetrically about origin: half-distance ≈ 2.5256187838 Bohr
 li2_am = AbstractMolecule(
-    atoms = [["Li", 0.0, 0.0, -2.5], ["Li", 0.0, 0.0, -2.5]],
+    atoms = [["Li", 0.0, 0.0, -2.5], ["Li", 0.0, 0.0, 2.5]],
     basis = 'sto-3g',
     unit = 'Bohr'
     )
@@ -94,12 +95,50 @@ no_am = AbstractMolecule(
     )
 
 
+# -------------------------------- BeH2
+
+# BeH2: BeH bonds are of length 1.334 A = 2.5208947 Bohr
+# linear geometry: H - Be - H
+BeH2_am = AbstractMolecule(
+    atoms = [["H", 0.0, 0.0, -2.5208947], ["Be", 0.0, 0.0, 0.0], ["H", 0.0, 0.0, 2.5208947]],
+    basis = 'sto-3g',
+    unit = 'Bohr',
+    spin = 0
+    )
+
+# -------------------------------- F2
+
+# F2: bond length 1.42 A = 2.683411 Bohr
+# placed symmetrically about origin: half-distance ≈ 1.3417055 Bohr
+F2_am = AbstractMolecule(
+    atoms = [["F", 0.0, 0.0, -1.3417055], ["F", 0.0, 0.0, 1.3417055]],
+    basis = 'sto-3g',
+    unit = 'Bohr',
+    spin = 0
+    )
+
+# -------------------------------- H2O
+
+# H2O: bond length between hydrogen and oxygen is 0.9584 A = 1.8111135 Bohr
+# The H - O - H angle is 104.45 degrees = 1.8229964 rad
+b = 1.8111135
+ha = 1.8229964 / 2.0 # half angle
+H2O_am = AbstractMolecule(
+    atoms = [["O", 0.0, 0.0, 0.0], ["H", b * np.cos(ha), 0.0, -b * np.sin(ha)], ["H", b * np.cos(ha), 0.0, b * np.sin(ha)]],
+    basis = 'sto-3g',
+    unit = 'Bohr'
+    )
+
+
 mol_catalogue = {
     'Li2' : li2_am,
     'BeH' : beh_am,
     'N2' : n2_am,
     'C2' : c2_am,
-    'NO' : no_am
+    'NO' : no_am,
+    'BeH2' : BeH2_am,
+    'F2' : F2_am,
+    'H2O' : H2O_am
     }
 
 

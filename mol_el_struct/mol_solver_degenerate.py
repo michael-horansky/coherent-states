@@ -116,7 +116,7 @@ class ground_state_solver():
     def __init__(self, ID, log_verbosity = 5):
 
         self.ID = ID
-        self.log = Journal(log_verbosity)
+        self.log = Journal(log_verbosity, print_on_the_fly = True)
         # Verbosity key:
         #   0/None: Important, always prints (user methods)
         #   2: Important, major subroutine

@@ -1,0 +1,4 @@
+initialised solver Li2_RNCS_dist=1.15
+initialise_molecule [M = 20, S = 6]
+load_data
+save_data

@@ -3090,7 +3090,7 @@ class ground_state_solver():
             "E_extrapolated_err" : E_zero_err,
             "duration" : calc_duration
             })
-        self.diagnostics_log.append({f"find_ground_state_LEGS_Zombie_cov_RSOPM ({dataset_label})" : procedure_diagnostic})
+        self.diagnostics_log.append({f"find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching ({dataset_label})" : procedure_diagnostic})
 
         self.measured_datasets.append(dataset_label)
 
@@ -3418,7 +3418,7 @@ class ground_state_solver():
 
     # Helper methods
 
-    def extrapolate_by_inverse_sqrt(self, dataset_dict, min_N = 10):
+    def extrapolate_by_inverse_sqrt(self, dataset_dict, min_N = 10, err_func = None):
         sigma_zero = 1.0 # dummy val of inherent err
 
         N_space = []
@@ -3436,7 +3436,13 @@ class ground_state_solver():
 
 
         sqinv_N_space = np.array(1/np.sqrt(N_space))
-        sqinv_N_space_yerr = sigma_zero * sqinv_N_space # the lower the N value, the higher the uncertainty! propto 1/sqrt(N). Res err is quoted as a proportion to the unknown coef
+        if err_func is None:
+            sqinv_N_space_yerr = sigma_zero * sqinv_N_space # the lower the N value, the higher the uncertainty! propto 1/sqrt(N). Res err is quoted as a proportion to the unknown coef
+        else:
+            sqinv_N_space_yerr = []
+            for i in range(len(N_space)):
+                sqinv_N_space_yerr.append(sigma_zero * err_func(N_space[i]))
+        #sqinv_N_space_yerr = sigma_zero * np.ones(len(N_space))
         popt, pcov = sp.optimize.curve_fit(
             lambda x, l, c: l * x + c,
             sqinv_N_space[trim_i:],
@@ -3452,9 +3458,14 @@ class ground_state_solver():
 
         return(E_zero, E_zero_err)
 
-    def get_dataset_info(self, dataset_label_list):
+    def get_dataset_info(self, dataset_label_list, base_err_dict = None):
+
+        self.log.enter(f"Collecting info about datasets...")
+
         if isinstance(dataset_label_list, str):
             dataset_label_list = [dataset_label_list]
+
+        self.log.write(f"Requested datasets: {', '.join(dataset_label_list)}")
 
         res = {
             "CI" : self.ci_energy,
@@ -3462,14 +3473,70 @@ class ground_state_solver():
             }
 
         for dataset_label in dataset_label_list:
+            self.log.enter(f"Dataset '{dataset_label}' under scrutiny...")
             if dataset_label not in self.disk_jockey.data_nodes.keys():
+                self.log.write("Dataset not found on disk.")
+                self.log.exit()
                 continue
+
+            # We find the final guess extrapolation
+            final_guess = None
+            final_guess_err = None
+            final_guess_index = None
+            if base_err_dict is not None or "E_base_err" in self.disk_jockey.metadata[dataset_label]["result_energy_states"].keys():
+                self.log.enter("Meta-analysis on sqrt N linfit begins...")
+                if base_err_dict is None:
+                    base_err = self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_base_err"]
+                    self.log.write(f"Base error is {base_err} (as read from the dataset metadata)")
+                else:
+                    base_err = base_err_dict[dataset_label]
+                    self.log.write(f"Base error is given as {base_err}")
+                N_space = []
+                for row in self.disk_jockey.data_bulks[dataset_label]["result_energy_states"]:
+                    N_space.append(row["N"])
+                N_cutoff_space = N_space[:-2]
+
+                self.log.write(f"Cutoff N values range from {N_cutoff_space[0]} to {N_cutoff_space[-1]}.")
+
+                E_ext_space = np.zeros(len(N_cutoff_space))
+                E_ext_err_space = np.zeros(len(N_cutoff_space))
+
+                for i in range(len(N_cutoff_space)):
+                    cur_E_ext, cur_E_ext_err = self.extrapolate_by_inverse_sqrt(self.disk_jockey.data_bulks[dataset_label]["result_energy_states"], N_cutoff_space[i])
+                    E_ext_space[i] = cur_E_ext
+                    E_ext_err_space[i] = cur_E_ext_err * base_err
+
+                self.log.write("Extrapolated energy and its uncertainty calculated for each cutoff N value.")
+
+                # As our FINAL GUESS, we select the first datapoint (lowest cutoff) for which all subsequent datapoints are within its interval of uncertainty
+                for i in range(len(N_cutoff_space)):
+                    is_consistent_with_subsequent_datapoints = True
+                    for j in range(i + 1, len(N_cutoff_space)):
+                        if E_ext_space[j] > E_ext_space[i] + E_ext_err_space[i] or E_ext_space[j] < E_ext_space[i] - E_ext_err_space[i]:
+                            is_consistent_with_subsequent_datapoints = False
+                            break
+                    if is_consistent_with_subsequent_datapoints:
+                        final_guess = E_ext_space[i]
+                        final_guess_err = E_ext_err_space[i]
+                        final_guess_index = i
+                        break
+                self.log.write(f"Lowest consistent cutoff N value is {N_cutoff_space[final_guess_index]}; corresponding ext. E = {final_guess:0.5f} +- {final_guess_err:0.5f}")
+                self.log.exit()
+            else:
+                self.log.write("Base error (on an N = 1 calculation) not given; extrapolation meta-analysis skipped.")
+
+
             res[dataset_label] = {
                 "E_g" : self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_g"],
-                "E_extrapolated" : self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_extrapolated"],
-                "E_extrapolated_err" : self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_extrapolated_err"],
+                "E_extrapolated" : final_guess, #self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_extrapolated"],
+                "E_extrapolated_err" : final_guess_err, #self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_extrapolated_err"],
                 "duration" : self.disk_jockey.metadata[dataset_label]["result_energy_states"]["duration"]
                 }
+            self.log.write(f"  -Ground state energy estimate: {res[dataset_label]['E_g']}")
+            if final_guess is not None:
+                self.log.write(f"  -Lowest self-consistent extrapolated energy: {res[dataset_label]['E_extrapolated']:0.5f} +- {res[dataset_label]['E_extrapolated_err']:0.5f}")
+            self.log.write(f"  -Dataset calculation duration: {functions.dtstr(res[dataset_label]['duration'])}")
+            self.log.exit()
         return(res)
 
     ###########################################################################

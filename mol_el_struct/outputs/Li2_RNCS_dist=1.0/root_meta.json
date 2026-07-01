@@ -16,6 +16,10 @@
     "diagnostics": [
       "diagnostic_log"
     ],
+    "RNCS_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
     "RNCS_50_50_rp": [
       "basis_samples",
       "result_energy_states"
@@ -38,6 +42,10 @@
     "diagnostics": {
       "diagnostic_log": "txt"
     },
+    "RNCS_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
     "RNCS_50_50_rp": {
       "basis_samples": "pkl",
       "result_energy_states": "csv"
@@ -59,6 +67,10 @@
     },
     "diagnostics": {
       "diagnostic_log": "json"
+    },
+    "RNCS_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
     },
     "RNCS_50_50_rp": {
       "basis_samples": "json",

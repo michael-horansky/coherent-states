@@ -1,0 +1,10 @@
+Electronic structure theory Monte Carlo with high accuracy using Particle Number Conserving Coherent States (?)
+Dissociation energy - reproduce!
+systematically look at extrapolation - vary the cutoff point, calculate 2nd derivative
+
+SECONDARY IDEA (to be looked at AFTER making extrapolation systematic)
+-for one separation coef, take the full CI (assumed to be known)
+-decompose it into a PNCCS basis by repeatedly projecting out the maximum overlap vector
+-freeze the basis and use it to calculate the g.s. E for varying sep coef
+"Calculating potential surfaces using frozen CS bases by extrapolation from a known point"
+

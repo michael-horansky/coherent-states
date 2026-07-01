@@ -1,0 +1,3 @@
+----------------- F2_RNCS_dist=1.1 diagnostic log -----------------
+find_ground_state_from_z_tensor (RNCS_50_50_rp)
+    Full sample condition number = 30346858.70112334

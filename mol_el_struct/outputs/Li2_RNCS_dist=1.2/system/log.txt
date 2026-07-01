@@ -40,10 +40,29 @@ Loading data from the disk...
 | |     -diag_alg: SCF
 | \_
 | Restoring measured datasets...
-| | Loading dataset 'RNCS_50_50_rp'...
-| | | Results from dataset 'RNCS_50_50_rp' loaded.
-| | |   -sampling method: manual_sample
+| | Loading dataset 'RNCS_50_50_rp_nf'...
+| | | Results from dataset 'RNCS_50_50_rp_nf' loaded.
+| | |   -sampling method: LEGS_Zombie_cov_RSOPM_moment_matching
 | | |   -parameters:
+| | |     -N: 50
+| | |     -N_sub: 50
+| | |     -N_no_cov: 0
+| | |     -rs: rp
+| | |     -alpha: 1.0
+| | |     -eta: 0.1
 | | \_
 | \_
 \_
+Collecting info about datasets...
+| Requested datasets: RNCS_50_50_rp_nf
+| Dataset 'RNCS_50_50_rp_nf' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is 0.003072835443559953 (as read from the dataset metadata)
+| | | Cutoff N values range from 1 to 49.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 20; corresponding ext. E = -14.66121 +- 0.00069
+| | \_
+| |   -Ground state energy estimate: -14.660138378671475
+| |   -Lowest self-consistent extrapolated energy: -14.66121 +- 0.00069
+| |   -Dataset calculation duration: 2 hours 45 min
+| \_

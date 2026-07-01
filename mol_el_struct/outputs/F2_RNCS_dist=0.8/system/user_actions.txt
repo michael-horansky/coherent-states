@@ -1,0 +1,4 @@
+initialised solver F2_RNCS_dist=0.8
+initialise_molecule [M = 20, S = 18]
+load_data
+save_data

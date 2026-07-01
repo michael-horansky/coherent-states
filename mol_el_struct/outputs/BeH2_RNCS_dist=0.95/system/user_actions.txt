@@ -1,0 +1,4 @@
+initialised solver BeH2_RNCS_dist=0.95
+initialise_molecule [M = 14, S = 6]
+load_data
+save_data

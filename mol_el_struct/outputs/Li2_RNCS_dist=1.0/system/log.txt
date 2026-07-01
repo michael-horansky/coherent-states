@@ -53,3 +53,16 @@ Loading data from the disk...
 | | \_
 | \_
 \_
+Collecting info about datasets...
+| Requested datasets: RNCS_50_50_rp
+| Dataset 'RNCS_50_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is 0.0017330915847944169 (as read from the dataset metadata)
+| | | Cutoff N values range from 1 to 49.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 27; corresponding ext. E = -14.66744 +- 0.00060
+| | \_
+| |   -Ground state energy estimate: -14.666543347416159
+| |   -Lowest self-consistent extrapolated energy: -14.66744 +- 0.00060
+| |   -Dataset calculation duration: 2 hours 19 min
+| \_

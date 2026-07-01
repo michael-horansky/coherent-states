@@ -1,0 +1,4 @@
+initialised solver H2O_RNCS_dist=1.05
+initialise_molecule [M = 14, S = 10]
+load_data
+save_data

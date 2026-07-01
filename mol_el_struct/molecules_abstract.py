@@ -5,12 +5,14 @@ from pyscf import gto
 
 class AbstractMolecule():
 
-    def __init__(self, atoms, basis, unit, spin = None):
+    def __init__(self, atoms, basis, unit, spin = None, label = None):
         self.atoms = atoms # list of ["label", pos x, pos y, pos z]
         self.basis = basis
         self.unit = unit
         self.spin = spin
 
+        # "label" is a human-readable string to be used in pyplot. It can use latex formatting.
+        self.label = label
 
 
     def get_atoms(self, scale = 1.0):
@@ -44,7 +46,8 @@ class AbstractMolecule():
 li2_am = AbstractMolecule(
     atoms = [["Li", 0.0, 0.0, -2.5], ["Li", 0.0, 0.0, 2.5]],
     basis = 'sto-3g',
-    unit = 'Bohr'
+    unit = 'Bohr',
+    label = r'${\rm Li}_2$'
     )
 
 # bigger basis: 6-31g**
@@ -59,7 +62,8 @@ beh_am = AbstractMolecule(
     atoms = [["Be", 0.0, 0.0, 0.0], ["H", 0.0, 0.0, 2.5360122767]],
     basis = 'sto-3g',
     unit = 'Bohr',
-    spin = 1
+    spin = 1,
+    label = r'BeH'
     )
 
 
@@ -70,7 +74,8 @@ beh_am = AbstractMolecule(
 n2_am = AbstractMolecule(
     atoms = [["N", 0.0, 0.0, -1.0374595677], ["N", 0.0, 0.0, 1.0374595677]],
     basis = 'sto-3g',
-    unit = 'Bohr'
+    unit = 'Bohr',
+    label = r'${\rm N}_2$'
     )
 
 # ---------------------------------- C2
@@ -80,7 +85,8 @@ n2_am = AbstractMolecule(
 c2_am = AbstractMolecule(
     atoms = [["C", 0.0, 0.0, -1.1739922704], ["C", 0.0, 0.0, 1.1739922704]],
     basis = 'sto-3g',
-    unit = 'Bohr'
+    unit = 'Bohr',
+    label = r'${\rm C}_2$'
     )
 
 # -------------------------------- NO
@@ -91,7 +97,8 @@ no_am = AbstractMolecule(
     atoms = [["N", 0.0, 0.0, -1.0875373064], ["O", 0.0, 0.0, 1.0875373064]],
     basis = 'sto-3g',
     unit = 'Bohr',
-    spin = 1
+    spin = 1,
+    label = r'NO'
     )
 
 
@@ -103,7 +110,8 @@ BeH2_am = AbstractMolecule(
     atoms = [["H", 0.0, 0.0, -2.5208947], ["Be", 0.0, 0.0, 0.0], ["H", 0.0, 0.0, 2.5208947]],
     basis = 'sto-3g',
     unit = 'Bohr',
-    spin = 0
+    spin = 0,
+    label = r'${\rm BeH}_2$'
     )
 
 # -------------------------------- F2
@@ -114,7 +122,8 @@ F2_am = AbstractMolecule(
     atoms = [["F", 0.0, 0.0, -1.3417055], ["F", 0.0, 0.0, 1.3417055]],
     basis = 'sto-3g',
     unit = 'Bohr',
-    spin = 0
+    spin = 0,
+    label = r'${\rm F}_2$'
     )
 
 # -------------------------------- H2O
@@ -126,7 +135,8 @@ ha = 1.8229964 / 2.0 # half angle
 H2O_am = AbstractMolecule(
     atoms = [["O", 0.0, 0.0, 0.0], ["H", b * np.cos(ha), 0.0, -b * np.sin(ha)], ["H", b * np.cos(ha), 0.0, b * np.sin(ha)]],
     basis = 'sto-3g',
-    unit = 'Bohr'
+    unit = 'Bohr',
+    label = r'${\rm H}_2 {\rm O}$'
     )
 
 

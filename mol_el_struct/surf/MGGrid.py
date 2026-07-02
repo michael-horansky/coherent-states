@@ -1,13 +1,15 @@
 
 import numpy as np
 
-from grids.MGStructure import MGStructure
+from surf.MGStructure import MGStructure
+from surf.MGeometry import MGeometry
+from surf.MPSNode import MPSNode
 
-# MGGrid for an N-dimensional grid
+# MGGrid for a D-dimensional grid
 
 class MGGrid(MGStructure):
 
-    def __init__(self, mol_bp, base_g, dg, ranges = None):
+    def __init__(self, mol_bp, base_g, dg, ranges = None, base_sol = 1):
         # mol_bp is an instance of MBlueprint
         # base_g is an instance of MGeometry
         # dg is a list of instances of MGeometry
@@ -25,7 +27,7 @@ class MGGrid(MGStructure):
         self.spans = [] # for each i, this counts the width of the interval
         for i in range(self.D):
             min_c, max_c = self.ranges[i]
-            self.spans[i] = max_c - min_c + 1
+            self.spans.append(max_c - min_c + 1)
 
         # we find the canonical index of the base node
         self.base_can_i = self.get(np.zeros(self.D, dtype = int))
@@ -44,12 +46,28 @@ class MGGrid(MGStructure):
             self.geometries[can_i] = MGeometry(cur_g_r)
             self.nodes[can_i] = MPSNode(self.mol_bp, self.geometries[can_i])
 
+        self.N_nodes = len(self.nodes)
+
+        if isinstance(base_sol, int):
+            self.find_base_sol(base_sol)
+        else:
+            self.base_sol = base_sol
+
+        dg_repr = []
+        for i in range(self.D):
+            dg_repr.append(self.dg[i].r.tolist())
+
+        self.init_metadata("MGGrid", "A D-dim grid built from a reference geometry and D linearly-independent deformation vectors.", {
+            "dg" : dg_repr,
+            "ranges" : self.ranges
+            })
+
 
     def get(self, r):
         # r is a list of coefs.
         i_r = [] # assigns an index within the interval of each component of r
         for i in range(self.D):
-            min_c, max_x = self.ranges[i]
+            min_c, max_c = self.ranges[i]
             if r[i] < min_c or r[i] > max_c:
                 return(None)
             i_r.append(r[i] - min_c)
@@ -64,11 +82,11 @@ class MGGrid(MGStructure):
 
     def find(self, i):
         r = np.zeros(self.D, dtype = int)
-        for i in range(self.D - 1, -1, -1):
-            remainder = i % self.spans[i]
-            min_c, max_c = self.ranges[i]
-            r[i] = min_c + remainder
-            i = i // self.spans[i]
+        for i_rep in range(self.D - 1, -1, -1):
+            remainder = i % self.spans[i_rep]
+            min_c, max_c = self.ranges[i_rep]
+            r[i_rep] = min_c + remainder
+            i = i // self.spans[i_rep]
         return(r)
 
     def neighbours(self, i):

@@ -2,7 +2,7 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 
-from pyscf import gto, scf, cc, ao2mo, ci, fci, pbc
+from pyscf import gto, scf, cc, ao2mo, ci, fci
 
 from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_Qubit import CS_Qubit

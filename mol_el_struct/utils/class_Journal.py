@@ -210,6 +210,13 @@ class Journal():
 
     # Special object printing methods
 
+    def print_itemize(self, dict_of_items):
+        for label, value in dict_of_items.items():
+            if self.fancy_printing:
+                self.write("  " + color.BRIGHT_YELLOW + "-" + color.END + label + f": {value}")
+            else:
+                self.write(f"  -{label}: {value}")
+
     def print_matrix(self, m, label, dec_points = 5, max_rows = 11):
 
         # First, we create the label prefix

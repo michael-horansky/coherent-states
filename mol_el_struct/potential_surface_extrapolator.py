@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
@@ -58,20 +59,17 @@ class potential_surface_extrapolator():
 
     data_nodes = {
         "system" : {"user_actions" : "txt", "log" : "txt"}, # User actions summary, Journal style log
+
         "molecule" : {"mol_structure" : "pkl", "mode_structure" : "pkl"}, # molecule properties
 
-        # self_analysis contains solutions performed on configuration bases,
-        # such as full CI (performed with SCF) or various low-excitation ("LE")
-        # bases used to guide the sampling process.
-        # Solutions are always stored as dicts in the form
-        #     sol[((occ_alpha, occ_beta))] = coef of that state in ground state
-        # Metadata for low-excitation solutions specifies what kind of LE basis
-        # was used (e.g. singlet CAS with up to 2 open shells for RHF, etc...).
-        "self_analysis" : {
-            "physical_properties" : "json", # Short properties: energies of solutions below
-            "full_CI_sol" : "json",
-            "LE_sol" : "json"
-            }, # things which are deterministic but costly to calculate
+        "surfaces" : {
+            "geometry" : "csv",
+            "base_node" : "csv",
+            "mean_field_MO_coefs" : "csv",
+            "mean_field_H_one",
+            "mean_field_H_two"
+            },
+
         "diagnostics" : {"diagnostic_log" : "txt"} # Condition numbers, eigenvalue min-max ratios, norms etc
     }
 
@@ -96,8 +94,8 @@ class potential_surface_extrapolator():
 
         # Data Storage Manager
         self.log.write("Initialising Data Storage Manager...", 1)
-        self.disk_jockey = Disk_Jockey(f"outputs/{self.ID}", self.log)
-        self.disk_jockey.create_data_nodes(ground_state_solver.data_nodes) # Each solver call adds a new node dynamically
+        #self.disk_jockey = Disk_Jockey(f"outputs/{self.ID}", self.log)
+        #self.disk_jockey.create_data_nodes(potential_surface_extrapolator.data_nodes) # Each solver call adds a new node dynamically
 
         self.user_actions = f"initialised solver {self.ID}\n"
         self.diagnostics_log = []
@@ -108,25 +106,8 @@ class potential_surface_extrapolator():
         self.checklist = [] # List of succesfully performed actions
         self.measured_datasets = [] # list of dataset labels
 
-        # mol_init properties
-        self.mol = None
-        self.mean_field = None
-        self.HF_method = None
-        self.reference_state_energy = None
-        # Full CI properties
-        self.ci_energy = None
-        self.ci_sol = None # We did not perform full CI
-        # Low-excitation solution properties
-        self.LE_sol = {
-            "E" : None, # Energy of solution
-            "sol" : None, # dict[occ tuple] = coefficient
-            "exp" : None # expectation value constraint object, context-sensitive form
-            }
-        self.LE_description = {
-            "env" : None, # RHF or UHF, just for verbosity
-            "spec" : None, # magic word uniquely specifying process
-            "params" : None # parameters used during the solving
-            }
+        # Potential surface structure properties
+        self.structure = None
 
         self.log.exit()
 
@@ -328,11 +309,36 @@ class potential_surface_extrapolator():
 
         # This method runs HF and FCI for every node in the structure
 
+        self.log.enter("Initialising molecular geometry structure...")
+
         self.structure = structure
 
-        # We run HF for every node
-        for i in range(len(self.structure.nodes)):
+        self.log.write("Molecule blueprint:")
+        self.log.print_itemize({
+            "name" : self.structure.mol_bp.name,
+            "atoms" : ', '.join(self.structure.mol_bp.hr_atoms),
+            "basis" : self.structure.mol_bp.basis,
+            "unit" : self.structure.mol_bp.unit
+            })
+
+        if self.structure.mol_bp.spin is not None:
+            self.log.write(f"  -spin: determined automatically")
+        else:
+            self.log.write(f"  -spin: {self.structure.mol_bp.spin}")
+
+        self.log.write("Geometry structure:")
+        self.log.write(f"  {self.structure.geometry_meta['class']}: {self.structure.geometry_meta['desc']}")
+
+        self.log.write(f"Number of potential surfaces investigated: {self.structure.base_node_meta['N_surf']}")
+
+        self.log.enter("Running mean-field calculations for all nodes", semaphored = True, tau_space = np.linspace(0, self.structure.N_nodes + 1, 100 + 1))
+
+        # We run HF for every node TODO unless it was loaded from disk NOTE save this for a dedicated load_structure method?
+        for i in range(self.structure.N_nodes):
             self.structure.nodes[i].run_HF(HF_method)
+            self.log.update_semaphor_event(i + 1)
+
+        self.log.exit("Mean field calculation")
 
 
         # Now every node has its MOs and exchange integrals
@@ -343,15 +349,37 @@ class potential_surface_extrapolator():
         self.S_alpha = nalpha
         self.S_beta = nbeta
 
-        self.structure.nodes_meta["HF_method"] = HF_method
+        self.structure.nodes_meta["HF_method"] = self.structure.nodes[0].HF_method
         self.structure.nodes_meta["N_orb"] = self.N_orb
         self.structure.nodes_meta["S_alpha"] = self.S_alpha
         self.structure.nodes_meta["S_beta"] = self.S_beta
 
-    def run_FCI_on_structure(self, N_surf):
+        self.log.write("Hilbert space:")
+        self.log.print_itemize(self.structure.nodes_meta)
 
-        for i in range(len(self.structure.nodes)):
-            node = self.structure.nodes[i]
+        self.log.exit()
+
+    def run_FCI_on_structure(self):
+
+        self.log.enter("Running FCI for every node in the geometry structure...")
+
+        N_surf = self.structure.base_node_meta["N_surf"]
+
+        self.log.write("Allocating memory for results...")
+
+        FCI_energies = np.zeros((N_surf, self.structure.N_nodes))
+        FCI_coefs = np.zeros((N_surf, self.structure.N_nodes, math.comb(self.N_orb, self.S_alpha) * math.comb(self.N_orb, self.S_beta))) # real coefs for FCI
+
+        self.log.enter("Performing FCI", semaphored = True, tau_space = np.linspace(0, self.structure.N_nodes + 1, 1000 + 1))
+
+        for i in range(self.structure.N_nodes):
+            cur_FCI_energies, cur_FCI_coefs = self.structure.nodes[i].run_FCI(N_surf)
+            for i_surf in range(N_surf):
+                FCI_energies[i_surf, i] = cur_FCI_energies[i_surf]
+                FCI_coefs[i_surf, i] = cur_FCI_coefs[i_surf]
+            self.log.update_semaphor_event(i + 1)
+
+            """node = self.structure.nodes[i]
             if node.HF_method == "RHF":
                 cisolver = fci.FCI(node.mol, node.MO_coefs["a"])
             elif node.HF_method == "UHF":
@@ -375,16 +403,22 @@ class potential_surface_extrapolator():
                     for b in range(raw_FCI_sol[i_surf].shape[1]):
                         sol_array[self.addr_to_index(a, b)] = raw_FCI_sol[i_surf][a, b]
 
-                node.add_surface(f"FCI[{i_surf}]", FCI_E[i_surf], sol_array)
+                FCI_energies[i_surf, i] = FCI_E[i_surf]
+                FCI_coefs[i_surf, i] = sol_array"""
+
+        self.log.exit("FCI calculation")
 
         self.structure.nodes_meta["FCI_known"] = True
-        self.structure.nodes_meta["N_surf"] = N_surf
 
         for i_surf in range(N_surf):
-            self.structure.nodes_meta["surface_labels"].append(f"FCI[{i_surf}]")
+            self.structure.add_surface(f"FCI[{i_surf}]", FCI_energies[i_surf], "occupancy", FCI_coefs[i_surf], i_surf, "FCI")
+
+        self.log.write(f"{N_surf} lowest-energy FCI surfaces saved.")
+
+        self.log.exit()
 
 
-    """
+    r"""
     def initialise_base_molecule(self, mol_bp, base_g, N_surf, HF_method = "default"):
         # mol is an instance of MBlueprint
         # base_g is an instance of MGeometry
@@ -615,19 +649,6 @@ class potential_surface_extrapolator():
     # --------------------- Occupancy bitstring labelling ---------------------
 
 
-    def addr_to_index(self, addr_A, addr_B):
-        # zips up the indices on the two spin subspaces into canonical index
-
-        return( addr_A * math.comb(self.N_orb, self.S_beta) + addr_B )
-
-    def index_to_occ_string(self, i):
-
-        addr_A = i // math.comb(self.N_orb, self.S_beta)
-        addr_B = i % math.comb(self.N_orb, self.S_beta)
-
-        occ_A = fci.cistring.addr2str(self.N_orb, self.S_alpha, addr_A)
-        occ_B = fci.cistring.addr2str(self.N_orb, self.S_beta, addr_B)
-
 
     """
     def occ_list_to_occ_string(self, occ_list):
@@ -776,6 +797,7 @@ class potential_surface_extrapolator():
         # Save the surface calculation
         for surface_label in self.structure.nodes_meta["surface_labels"]:
             self.disk_jockey.commit_datum_bulk("surfaces", surface_label, TODO) # csv row : node index, col : E, coef 0, coef 1 ...
+            self.disk_jockey.commit_metadatum("surfaces", surface_label, self.structure.surfaces_meta[surface_label])
 
 
 
@@ -914,16 +936,16 @@ class potential_surface_extrapolator():
 
 
 
-   # --------------------------------------------------------------------------
-   # ------------------------------ User methods ------------------------------
-   # --------------------------------------------------------------------------
+    # --------------------------------------------------------------------------
+    # ------------------------------ User methods ------------------------------
+    # --------------------------------------------------------------------------
 
-   def find_potential_surfaces(self, method, **kwargs):
-        if method in self.find_potential_surfaces_methods.keys():
-            return(self.find_potential_surfaces_methods[method](**kwargs))
-        else:
-            self.log.write(f"ERROR: Unknown potential surface analysis method {method}. Available methods: {self.find_potential_surfaces_methods.keys()}")
-            return(None)
+    def find_potential_surfaces(self, method, **kwargs):
+            if method in self.find_potential_surfaces_methods.keys():
+                return(self.find_potential_surfaces_methods[method](**kwargs))
+            else:
+                self.log.write(f"ERROR: Unknown potential surface analysis method {method}. Available methods: {self.find_potential_surfaces_methods.keys()}")
+                return(None)
 
 
 

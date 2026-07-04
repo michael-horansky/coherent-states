@@ -14,7 +14,8 @@
       "mean_field_H_two",
       "mean_field_reference_state_energy",
       "base_sol_energies",
-      "base_sol_coefs"
+      "base_sol_coefs",
+      "base_sol_spin_mult"
     ],
     "diagnostics": [
       "diagnostic_log"
@@ -43,7 +44,8 @@
       "mean_field_H_two": "nda",
       "mean_field_reference_state_energy": "nda",
       "base_sol_energies": "nda",
-      "base_sol_coefs": "nda"
+      "base_sol_coefs": "nda",
+      "base_sol_spin_mult": "nda"
     },
     "diagnostics": {
       "diagnostic_log": "txt"
@@ -72,7 +74,8 @@
       "mean_field_H_two": "json",
       "mean_field_reference_state_energy": "json",
       "base_sol_energies": "json",
-      "base_sol_coefs": "json"
+      "base_sol_coefs": "json",
+      "base_sol_spin_mult": "json"
     },
     "diagnostics": {
       "diagnostic_log": "json"

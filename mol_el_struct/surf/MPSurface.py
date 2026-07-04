@@ -34,3 +34,12 @@ class MPSurface():
 
         self.meta = meta
 
+
+
+class FCISurface(MPSurface):
+
+    def __init__(self, label, E, basis, coef, meta):
+        super().__init__(label, E, basis, coef, meta)
+
+        # We determine the spin eigenvalue
+

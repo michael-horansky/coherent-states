@@ -26,6 +26,7 @@
 #      expected.
 #   4. Any init_base_sol method: Initialises the base solution (FCI at base
 #      node). Can be either done automatically or loaded manually.
+import math
 import numpy as np
 
 from surf.MGeometry import MGeometry
@@ -127,30 +128,114 @@ class MGStructure():
 
     # -------------------- 4. Base solution initialisation --------------------
 
-    def load_base_sol(self, energies, coefs):
-        #self.base_sol = []
+    def load_base_sol(self, energies, coefs, spin_mult):
+        # energies: H eigenvals for each root
+        # coefs: occ basis rep for each root
+        # spin_mult: spin multiplicity 2S + 1 for each root
+
         self.N_surf = len(energies)
-        """for i in range(self.N_surf):
-            self.base_sol.append({
-                "E" : energies[i],
-                "coef" : coefs[i]
-                })"""
+
         self.base_sol_energies = energies
         self.base_sol_coefs = coefs
+        self.base_sol_spin_mult = spin_mult
 
 
     def find_base_sol(self, N_surf):
 
         self.N_surf = N_surf
 
-        self.base_sol_energies, self.base_sol_coefs = self.nodes[self.base_can_i].run_FCI(self.N_surf)
+        self.base_sol_energies, self.base_sol_coefs, self.base_sol_spin_mult = self.nodes[self.base_can_i].run_FCI(self.N_surf)
 
-        """self.base_sol = []
-        for i in range(self.N_surf):
-            self.base_sol.append({
-                "E" : base_FCI_energies[i],
-                "coef" : base_FCI_coefs[i]
-                })"""
+    # ------------------------- FCI surface analysis
+
+
+    def find_FCI_surfaces(self):
+        # The master method which:
+        #   1. Finds N_surf lowest-energy eigenstates at each geometry node
+        #   2. Applies labelling which characterises the continuous surfaces
+        #      emergent from the FCI calculation:
+        #        2a) We firstly characterise the eigenstates by their S2 e.v.
+        #        2b) If the parameter space has two or fewer dimensions (e.g.
+        #            diatomic molecule which preserves the spatial symmetry
+        #            group), only conical degeneracies are allowed by the von
+        #            Neumann-Wigner theorem, for which the energy ordering
+        #            coincides with the continuity labelling, which is trivial.
+        #            Otherwise, proper overlap transport analysis must be used.
+        # This method returns (energies, coefs, meta)
+
+        energies, coefs, spin_mult, duration = self.nodewise_FCI_calculation()
+
+        self.log.write(f"Spin multiplicities: {spin_mult}")
+
+        nodewise_surf_order = self.classify_FCI_surfaces(energies, coefs, spin_mult)
+
+        #ordered_energies = np.zeros((self.N_surf, self.N_nodes))
+        #ordered_coefs = np.zeros((self.N_surf, self.N_nodes, math.comb(self.mean_field["N_orb"], self.mean_field["S_alpha"]) * math.comb(self.mean_field["N_orb"], self.mean_field["S_beta"])))
+        #ordered_spin_mult = np.zeros((self.N_surf, self.N_nodes))
+
+        meta = []
+
+        for i_s in range(self.N_surf):
+            meta.append({
+                "i_surf" : i_s,
+                "spin_mult" : int(self.base_sol_spin_mult[i_s]),
+                "method" : "FCI",
+                "duration" : duration
+                })
+
+        return(
+            energies[nodewise_surf_order.T, np.arange(self.N_nodes)],
+            coefs[nodewise_surf_order.T, np.arange(self.N_nodes)],
+            meta
+            )
+
+    def nodewise_FCI_calculation(self):
+
+        self.log.write("Allocating memory for results...")
+
+        FCI_energies = np.zeros((self.N_surf, self.N_nodes))
+        FCI_coefs = np.zeros((self.N_surf, self.N_nodes, math.comb(self.mean_field["N_orb"], self.mean_field["S_alpha"]) * math.comb(self.mean_field["N_orb"], self.mean_field["S_beta"]))) # real coefs for FCI
+        FCI_spin_mult = np.zeros((self.N_surf, self.N_nodes), dtype = int)
+
+        self.log.enter("Performing FCI", semaphored = True, tau_space = np.linspace(0, self.N_nodes, 1000 + 1))
+
+        for i in range(self.N_nodes):
+            cur_FCI_energies, cur_FCI_coefs, cur_FCI_spin_mult = self.nodes[i].run_FCI(self.N_surf)
+            for i_surf in range(self.N_surf):
+                FCI_energies[i_surf, i] = cur_FCI_energies[i_surf]
+                FCI_coefs[i_surf, i] = cur_FCI_coefs[i_surf]
+                FCI_spin_mult[i_surf, i] = cur_FCI_spin_mult[i_surf]
+            self.log.update_semaphor_event(i + 1)
+
+        duration = self.log.exit("FCI calculation")
+
+        return(FCI_energies, FCI_coefs, FCI_spin_mult, duration)
+
+    def classify_FCI_surfaces(self, energies, coefs, spin_mult):
+
+        # First, we look at the indices by spin subspace for the reference node
+        base_index_in_mult_subspace = {}
+        for i_s in range(self.N_surf):
+            if self.base_sol_spin_mult[i_s] not in base_index_in_mult_subspace.keys():
+                base_index_in_mult_subspace[self.base_sol_spin_mult[i_s]] = [i_s]
+            else:
+                base_index_in_mult_subspace[self.base_sol_spin_mult[i_s]].append(i_s)
+
+        nodewise_surf_order = np.zeros((self.N_nodes, self.N_surf), dtype = int)
+
+        for i_n in range(self.N_nodes):
+
+            index_in_mult_subspace = {}
+
+            for i_s in range(self.N_surf):
+                if spin_mult[i_s, i_n] not in index_in_mult_subspace.keys():
+                    nodewise_surf_order[i_n, i_s] = base_index_in_mult_subspace[spin_mult[i_s, i_n]][0]
+                    index_in_mult_subspace[spin_mult[i_s, i_n]] = 1
+                else:
+                    nodewise_surf_order[i_n, i_s] = base_index_in_mult_subspace[spin_mult[i_s, i_n]][index_in_mult_subspace[spin_mult[i_s, i_n]]]
+                    index_in_mult_subspace[spin_mult[i_s, i_n]] += 1
+        return(nodewise_surf_order)
+
 
     # -------------------------------------------------------------------------
     # -------------------------- Geometrical methods --------------------------

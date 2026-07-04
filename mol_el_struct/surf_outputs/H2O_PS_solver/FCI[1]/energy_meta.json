@@ -1,9 +1,10 @@
 {
   "i_surf": 1,
+  "spin_mult": 2,
   "method": "FCI",
-  "duration": 215.24373769760132,
+  "duration": 3.6958060264587402,
   "nda_dtype": "float64",
   "nda_shape": [
-    441
+    9
   ]
 }

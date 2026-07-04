@@ -23,7 +23,7 @@ ranges = [(-4, 4)]
 """
 
 mol_name = "H2O"
-N_surf = 2
+N_surf = 3
 
 b = 1.8111135
 ha = 1.8229964 / 2.0 # half angle
@@ -37,15 +37,16 @@ dg = np.array([
     [[0.0, -0.05 * b * np.sin(ha), 0.0], [0.0, 0.05 * b * np.sin(ha), 0.0]] # Stretching the distance between the hydrogen atoms
     ])
 
-ranges = [(-10, 10), (-10, 10)]
+ranges = [(-10, 10), (-5, 5)]
+#ranges = [(-1, 1), (-1, 1)]
 
 PSSolver = potential_surface_extrapolator(f"{mol_name}_PS_solver")
 
-PSSolver.load_data()
+#PSSolver.load_data()
 
-#PSSolver.init_structure_automatically("MGGrid", mol_name, N_surf = N_surf, base_g = base_g, dg = dg, ranges = ranges)
-#PSSolver.run_FCI_on_structure()
-#PSSolver.save_data()
+PSSolver.init_structure_automatically("MGGrid", mol_name, N_surf = N_surf, base_g = base_g, dg = dg, ranges = ranges)
+PSSolver.run_FCI_on_structure()
+PSSolver.save_data()
 
 fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
 

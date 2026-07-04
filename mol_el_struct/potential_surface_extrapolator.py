@@ -80,7 +80,8 @@ class potential_surface_extrapolator():
             "mean_field_H_two" : "nda",
             "mean_field_reference_state_energy" : "nda",
             "base_sol_energies" : "nda",
-            "base_sol_coefs" : "nda"
+            "base_sol_coefs" : "nda",
+            "base_sol_spin_mult" : "nda"
             },
 
         "diagnostics" : {"diagnostic_log" : "txt"} # Condition numbers, eigenvalue min-max ratios, norms etc
@@ -403,7 +404,7 @@ class potential_surface_extrapolator():
 
         # 3. Initialise nodes
 
-        self.log.enter("HF calculation", semaphored = True, tau_space = np.linspace(0, self.structure.N_nodes + 1, 1000 + 1))
+        self.log.enter("HF calculation", semaphored = True, tau_space = np.linspace(0, self.structure.N_nodes, 1000 + 1))
         self.structure.init_nodes_with_HF(HF_method)
         self.log.exit("HF calculation")
         self.log.write("Mean-field properties loaded for each node:")
@@ -428,6 +429,7 @@ class potential_surface_extrapolator():
 
         self.disk_jockey.commit_datum_bulk("structure", "base_sol_energies", self.structure.base_sol_energies)
         self.disk_jockey.commit_datum_bulk("structure", "base_sol_coefs", self.structure.base_sol_coefs)
+        self.disk_jockey.commit_datum_bulk("structure", "base_sol_spin_mult", self.structure.base_sol_spin_mult)
 
 
     # ----------------------- Load structure from disk ------------------------
@@ -484,7 +486,8 @@ class potential_surface_extrapolator():
 
         self.structure.load_base_sol(
             self.disk_jockey.data_bulks["structure"]["base_sol_energies"],
-            self.disk_jockey.data_bulks["structure"]["base_sol_coefs"]
+            self.disk_jockey.data_bulks["structure"]["base_sol_coefs"],
+            self.disk_jockey.data_bulks["structure"]["base_sol_spin_mult"]
             )
 
         self.log.write(f"Base node solution loaded (for the {self.structure.N_surf} lowest-energy surfaces)")
@@ -508,33 +511,10 @@ class potential_surface_extrapolator():
 
         self.log.enter("Running FCI for every node in the geometry structure...")
 
-        N_surf = self.structure.N_surf
+        FCI_energies, FCI_coefs, FCI_meta = self.structure.find_FCI_surfaces()
 
-        self.log.write("Allocating memory for results...")
-
-        FCI_energies = np.zeros((N_surf, self.structure.N_nodes))
-        FCI_coefs = np.zeros((N_surf, self.structure.N_nodes, math.comb(self.structure.mean_field["N_orb"], self.structure.mean_field["S_alpha"]) * math.comb(self.structure.mean_field["N_orb"], self.structure.mean_field["S_beta"]))) # real coefs for FCI
-
-        self.log.enter("Performing FCI", semaphored = True, tau_space = np.linspace(0, self.structure.N_nodes + 1, 1000 + 1))
-
-        for i in range(self.structure.N_nodes):
-            cur_FCI_energies, cur_FCI_coefs = self.structure.nodes[i].run_FCI(N_surf)
-            for i_surf in range(N_surf):
-                FCI_energies[i_surf, i] = cur_FCI_energies[i_surf]
-                FCI_coefs[i_surf, i] = cur_FCI_coefs[i_surf]
-            self.log.update_semaphor_event(i + 1)
-
-        duration = self.log.exit("FCI calculation")
-
-        for i_surf in range(N_surf):
-            surf_meta = {
-                "i_surf" : i_surf,
-                "method" : "FCI",
-                "duration" : duration # we don't assume the duration divides evenly among all surfaces
-                }
-            self.register_surface(f"FCI[{i_surf}]", FCI_energies[i_surf], {"type" : "occupancy"}, FCI_coefs[i_surf], surf_meta)
-
-        self.log.write(f"{N_surf} lowest-energy FCI surfaces saved.")
+        for i_surf in range(self.structure.N_surf):
+            self.register_surface(f"FCI[{i_surf}]", FCI_energies[i_surf], {"type" : "occupancy"}, FCI_coefs[i_surf], FCI_meta[i_surf])
 
         self.log.exit()
 

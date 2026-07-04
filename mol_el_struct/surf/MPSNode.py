@@ -298,7 +298,6 @@ class MPSNode():
 
     def run_FCI(self, N_surf):
 
-
         if not self.HF_known:
             # We run the HF calculation out of necessity
             self.run_HF("default")
@@ -307,14 +306,16 @@ class MPSNode():
             self.mol = self.mol_bp.get_gto_Mole(self.g)
 
 
-        FCI_energies = np.zeros((N_surf))
+        FCI_energies = np.zeros(N_surf)
         FCI_coefs = np.zeros((N_surf, math.comb(self.N_orb, self.S_alpha) * math.comb(self.N_orb, self.S_beta)))
+        FCI_spin_mult = np.zeros(N_surf, dtype = int)
 
         if self.HF_method == "RHF":
             cisolver = fci.FCI(self.mol, self.get_MO_coefs())
         elif self.HF_method == "UHF":
             cisolver = fci.FCI(self.mol, (self.get_MO_coefs("a"), self.get_MO_coefs("b")))
 
+        # Read the energy eigenvalues and eigenvectors in the occ basis rep
         FCI_E, raw_FCI_sol = cisolver.kernel(nroots = N_surf)
 
         if N_surf == 1:
@@ -327,5 +328,9 @@ class MPSNode():
                 for b in range(raw_FCI_sol[i_surf].shape[1]):
                     FCI_coefs[i_surf][self.addr_to_index(a, b)] = raw_FCI_sol[i_surf][a, b]
 
-        return(FCI_energies, FCI_coefs)
+            # Read the S^2 eigenvalues and related multiplicities
+            S2, mult = cisolver.spin_square(FCI_coefs[i_surf], self.N_orb, (self.S_alpha, self.S_beta))
+            FCI_spin_mult[i_surf] = mult
+
+        return(FCI_energies, FCI_coefs, FCI_spin_mult)
 

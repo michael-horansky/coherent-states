@@ -33,16 +33,18 @@ def load(*args, **kwargs):
 class Disk_Jockey():
 
     object_type_write_mode = {
-            "txt" : "w",
-            "csv" : "w",
-            "json" : "w",
-            "pkl" : "wb"
+            "txt" : "w",  # plaintext file
+            "csv" : "w",  # csv file. Supports headers and automatic col typing
+            "json" : "w", # json file
+            "pkl" : "wb", # binary data. Versatile, but not human-readable
+            "nda" : "w"   # numpy array. The actual file extension is .csv
         }
     object_type_read_mode = {
             "txt" : "r",
             "csv" : "r",
             "json" : "r",
-            "pkl" : "rb"
+            "pkl" : "rb",
+            "nda" : "r"
         }
     force_pickled_meta = ["csv"] # file types in this list require their metadata files to be pickled
     columnwise_data_objects = ["csv"]
@@ -143,7 +145,12 @@ class Disk_Jockey():
 
     def datum_directory(self, data_group, datum_name):
         # Returns the datum directory as a path
-        return(f"{self.storage_path}/{data_group}/{datum_name}.{self.data_bulk_types[data_group][datum_name]}")
+        # Check for magical extensions (i.e. extensions not matching the bulk type)
+        if self.data_bulk_types[data_group][datum_name] == "nda":
+            file_extension = "csv"
+        else:
+            file_extension = self.data_bulk_types[data_group][datum_name]
+        return(f"{self.storage_path}/{data_group}/{datum_name}.{file_extension}")
 
     def metadata_directory(self, data_group, datum_name):
         # Returns the directory to the metadata for the specific datum as a path
@@ -169,38 +176,67 @@ class Disk_Jockey():
 
         if self.is_data_initialised[data_group][datum_name]:
             # datum bulk
-            datum_bulk_file = open(self.datum_directory(data_group, datum_name), Disk_Jockey.object_type_write_mode[self.data_bulk_types[data_group][datum_name]])
+            #datum_bulk_file = open(self.datum_directory(data_group, datum_name), Disk_Jockey.object_type_write_mode[self.data_bulk_types[data_group][datum_name]])
             if self.data_bulk_types[data_group][datum_name] == "txt":
-                datum_bulk_file.write(self.data_bulks[data_group][datum_name])
+                with open(self.datum_directory(data_group, datum_name), Disk_Jockey.object_type_write_mode[self.data_bulk_types[data_group][datum_name]]) as datum_bulk_file:
+                    datum_bulk_file.write(self.data_bulks[data_group][datum_name])
+
             elif self.data_bulk_types[data_group][datum_name] == "csv":
-                # As I said: either a list of lists, or a list of dicts
+                # Either a list of lists, or a list of dicts
 
-                col_keys = self.column_datatypes[data_group][datum_name].keys()
+                with open(self.datum_directory(data_group, datum_name), Disk_Jockey.object_type_write_mode[self.data_bulk_types[data_group][datum_name]]) as datum_bulk_file:
 
-                if isinstance(self.data_bulks[data_group][datum_name][0], dict):
-                    # list of dicts
-                    datum_bulk_writer = csv.DictWriter(datum_bulk_file, fieldnames = col_keys)
-                    datum_bulk_writer.writeheader()
-                    datum_bulk_writer.writerows(self.data_bulks[data_group][datum_name])
-                else:
-                    # List of lists. Does it contain a header?
-                    datum_bulk_writer = csv.writer(datum_bulk_file)
+                    col_keys = self.column_datatypes[data_group][datum_name].keys()
 
-                    is_there_header_row = True
-                    for col_key in col_keys:
-                        if col_key not in self.data_bulks[data_group][datum_name][0]:
-                            is_there_header_row = False
-                            break
-                    if not is_there_header_row:
-                        datum_bulk_writer.writerow(col_keys)
+                    if isinstance(self.data_bulks[data_group][datum_name][0], dict):
+                        # list of dicts
+                        datum_bulk_writer = csv.DictWriter(datum_bulk_file, fieldnames = col_keys)
+                        datum_bulk_writer.writeheader()
+                        datum_bulk_writer.writerows(self.data_bulks[data_group][datum_name])
+                    else:
+                        # List of lists. Does it contain a header?
+                        datum_bulk_writer = csv.writer(datum_bulk_file)
 
-                    datum_bulk_writer.writerows(self.data_bulks[data_group][datum_name])
+                        is_there_header_row = True
+                        for col_key in col_keys:
+                            if col_key not in self.data_bulks[data_group][datum_name][0]:
+                                is_there_header_row = False
+                                break
+                        if not is_there_header_row:
+                            datum_bulk_writer.writerow(col_keys)
+
+                        datum_bulk_writer.writerows(self.data_bulks[data_group][datum_name])
+
             elif self.data_bulk_types[data_group][datum_name] == "json":
-                json.dump(self.data_bulks[data_group][datum_name], datum_bulk_file, indent=2)
-            elif self.data_bulk_types[data_group][datum_name] == "pkl":
-                pickle.dump(self.data_bulks[data_group][datum_name], datum_bulk_file)
+                with open(self.datum_directory(data_group, datum_name), Disk_Jockey.object_type_write_mode[self.data_bulk_types[data_group][datum_name]]) as datum_bulk_file:
+                    json.dump(self.data_bulks[data_group][datum_name], datum_bulk_file, indent=2)
 
-            datum_bulk_file.close()
+            elif self.data_bulk_types[data_group][datum_name] == "pkl":
+                with open(self.datum_directory(data_group, datum_name), Disk_Jockey.object_type_write_mode[self.data_bulk_types[data_group][datum_name]]) as datum_bulk_file:
+                    pickle.dump(self.data_bulks[data_group][datum_name], datum_bulk_file)
+
+            elif self.data_bulk_types[data_group][datum_name] == "nda":
+                # We determine the dtype
+                """if "dtype" in self.metadata[data_group][datum_name]:
+                    dtype_str = self.metadata[data_group][datum_name]["dtype"]
+                else:
+                    if self.data_bulks[data_group][datum_name].dtype in [complex, np.complex64, np.complex128]:
+                        dtype_str = "complex128"
+                    else:
+                        # We assume real numbers
+                        dtype_str = "float64"
+                    self.commit_metadatum_point(data_group, datum_name, "dtype", dtype_str)"""
+                array_shape = list(self.data_bulks[data_group][datum_name].shape)
+                self.commit_metadatum_point(data_group, datum_name, "nda_dtype", self.data_bulks[data_group][datum_name].dtype.name)
+                self.commit_metadatum_point(data_group, datum_name, "nda_shape", array_shape)
+
+                # If the number of axes exceeds 2, we flatten all but one (for readability)
+                if len(array_shape) > 2:
+                    np.savetxt(self.datum_directory(data_group, datum_name), np.reshape(self.data_bulks[data_group][datum_name], (array_shape[0], np.prod(array_shape[1:]))), delimiter = ",")
+                else:
+                    np.savetxt(self.datum_directory(data_group, datum_name), self.data_bulks[data_group][datum_name], delimiter = ",")
+
+            #datum_bulk_file.close()
 
             # metadatum
             if self.data_bulk_types[data_group][datum_name] in Disk_Jockey.columnwise_data_objects:
@@ -233,24 +269,39 @@ class Disk_Jockey():
                 self.column_datatypes[data_group][datum_name] = self.metadata[data_group][datum_name]["column_datatypes"]
         datum_bulk_path = Path(self.datum_directory(data_group, datum_name))
         if datum_bulk_path.is_file():
-            datum_bulk_file = open(self.datum_directory(data_group, datum_name), Disk_Jockey.object_type_read_mode[self.data_bulk_types[data_group][datum_name]])
+            #datum_bulk_file = open(self.datum_directory(data_group, datum_name), Disk_Jockey.object_type_read_mode[self.data_bulk_types[data_group][datum_name]])
             if self.data_bulk_types[data_group][datum_name] == "txt":
-                self.commit_datum_bulk(data_group, datum_name, datum_bulk_file.read())
+                with open(self.datum_directory(data_group, datum_name), Disk_Jockey.object_type_read_mode[self.data_bulk_types[data_group][datum_name]]) as datum_bulk_file:
+                    self.commit_datum_bulk(data_group, datum_name, datum_bulk_file.read())
             elif self.data_bulk_types[data_group][datum_name] == "csv":
-                datum_bulk_reader = csv.DictReader(datum_bulk_file, delimiter=',', quotechar='"')
-                datum_bulk_rows = []
-                for row in datum_bulk_reader:
-                    sanitised_row = {}
-                    for key, obj in row.items():
-                        sanitised_row[key] = self.column_datatypes[data_group][datum_name][key](obj)
-                    datum_bulk_rows.append(sanitised_row)
-                self.commit_datum_bulk(data_group, datum_name, datum_bulk_rows)
+                with open(self.datum_directory(data_group, datum_name), Disk_Jockey.object_type_read_mode[self.data_bulk_types[data_group][datum_name]]) as datum_bulk_file:
+                    datum_bulk_reader = csv.DictReader(datum_bulk_file, delimiter=',', quotechar='"')
+                    datum_bulk_rows = []
+                    for row in datum_bulk_reader:
+                        sanitised_row = {}
+                        for key, obj in row.items():
+                            sanitised_row[key] = self.column_datatypes[data_group][datum_name][key](obj)
+                        datum_bulk_rows.append(sanitised_row)
+                    self.commit_datum_bulk(data_group, datum_name, datum_bulk_rows)
             elif self.data_bulk_types[data_group][datum_name] == "json":
-                self.commit_datum_bulk(data_group, datum_name, json.load(datum_bulk_file))
+                with open(self.datum_directory(data_group, datum_name), Disk_Jockey.object_type_read_mode[self.data_bulk_types[data_group][datum_name]]) as datum_bulk_file:
+                    self.commit_datum_bulk(data_group, datum_name, json.load(datum_bulk_file))
             elif self.data_bulk_types[data_group][datum_name] == "pkl":
-                self.commit_datum_bulk(data_group, datum_name, pickle.load(datum_bulk_file))
+                with open(self.datum_directory(data_group, datum_name), Disk_Jockey.object_type_read_mode[self.data_bulk_types[data_group][datum_name]]) as datum_bulk_file:
+                    self.commit_datum_bulk(data_group, datum_name, pickle.load(datum_bulk_file))
+            elif self.data_bulk_types[data_group][datum_name] == "nda":
+                array_shape = self.metadata[data_group][datum_name]["nda_shape"]
+                dtype_str = self.metadata[data_group][datum_name]["nda_dtype"]
 
-            datum_bulk_file.close()
+                if dtype_str in ["int", "int64"]:
+                    raw_array = np.loadtxt(self.datum_directory(data_group, datum_name), delimiter = ",").astype(np.int64)
+                else:
+                    raw_array = np.loadtxt(self.datum_directory(data_group, datum_name), delimiter = ",", dtype = np.dtype(dtype_str))
+                if len(array_shape) > 2:
+                    raw_array = np.reshape(raw_array, array_shape)
+                self.commit_datum_bulk(data_group, datum_name, raw_array)
+
+            #datum_bulk_file.close()
         elif self.journal_instance is not None:
             self.journal_instance.write(f"WARNING: Failed to load node at '{data_group}/{datum_name}' from disk: No such file.")
 
@@ -298,13 +349,13 @@ class Disk_Jockey():
         # If data_groups is None, loads all data. If it is a list of data_group
         # names, only loads data from those data groups.
 
+        # We find all available data nodes
+        self.load_root_metadata()
 
         if data_groups is None:
-            self.load_data(list(self.data_nodes.keys()))
-        else:
-            # First, load the metadata as they exist on disk, so we know the proper types etc
-            self.load_root_metadata()
-            for data_group in data_groups:
-                for datum_name in self.data_nodes[data_group]:
-                    self.load_datum(data_group, datum_name)
+            data_groups = list(self.data_nodes.keys())
+
+        for data_group in data_groups:
+            for datum_name in self.data_nodes[data_group]:
+                self.load_datum(data_group, datum_name)
 

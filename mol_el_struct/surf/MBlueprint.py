@@ -103,3 +103,13 @@ bp_catalogue["BeH2"] = MBlueprint(
         label = r'${\rm BeH}_2$'
     )
 
+# H2O
+
+bp_catalogue["H2O"] = MBlueprint(
+        name = "H2O",
+        atoms = ["O", "H", "H"],
+        basis = 'sto-3g',
+        unit = 'Bohr',
+        label = r'${\rm H}_2 {\rm O}$'
+    )
+

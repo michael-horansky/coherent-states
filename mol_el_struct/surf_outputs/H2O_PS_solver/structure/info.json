@@ -1,0 +1,16 @@
+{
+  "class": "MGGrid",
+  "desc": "A D-dim grid built from a reference geometry and D linearly-independent deformation vectors.",
+  "mol_bp": {
+    "name": "H2O",
+    "atoms": [
+      "O",
+      "H",
+      "H"
+    ],
+    "basis": "sto-3g",
+    "unit": "Bohr",
+    "spin": null,
+    "label": "${\\rm H}_2 {\\rm O}$"
+  }
+}

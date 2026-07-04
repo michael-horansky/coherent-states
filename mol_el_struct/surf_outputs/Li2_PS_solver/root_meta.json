@@ -1,0 +1,89 @@
+{
+  "data_nodes": {
+    "system": [
+      "user_actions",
+      "log"
+    ],
+    "structure": [
+      "info",
+      "geometry",
+      "mean_field",
+      "mean_field_MO_coefs",
+      "mean_field_E_nuc",
+      "mean_field_H_one",
+      "mean_field_H_two",
+      "mean_field_reference_state_energy",
+      "base_sol_energies",
+      "base_sol_coefs"
+    ],
+    "diagnostics": [
+      "diagnostic_log"
+    ],
+    "FCI[0]": [
+      "energy",
+      "coef"
+    ],
+    "FCI[1]": [
+      "energy",
+      "coef"
+    ]
+  },
+  "data_bulk_types": {
+    "system": {
+      "user_actions": "txt",
+      "log": "txt"
+    },
+    "structure": {
+      "info": "json",
+      "geometry": "pkl",
+      "mean_field": "json",
+      "mean_field_MO_coefs": "nda",
+      "mean_field_E_nuc": "nda",
+      "mean_field_H_one": "nda",
+      "mean_field_H_two": "nda",
+      "mean_field_reference_state_energy": "nda",
+      "base_sol_energies": "nda",
+      "base_sol_coefs": "nda"
+    },
+    "diagnostics": {
+      "diagnostic_log": "txt"
+    },
+    "FCI[0]": {
+      "energy": "nda",
+      "coef": "nda"
+    },
+    "FCI[1]": {
+      "energy": "nda",
+      "coef": "nda"
+    }
+  },
+  "metadata_types": {
+    "system": {
+      "user_actions": "json",
+      "log": "json"
+    },
+    "structure": {
+      "info": "json",
+      "geometry": "json",
+      "mean_field": "json",
+      "mean_field_MO_coefs": "json",
+      "mean_field_E_nuc": "json",
+      "mean_field_H_one": "json",
+      "mean_field_H_two": "json",
+      "mean_field_reference_state_energy": "json",
+      "base_sol_energies": "json",
+      "base_sol_coefs": "json"
+    },
+    "diagnostics": {
+      "diagnostic_log": "json"
+    },
+    "FCI[0]": {
+      "energy": "json",
+      "coef": "json"
+    },
+    "FCI[1]": {
+      "energy": "json",
+      "coef": "json"
+    }
+  }
+}

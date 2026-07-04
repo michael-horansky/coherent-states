@@ -8,7 +8,7 @@
 
 class MPSurface():
 
-    def __init__(self, E, basis, coef):
+    def __init__(self, label, E, basis, coef, meta):
 
         # E and coef are both ndarrays whose shape begins with (N_nodes, ...)
         # and are ordered by the node order
@@ -20,8 +20,17 @@ class MPSurface():
         # Type is either a magic keyword ("occupancy") or a CS label. In the
         # latter case, basis["vectors"] is a list of parameters specifying the
         # basis and the order of the coef listing.
+        #
+        # meta is a dict of metadata. Currently tracked keywords:
+        #   -"i_surf": eigenvalue index corresponding to surface
+        #   -"method": method used to calculate surface
+        #   -"duration": time (in s) of calculation
+
+        self.label = label
 
         self.E = E
         self.coef = coef
         self.basis = basis
+
+        self.meta = meta
 

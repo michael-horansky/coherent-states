@@ -1,0 +1,15 @@
+{
+  "class": "MGGrid",
+  "desc": "A D-dim grid built from a reference geometry and D linearly-independent deformation vectors.",
+  "mol_bp": {
+    "name": "Li2",
+    "atoms": [
+      "Li",
+      "Li"
+    ],
+    "basis": "sto-3g",
+    "unit": "Bohr",
+    "spin": null,
+    "label": "${\\rm Li}_2$"
+  }
+}

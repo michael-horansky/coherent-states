@@ -1,0 +1,28 @@
+Initialising potential surface extrapolator H2O_PS_solver at log_verbosity = 5
+| Initialising Data Storage Manager...
+| Initialising self-analysis properties...
+\_
+Initialising structure by automatic calculation...
+| Structure class: MGGrid. A D-dim grid built from a reference geometry and D linearly-independent deformation vectors.
+| Molecule blueprint:
+|   [93m-[0mname: H2O
+|   [93m-[0matoms: O, H, H (2)
+|   [93m-[0mbasis: sto-3g
+|   [93m-[0munit: Bohr
+| Structure geometry loaded (441 nodes).
+| HF calculation begins at 02:25:56
+| | HF calculation waiting for the first event...
+| \_ HF calculation finished at 02:27:24 (duration 1 min 28 sec)              
+| Mean-field properties loaded for each node:
+|   [93m-[0mHartree-Fock method: RHF
+|   [93m-[0mNumber of spatial molecular orbitals: 7
+|   [93m-[0mElectrons with spin alpha: 5
+|   [93m-[0mElectrons with spin beta: 5
+| Base node solution loaded (for the 2 lowest-energy surfaces)
+| Running FCI for every node in the geometry structure...
+| | Allocating memory for results...
+| | Performing FCI begins at 02:27:25
+| | | Performing FCI waiting for the first event...
+| | \_ FCI calculation finished at 02:31:00 (duration 3 min 35 sec)             
+| | 2 lowest-energy FCI surfaces saved.
+| \_

@@ -165,17 +165,21 @@ class MPSNode():
 
         self.HF_known = True
 
-    def load_HF(self, HF_method, N_orb, S_alpha, S_beta, E_nuc, MO_coefs, MO_H_one, MO_H_two, reference_state_energy):
+    def load_HF(self, mean_field_info, MO_coefs, E_nuc, MO_H_one, MO_H_two, reference_state_energy):
         # If HF_method = "RHF", MO_coefs, MO_H_one, MO_H_two do not have
         # ["a"/"b"(/"ab")] indices.
         # If HF_method = "UHF", they do.
+
+        # Global properties (const along the surface)
         self.mol = None
-        self.HF_method = HF_method
-        self.N_orb = N_orb
-        self.S_alpha = S_alpha
-        self.S_beta = S_beta
-        self.E_nuc = E_nuc
+        self.HF_method = mean_field_info["HF_method"]
+        self.N_orb = mean_field_info["N_orb"]
+        self.S_alpha = mean_field_info["S_alpha"]
+        self.S_beta = mean_field_info["S_beta"]
+
+        # Local properties (geometry-dependent)
         self.MO_coefs = MO_coefs
+        self.E_nuc = E_nuc
         self.MO_H_one = MO_H_one
         self.MO_H_two = MO_H_two
         self.reference_state_energy = reference_state_energy

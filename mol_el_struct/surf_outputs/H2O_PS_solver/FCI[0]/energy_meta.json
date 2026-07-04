@@ -1,0 +1,9 @@
+{
+  "i_surf": 0,
+  "method": "FCI",
+  "duration": 215.24373769760132,
+  "nda_dtype": "float64",
+  "nda_shape": [
+    441
+  ]
+}

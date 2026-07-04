@@ -13,6 +13,11 @@ from utils.class_Journal import Journal
 from utils.class_Disk_Jockey import Disk_Jockey
 import utils.functions as functions
 
+from surf.MBlueprint import bp_catalogue
+
+from surf.MGStructure import MGStructure
+from surf.MGGrid import MGGrid
+
 
 def esp(roots, order, omit = []):
     # roots is a list
@@ -57,17 +62,25 @@ class potential_surface_extrapolator():
         "Qubit" : CS_Qubit
     }
 
+    structure_types = {
+        "MGStructure" : MGStructure,
+        "MGGrid" : MGGrid
+    }
+
     data_nodes = {
         "system" : {"user_actions" : "txt", "log" : "txt"}, # User actions summary, Journal style log
 
-        "molecule" : {"mol_structure" : "pkl", "mode_structure" : "pkl"}, # molecule properties
-
-        "surfaces" : {
-            "geometry" : "csv",
-            "base_node" : "csv",
-            "mean_field_MO_coefs" : "csv",
-            "mean_field_H_one",
-            "mean_field_H_two"
+        "structure" : {
+            "info" : "json", # basic info about structure, including mol bp
+            "geometry" : "pkl", # data of unknown format (depends on subclass)
+            "mean_field" : "json", # HF_method and Hilbert space parameters
+            "mean_field_MO_coefs" : "nda",
+            "mean_field_E_nuc" : "nda",
+            "mean_field_H_one" : "nda",
+            "mean_field_H_two" : "nda",
+            "mean_field_reference_state_energy" : "nda",
+            "base_sol_energies" : "nda",
+            "base_sol_coefs" : "nda"
             },
 
         "diagnostics" : {"diagnostic_log" : "txt"} # Condition numbers, eigenvalue min-max ratios, norms etc
@@ -90,21 +103,20 @@ class potential_surface_extrapolator():
         #   10: Micro-subroutine (expected to repeat many times)
         # Typically, writes within subroutines are one level of verbosity higher than the subroutine itself
 
-        self.log.enter(f"Initialising molecule solver {ID} at log_verbosity = {log_verbosity}")
+        self.log.enter(f"Initialising potential surface extrapolator {ID} at log_verbosity = {log_verbosity}")
 
         # Data Storage Manager
         self.log.write("Initialising Data Storage Manager...", 1)
-        #self.disk_jockey = Disk_Jockey(f"outputs/{self.ID}", self.log)
-        #self.disk_jockey.create_data_nodes(potential_surface_extrapolator.data_nodes) # Each solver call adds a new node dynamically
+        self.disk_jockey = Disk_Jockey(f"surf_outputs/{self.ID}", self.log)
+        self.disk_jockey.create_data_nodes(potential_surface_extrapolator.data_nodes) # Each solver call adds a new node dynamically
 
-        self.user_actions = f"initialised solver {self.ID}\n"
+        self.user_actions = f"initialised PSE {self.ID}\n"
         self.diagnostics_log = []
         # The structure of the diagnostics log is like so: every element is either a list (for multiple same-level subprocedures) or a dict (for a header : content) pair
 
         # ----------- Self-analysis properties
         self.log.write("Initialising self-analysis properties...", 1)
         self.checklist = [] # List of succesfully performed actions
-        self.measured_datasets = [] # list of dataset labels
 
         # Potential surface structure properties
         self.structure = None
@@ -118,6 +130,51 @@ class potential_surface_extrapolator():
     ###########################################################################
     # --------------------------- Internal methods ----------------------------
     ###########################################################################
+
+    # ------------------------ Data management methods ------------------------
+
+    def register_surface(self, label, E, basis, coef, meta):
+
+        # Add surface to self.structure and to disk_jockey
+
+        self.structure.add_surface(label, E, basis, coef, meta)
+
+        self.disk_jockey.create_data_nodes({label : {
+            "energy" : "nda",
+            "coef" : "nda"
+            }})
+        self.disk_jockey.commit_datum_bulk(label, "energy", self.structure.surfaces[label].E)
+        self.disk_jockey.commit_metadatum(label, "energy", meta)
+
+        # We need to flatten the coef array. We do not assume anything about
+        # its shape beyond the first (node) axis. Different bases have
+        # different shapes. Instead, we read the shape and store it as meta.
+
+        #coef_shape = list(self.structure.surfaces[label].coef.shape[1:])
+        #self.disk_jockey.commit_datum_bulk(label, "coef", np.reshape( self.structure.surfaces[label].coef, (self.structure.N_nodes, np.prod(coef_shape)) ) )
+        self.disk_jockey.commit_datum_bulk(label, "coef", self.structure.surfaces[label].coef)
+        self.disk_jockey.commit_metadatum(label, "coef", {
+            "basis" : self.structure.surfaces[label].basis
+            })
+
+    def load_surface(self, label):
+        # Reads surface from disk_jockey and adds it to self.structure
+        #coef_shape = self.disk_jockey.metadata[label]["coef"]["coef_shape"]
+        #deflattened_coef = np.reshape( self.disk_jockey.data_bulks[label]["coef"], [self.structure.N_nodes] + coef_shape )
+
+        self.structure.add_surface(
+            label,
+            self.disk_jockey.data_bulks[label]["energy"],
+            self.disk_jockey.metadata[label]["coef"]["basis"],
+            self.disk_jockey.data_bulks[label]["coef"],
+            self.disk_jockey.metadata[label]["energy"]
+            )
+
+
+
+
+
+
 
     def check_off(self, checklist_element):
         if checklist_element not in self.checklist:
@@ -304,58 +361,146 @@ class potential_surface_extrapolator():
     # ----------------------------- User methods ------------------------------
     ###########################################################################
 
-    def initialise_structure(self, structure, HF_method = "default"):
-        # structure is an instance of MGStructure (or of its subclass)
+    # -------------------------------------------------------------------------
+    # ----------------------- Structure initialisation ------------------------
+    # -------------------------------------------------------------------------
 
-        # This method runs HF and FCI for every node in the structure
+    # ----------------- Automatic calculation initialisations -----------------
 
-        self.log.enter("Initialising molecular geometry structure...")
+    def init_structure_automatically(self, cls, mol_name, HF_method = "default", N_surf = 1, **kwargs):
+        # cls is a key in structure_types
+        # mol_name is a key in bp_catalogue
+        # HF_method is a magic word (RHF/UHF/default)
+        # N_surf is the number of lowest-energy potential surfaces to consider
+        # kwargs are kwargs for the relevant init_geometry method
 
-        self.structure = structure
+        self.log.enter("Initialising structure by automatic calculation...")
 
+        # 1. Register structure
+
+        structure_class = potential_surface_extrapolator.structure_types[cls]
+        self.log.write(f"Structure class: {cls}. {structure_class.desc}")
+
+        mol_bp = bp_catalogue[mol_name]
         self.log.write("Molecule blueprint:")
         self.log.print_itemize({
-            "name" : self.structure.mol_bp.name,
-            "atoms" : ', '.join(self.structure.mol_bp.hr_atoms),
-            "basis" : self.structure.mol_bp.basis,
-            "unit" : self.structure.mol_bp.unit
+            "name" : mol_bp.name,
+            "atoms" : ', '.join(mol_bp.hr_atoms),
+            "basis" : mol_bp.basis,
+            "unit" : mol_bp.unit
             })
 
-        if self.structure.mol_bp.spin is not None:
-            self.log.write(f"  -spin: determined automatically")
-        else:
-            self.log.write(f"  -spin: {self.structure.mol_bp.spin}")
+        self.structure = structure_class(mol_bp, self.log)
 
-        self.log.write("Geometry structure:")
-        self.log.write(f"  {self.structure.geometry_meta['class']}: {self.structure.geometry_meta['desc']}")
+        self.disk_jockey.commit_datum_bulk("structure", "info", self.structure.info)
 
-        self.log.write(f"Number of potential surfaces investigated: {self.structure.base_node_meta['N_surf']}")
+        # 2. Initialise geometry
 
-        self.log.enter("Running mean-field calculations for all nodes", semaphored = True, tau_space = np.linspace(0, self.structure.N_nodes + 1, 100 + 1))
+        self.structure.init_geometry(**kwargs)
+        self.log.write(f"Structure geometry loaded ({self.structure.N_nodes} nodes).")
 
-        # We run HF for every node TODO unless it was loaded from disk NOTE save this for a dedicated load_structure method?
-        for i in range(self.structure.N_nodes):
-            self.structure.nodes[i].run_HF(HF_method)
-            self.log.update_semaphor_event(i + 1)
+        self.disk_jockey.commit_datum_bulk("structure", "geometry", kwargs)
 
-        self.log.exit("Mean field calculation")
+        # 3. Initialise nodes
+
+        self.log.enter("HF calculation", semaphored = True, tau_space = np.linspace(0, self.structure.N_nodes + 1, 1000 + 1))
+        self.structure.init_nodes_with_HF(HF_method)
+        self.log.exit("HF calculation")
+        self.log.write("Mean-field properties loaded for each node:")
+        self.log.print_itemize({
+            "Hartree-Fock method" : self.structure.mean_field["HF_method"],
+            "Number of spatial molecular orbitals" : self.structure.mean_field["N_orb"],
+            "Electrons with spin alpha" : self.structure.mean_field["S_alpha"],
+            "Electrons with spin beta" : self.structure.mean_field["S_beta"],
+            })
+
+        self.disk_jockey.commit_datum_bulk("structure", "mean_field", self.structure.mean_field)
+        self.disk_jockey.commit_datum_bulk("structure", "mean_field_MO_coefs", self.structure.encode_MO_coefs())
+        self.disk_jockey.commit_datum_bulk("structure", "mean_field_E_nuc", self.structure.get_E_nuc_surface())
+        self.disk_jockey.commit_datum_bulk("structure", "mean_field_H_one", self.structure.encode_H_one())
+        self.disk_jockey.commit_datum_bulk("structure", "mean_field_H_two", self.structure.encode_H_two())
+        self.disk_jockey.commit_datum_bulk("structure", "mean_field_reference_state_energy", self.structure.get_reference_state_energy_surface())
+
+        # 4. Initialise base node solution
+
+        self.structure.find_base_sol(N_surf)
+        self.log.write(f"Base node solution loaded (for the {self.structure.N_surf} lowest-energy surfaces)")
+
+        self.disk_jockey.commit_datum_bulk("structure", "base_sol_energies", self.structure.base_sol_energies)
+        self.disk_jockey.commit_datum_bulk("structure", "base_sol_coefs", self.structure.base_sol_coefs)
 
 
-        # Now every node has its MOs and exchange integrals
+    # ----------------------- Load structure from disk ------------------------
 
-        # We store some global properties of the molecule
-        self.N_orb = self.structure.nodes[0].mol.nao
-        nalpha, nbeta = self.structure.nodes[0].mol.nelec
-        self.S_alpha = nalpha
-        self.S_beta = nbeta
+    def load_structure(self):
+        self.log.enter("Loading molecular geometry structure...")
 
-        self.structure.nodes_meta["HF_method"] = self.structure.nodes[0].HF_method
-        self.structure.nodes_meta["N_orb"] = self.N_orb
-        self.structure.nodes_meta["S_alpha"] = self.S_alpha
-        self.structure.nodes_meta["S_beta"] = self.S_beta
+        # ---------- Build structure
 
-        self.log.write("Hilbert space:")
-        self.log.print_itemize(self.structure.nodes_meta)
+        # 1. Register structure
+
+        structure_info = self.disk_jockey.data_bulks["structure"]["info"]
+        self.log.write(f"Structure class: {structure_info['class']}. {structure_info['desc']}")
+
+        mol_bp = bp_catalogue[structure_info["mol_bp"]["name"]]
+        self.log.write("Molecule blueprint:")
+        self.log.print_itemize({
+            "name" : mol_bp.name,
+            "atoms" : ', '.join(mol_bp.hr_atoms),
+            "basis" : mol_bp.basis,
+            "unit" : mol_bp.unit
+            })
+
+        self.structure = potential_surface_extrapolator.structure_types[structure_info["class"]](mol_bp)
+
+        # 2. Initialise geometry
+
+        self.structure.init_geometry(**self.disk_jockey.data_bulks["structure"]["geometry"])
+        self.log.write(f"Structure geometry loaded ({self.structure.N_nodes} nodes).")
+
+        # 3. Initialise nodes
+
+        decoded_MO_coefs = self.structure.decode_MO_coefs(self.disk_jockey.data_bulks["structure"]["mean_field"]["HF_method"], self.disk_jockey.data_bulks["structure"]["mean_field_MO_coefs"])
+        decoded_H_one = self.structure.decode_H_one(self.disk_jockey.data_bulks["structure"]["mean_field"]["HF_method"], self.disk_jockey.data_bulks["structure"]["mean_field_H_one"])
+        decoded_H_two = self.structure.decode_H_two(self.disk_jockey.data_bulks["structure"]["mean_field"]["HF_method"], self.disk_jockey.data_bulks["structure"]["mean_field_H_two"])
+        self.structure.load_nodes(
+            self.disk_jockey.data_bulks["structure"]["mean_field"],
+            decoded_MO_coefs,
+            self.disk_jockey.data_bulks["structure"]["mean_field_E_nuc"],
+            decoded_H_one,
+            decoded_H_two,
+            self.disk_jockey.data_bulks["structure"]["mean_field_reference_state_energy"]
+            )
+
+        self.log.write("Mean-field properties loaded for each node:")
+        self.log.print_itemize({
+            "Hartree-Fock method" : self.structure.mean_field["HF_method"],
+            "Number of spatial molecular orbitals" : self.structure.mean_field["N_orb"],
+            "Electrons with spin alpha" : self.structure.mean_field["S_alpha"],
+            "Electrons with spin beta" : self.structure.mean_field["S_beta"],
+            })
+
+        # 4. Initialise base node solution
+
+        self.structure.load_base_sol(
+            self.disk_jockey.data_bulks["structure"]["base_sol_energies"],
+            self.disk_jockey.data_bulks["structure"]["base_sol_coefs"]
+            )
+
+        self.log.write(f"Base node solution loaded (for the {self.structure.N_surf} lowest-energy surfaces)")
+
+        # ---------- Load surfaces
+
+        self.log.enter("Loading surfaces...")
+        for surface_label in self.disk_jockey.metadata["structure"]["info"]["surface_labels"]:
+            self.load_surface(surface_label)
+            self.log.write(f"Loaded surface {surface_label}:")
+            self.log.print_itemize({
+                "surface index" : self.structure.surfaces[surface_label].meta["i_surf"],
+                "calc. method" : self.structure.surfaces[surface_label].meta["method"],
+                "calc. duration" : functions.dtstr(self.structure.surfaces[surface_label].meta["duration"])
+                })
+        self.log.exit()
 
         self.log.exit()
 
@@ -363,12 +508,12 @@ class potential_surface_extrapolator():
 
         self.log.enter("Running FCI for every node in the geometry structure...")
 
-        N_surf = self.structure.base_node_meta["N_surf"]
+        N_surf = self.structure.N_surf
 
         self.log.write("Allocating memory for results...")
 
         FCI_energies = np.zeros((N_surf, self.structure.N_nodes))
-        FCI_coefs = np.zeros((N_surf, self.structure.N_nodes, math.comb(self.N_orb, self.S_alpha) * math.comb(self.N_orb, self.S_beta))) # real coefs for FCI
+        FCI_coefs = np.zeros((N_surf, self.structure.N_nodes, math.comb(self.structure.mean_field["N_orb"], self.structure.mean_field["S_alpha"]) * math.comb(self.structure.mean_field["N_orb"], self.structure.mean_field["S_beta"]))) # real coefs for FCI
 
         self.log.enter("Performing FCI", semaphored = True, tau_space = np.linspace(0, self.structure.N_nodes + 1, 1000 + 1))
 
@@ -379,249 +524,21 @@ class potential_surface_extrapolator():
                 FCI_coefs[i_surf, i] = cur_FCI_coefs[i_surf]
             self.log.update_semaphor_event(i + 1)
 
-            """node = self.structure.nodes[i]
-            if node.HF_method == "RHF":
-                cisolver = fci.FCI(node.mol, node.MO_coefs["a"])
-            elif node.HF_method == "UHF":
-                cisolver = fci.FCI(node.mol, (node.MO_coefs["a"], node.MO_coefs["b"]))
-
-            self.log.write("FCI solver initialised...", 0)
-            FCI_E, raw_FCI_sol = cisolver.kernel(nroots = N_surf)
-
-            if N_surf == 1:
-                FCI_E = [FCI_E]
-                raw_FCI_sol = [raw_FCI_sol]
-
-            # We convert the raw_ci_sol object (which is an FCIvector) into a dict
-            # with tuples as keys (tuples represent occupancy strings)
-
-
-            for i_surf in range(N_surf):
-
-                sol_array = np.zeros( raw_FCI_sol[i_surf].shape[0] * raw_FCI_sol[i_surf].shape[1] )
-                for a in range(raw_FCI_sol[i_surf].shape[0]):
-                    for b in range(raw_FCI_sol[i_surf].shape[1]):
-                        sol_array[self.addr_to_index(a, b)] = raw_FCI_sol[i_surf][a, b]
-
-                FCI_energies[i_surf, i] = FCI_E[i_surf]
-                FCI_coefs[i_surf, i] = sol_array"""
-
-        self.log.exit("FCI calculation")
-
-        self.structure.nodes_meta["FCI_known"] = True
+        duration = self.log.exit("FCI calculation")
 
         for i_surf in range(N_surf):
-            self.structure.add_surface(f"FCI[{i_surf}]", FCI_energies[i_surf], "occupancy", FCI_coefs[i_surf], i_surf, "FCI")
+            surf_meta = {
+                "i_surf" : i_surf,
+                "method" : "FCI",
+                "duration" : duration # we don't assume the duration divides evenly among all surfaces
+                }
+            self.register_surface(f"FCI[{i_surf}]", FCI_energies[i_surf], {"type" : "occupancy"}, FCI_coefs[i_surf], surf_meta)
 
         self.log.write(f"{N_surf} lowest-energy FCI surfaces saved.")
 
         self.log.exit()
 
 
-    r"""
-    def initialise_base_molecule(self, mol_bp, base_g, N_surf, HF_method = "default"):
-        # mol is an instance of MBlueprint
-        # base_g is an instance of MGeometry
-        # N_surf is an integer, and specifies the number of surfaces we shall
-        # analyse. Equivalently, the number of lowest-energy E-eigenstates.
-
-        # 1 Store the provided descriptions of the base molecule
-        # 2 Calculate the base molecule HF properties
-        # 3 Calculate
-
-        self.log.enter("Initialising base molecule...", 0)
-
-        if "mol_init" in self.checklist:
-            self.log.write("Molecule already initialised.", 1)
-            return(None)
-
-        # 1 Building the base molecule and describing it
-
-        self.log.enter("Building base molecule...")
-        self.mol_bp = mol_bp
-        self.base_g = base_g
-
-        self.base_node = MPSNode()
-
-
-        self.base_mol = self.mol_bp.get_gto_Mole(self.base_g)
-
-
-        self.M = self.base_mol.nao * 2
-        self.S = self.base_mol.tot_electrons()
-
-        nalpha, nbeta = self.base_mol.nelec
-        self.S_alpha = nalpha
-        self.S_beta = nbeta
-
-        self.log.write(f"There are {self.base_mol.nao} atomic orbitals, each able to hold 2 electrons of opposing spin.", 3)
-        self.log.write(f"The molecule is occupied by {self.base_mol.tot_electrons()} electrons in total: {self.S_alpha} with spin alpha, {self.S_beta} with spin beta.", 3)
-        self.log.write(f"The molecule consists of the following atoms: {', '.join(self.mol_bp.atoms)}", 3)
-        self.log.write(f"The atomic orbitals are ordered as follows: {self.base_mol.ao_labels()}", 3)
-        self.log.write(f"The nuclear repulsion energy is {self.base_mol.energy_nuc()}", 3)
-
-        self.log.exit()
-
-        # 2 Calculate the
-
-
-        self.log.write("Calculating 1e integrals...", 1)
-        AO_H_one = self.base_mol.intor('int1e_kin', hermi = 1) + self.base_mol.intor('int1e_nuc', hermi = 1)
-
-        self.log.write("Calculating 2e integrals...", 1)
-        #self.H_two = self.base_mol.intor('int2e', aosym = "s1")
-        AO_H_two_chemist = self.base_mol.intor('int2e')
-        # <ij|kl> = (ik|jl)
-
-        self.log.exit()
-
-        self.log.enter("Performing mean-field calculations to determine the molecular orbitals...", 1)
-
-        if HF_method == "RHF":
-            self.HF_method = HF_method
-            self.log.write("Mean field method: Restricted Hartree-Fock (selected by user)")
-            if self.base_mol.spin != 0:
-                self.log.write("WARNING: The molecule is not a singlet, RHF is unsuitable.")
-        elif HF_method == "UHF":
-            self.HF_method = HF_method
-            self.log.write("Mean field method: Unrestricted Hartree-Fock (selected by user)")
-        elif HF_method == "default":
-            if self.base_mol.spin == 0:
-                self.HF_method = "RHF"
-                self.log.write("Mean field method: Restricted Hartree-Fock (determined automatically for a singlet molecule)")
-            else:
-                self.HF_method = "UHF"
-                self.log.write(f"Mean field method: Unrestricted Hartree-Fock (determined automatically for a {self.spin_label()} molecule)")
-
-        # We now construct AO_H_two as the coefficient tensor in second quantisation according to Szabo & Ostlund: Modern Quantum Chemistry p. 95, Eq. 2.232
-        # O_2 = 0.5 * sum_ijkl <ij|kl> f\hc_i f\hc_j f_l f_k
-        # Using <ij|kl> = (ik|jl) we have
-        # O_ijkl = 0.5 (il|jk)
-        # By symmetry: (ij|kl) = (ji|kl) = (ij|lk) = (ji|lk)
-        # Hence O_ijkl = O_ljki = O_ikjl = O_lkji
-
-
-        # We initialise self.MO_coefs alpha/beta, self.MO_H_one,two a/b/ab as dicts with spin in key
-        self.MO_coefs = {}
-        self.MO_H_one = {}
-        self.MO_H_two = {}
-
-        # MO_H_two has three elements:
-        #   ["a"]_ijkl = <i,a j,a | k,a l,a>
-        #   ["b"]_ijkl = <i,b j,b | k,b l,b>
-        #   ["ab"]_ijkl = <i,a j,b | k,a l,b>
-        #   The second spin-mixed term is obtained by a double transpose; ["ba"]_ijkl = ["ab"]_jilk
-
-        if self.HF_method == "RHF":
-            # Everything is the same in both subspaces
-            self.log.write("Finding the molecular orbitals using mean-field approximations...", 1)
-            self.mean_field = scf.RHF(self.base_mol).run(verbose = 0)
-
-            self.MO_coefs["a"] = self.mean_field.mo_coeff
-            self.MO_coefs["b"] = self.MO_coefs["a"]
-            self.reference_state_energy = self.mean_field.e_tot
-            self.log.write(f"Done! Reference state energy is {self.reference_state_energy:0.5f}", 1)
-
-            self.log.write("Transforming 1e and 2e integrals to MO basis...", 3)
-            self.MO_H_one["a"] = np.matmul(self.MO_coefs["a"].T, np.matmul(AO_H_one, self.MO_coefs["a"]))
-            self.MO_H_one["b"] = self.MO_H_one["a"]
-            MO_H_two_packed = ao2mo.kernel(AO_H_two_chemist, self.MO_coefs["a"])
-            MO_H_two_chemist = ao2mo.restore(1, MO_H_two_packed, self.MO_coefs["a"].shape[1]) # In mulliken notation: MO_H_two[p][q][r][s] = (pq|rs)
-
-            self.MO_H_two["a"] = MO_H_two_chemist.transpose(0, 2, 1, 3)# - MO_H_two_chemist.transpose(0, 3, 1, 2)
-            self.MO_H_two["b"] = self.MO_H_two["a"]
-            self.MO_H_two["ab"] = self.MO_H_two["a"]
-
-            # We construct the second quantised space as occupied \oplus unoccupied orbitals
-            occ_orbs_alpha = [i for i, o in enumerate(self.mean_field.mo_occ) if o > 0]
-            occ_orbs_beta = occ_orbs_alpha
-
-        elif self.HF_method == "UHF":
-            # Coefs and exchange intergrals differ for the two subspaces
-            self.log.write("Finding the molecular orbitals using mean-field approximations...", 1)
-            mf_object = scf.UHF(self.base_mol)
-
-            mf_object.init_guess = 'atom'  # Atomic initial guess. If doesn't work, run RHF first and then use its result as the initial guess
-            #mf_rhf = scf.RHF(self.base_mol).run(verbose=0)
-            #mf_uhf = scf.UHF(self.base_mol)
-            #mf_uhf.init_guess = 'atom'
-            #dm0 = mf_rhf.make_rdm1()
-            #mean_field = mf_uhf.kernel(dm0=dm0, verbose=0)
-            mf_object.conv_tol = 1e-10 # Tighter convergence
-
-            self.mean_field = mf_object.run(verbose = 0)
-            self.MO_coefs["a"] = self.mean_field.mo_coeff[0]
-            self.MO_coefs["b"] = self.mean_field.mo_coeff[1]
-
-            assert self.MO_coefs["a"].shape[1] == self.MO_coefs["b"].shape[1]
-            # This is not required but if we remove the constraint we need to
-            # firstly restore symmetry, making the mixed H_two["ab"] non-square
-
-            self.reference_state_energy = self.mean_field.e_tot
-            self.log.write(f"Done! Reference state energy is {self.reference_state_energy:0.5f}", 1)
-
-            self.log.write("Transforming 1e and 2e integrals to MO basis...", 3)
-            self.MO_H_one["a"] = np.matmul(self.MO_coefs["a"].T, np.matmul(AO_H_one, self.MO_coefs["a"]))
-            self.MO_H_one["b"] = np.matmul(self.MO_coefs["b"].T, np.matmul(AO_H_one, self.MO_coefs["b"]))
-            MO_H_two_packed_alpha = ao2mo.kernel(AO_H_two_chemist, self.MO_coefs["a"])
-            MO_H_two_packed_beta = ao2mo.kernel(AO_H_two_chemist, self.MO_coefs["b"])
-            MO_H_two_packed_ab = ao2mo.kernel(AO_H_two_chemist, (self.MO_coefs["a"], self.MO_coefs["a"], self.MO_coefs["b"], self.MO_coefs["b"])) # in chemist's the spins are (aa|bb)
-            # Removes symmetry to make number access fast
-            MO_H_two_chemist_alpha = ao2mo.restore(1, MO_H_two_packed_alpha, self.MO_coefs["a"].shape[1])
-            MO_H_two_chemist_beta = ao2mo.restore(1, MO_H_two_packed_beta, self.MO_coefs["b"].shape[1])
-            MO_H_two_chemist_ab = ao2mo.restore(1, MO_H_two_packed_ab, self.MO_coefs["a"].shape[1])
-
-            self.MO_H_two["a"] = MO_H_two_chemist_alpha.transpose(0, 2, 1, 3)
-            self.MO_H_two["b"] = MO_H_two_chemist_beta.transpose(0, 2, 1, 3)
-            self.MO_H_two["ab"] = MO_H_two_chemist_ab.transpose(0, 2, 1, 3)
-
-            # We construct the second quantised space as occupied \oplus unoccupied orbitals
-            occ_orbs_alpha = [i for i, o in enumerate(self.mean_field.mo_occ[0]) if o > 0]
-            occ_orbs_beta = [i for i, o in enumerate(self.mean_field.mo_occ[1]) if o > 0]
-
-        # TODO note that by using RHF, we assume N_alpha = N_beta. We can generalise the process by using UHF,
-        # but this would mean using separate MO coeffs for alpha and beta subspaces
-
-        self.log.exit()
-
-        self.log.enter("Reference state analysis", 4)
-        self.log.write(f"Occupied orbitals:", 4)
-        self.log.write(f"  -in the spin-alpha subspace: {occ_orbs_alpha}", 4)
-        self.log.write(f"  -in the spin-beta subspace:  {occ_orbs_beta}", 4)
-
-        self.log.write("Testing each CS type Hamiltonian overlap evaluation against the reference state...")
-        for CS_type in self.coherent_state_types.keys():
-            null_state_alpha = self.coherent_state_types[CS_type].null_state(self.base_mol.nao, self.S_alpha)
-            null_state_beta = self.coherent_state_types[CS_type].null_state(self.base_mol.nao, self.S_beta)
-            null_state = [null_state_alpha, null_state_beta]
-            null_state_direct_self_energy = self.H_overlap(null_state, null_state).real
-            if np.round(null_state_direct_self_energy, 5) == np.round(self.reference_state_energy, 5):
-                nse_comment = "agrees"
-            else:
-                nse_comment = "disagrees"
-            self.log.write(f"  -For {CS_type}: E_ref = {null_state_direct_self_energy:0.5f}, which {nse_comment} with the true value", 4)
-        self.log.exit() # exits reference state analysis
-
-        self.user_actions += f"initialise_molecule [M = {self.M}, S = {self.S}]\n"
-        mol_structure_bulk = {
-            "atom" : self.base_mol.atom,
-            "basis" : self.base_mol.basis,
-            "spin" : self.base_mol.spin
-            }
-        mode_structure_bulk = {
-            "M" : self.M,
-            "S" : self.S,
-            "MO_coefs" : self.MO_coefs,
-            "MO_H_one" : self.MO_H_one,
-            "MO_H_two" : self.MO_H_two
-            }
-        self.disk_jockey.commit_datum_bulk("molecule", "mol_structure", mol_structure_bulk)
-        self.disk_jockey.commit_datum_bulk("molecule", "mode_structure", mode_structure_bulk)
-
-        self.check_off("mol_init")
-
-        self.log.exit()
-    """
 
     def print_diagnostic_log(self):
         # returns the log as a string
@@ -778,51 +695,26 @@ class potential_surface_extrapolator():
 
     # ------------------------ Data storage management ------------------------
 
+    def encode_geometry(self):
+        flattened_geometry = np.array((self.structure.N_nodes, 3 * (self.structure.mol_bp.N_a - 1)), dtype = float)
+
+        for node_i in range(self.structure.N_nodes):
+            for r_i in range(self.structure.mol_bp.N_a - 1):
+                for dim_i in range(3):
+                    flattened_geometry[node_i][r_i * 3 + dim_i] = self.structure.geometries[node_i].r[r_i][dim_i]
+        return(flattened_geometry)
+
+    def decode_geometry(self):
+        pass
+
     def save_data(self):
         self.user_actions += f"save_data\n"
         # ---- Save user log
         self.disk_jockey.commit_datum_bulk("system", "user_actions", self.user_actions)
         self.disk_jockey.commit_datum_bulk("system", "log", self.log.dump())
 
-        # ---- Save the node structure
-        # Save the geometry
-        self.disk_jockey.commit_datum_bulk("surfaces", "geometry", TODO) # csv row : node index, col : r_0_x, r_0_y, r_0_z, r_1_x ...
-        self.disk_jockey.commit_metadatum("surfaces", "geometry", self.structure.geometry_meta)
-        # Save the base node data
-        self.disk_jockey.commit_datum_bulk("surfaces", "base_node", TODO) # csv row : N_surf index, col : E, coef 0, coef 1 ...
-        self.disk_jockey.commit_metadatum("surfaces", "base_node", self.structure.base_node_meta)
-        # Save the node mean-field properties
-        self.disk_jockey.commit_datum_bulk("surfaces", "nodes", TODO) # csv row : node index, col : MO_coef_i, H_one_a/b, H_two_a/b/ab
-        self.disk_jockey.commit_metadatum("surfaces", "nodes", self.structure.nodes_meta)
-        # Save the surface calculation
-        for surface_label in self.structure.nodes_meta["surface_labels"]:
-            self.disk_jockey.commit_datum_bulk("surfaces", surface_label, TODO) # csv row : node index, col : E, coef 0, coef 1 ...
-            self.disk_jockey.commit_metadatum("surfaces", surface_label, self.structure.surfaces_meta[surface_label])
-
-
-
-
-        # Save self-analysis results which were performed
-        if "mol_init" in self.checklist:
-            self.disk_jockey.commit_datum_bulk("self_analysis", "physical_properties", {
-                "HF_method" : self.HF_method,
-                "reference_state_energy" : self.reference_state_energy
-                })
-        if "full_CI_sol" in self.checklist:
-            self.disk_jockey.commit_datum_bulk("self_analysis", "full_CI_sol", {
-                "E" : self.ci_energy,
-                "sol" : {str(k): v for k, v in self.ci_sol.items()} # each key is a tuple of tuples
-                })
-        if "LE_sol" in self.checklist:
-            LE_sol_encoded = {
-                "E" : self.LE_sol["E"],
-                "sol" : {str(k): v for k, v in self.LE_sol["sol"].items()}
-                }
-            for prop in ["red", "CSRM", "TPM", "SRRM", "SOPM", "RSOPM", "RNCS"]:
-                if prop in self.LE_sol:
-                    LE_sol_encoded[prop] = self.LE_sol[prop].tolist()
-            self.disk_jockey.commit_datum_bulk("self_analysis", "LE_sol", LE_sol_encoded)
-            self.disk_jockey.commit_metadatum("self_analysis", "LE_sol", self.LE_description)
+        # Save list of surfaces
+        self.disk_jockey.commit_metadatum("structure", "info", {"surface_labels" : list(self.structure.surfaces.keys())})
 
         # save diagnostic
         self.disk_jockey.commit_datum_bulk("diagnostics", "diagnostic_log", self.print_diagnostic_log())
@@ -832,107 +724,88 @@ class potential_surface_extrapolator():
 
         self.log.close_journal()
 
-    def load_data(self, what_to_load = None, load_specific_datasets = None):
+    def load_data(self, what_to_load = None):
         # what_to_load is a list of magic strings
-        # load_specific_datasets specifies dataset labels which are loaded
 
+        self.log.enter("Loading data from the disk...", 0)
+        self.user_actions += f"load_data\n"
 
-        if what_to_load is None:
-            # Default option
-            self.load_data(["system", "self_analysis", "measured_datasets"])
-        else:
-            self.log.enter("Loading data from the disk...", 0)
-            self.user_actions += f"load_data\n"
-            # loads data using disk jockey
+        self.disk_jockey.load_data()
 
-            # Firstly, let's see what we can load!
-            self.log.write("Reading files on disk...", 5)
-            self.disk_jockey.load_data(["system", "diagnostics"]) # Always by default
-            loaded_checklist = self.disk_jockey.metadata["system"]["log"]["checklist"]
+        self.load_structure()
 
-
-            if load_specific_datasets is None:
-                load_specific_datasets = self.disk_jockey.metadata["system"]["log"]["measured_datasets"]
-
-            if "self_analysis" in what_to_load and "mol_init" in loaded_checklist:
-                self.log.enter("Restoring self-analysis values...", 3)
-                if "mol_init" not in self.checklist:
-                    self.disk_jockey.load_data(["molecule"])
-                self.disk_jockey.load_data(["self_analysis"])
-
-                loaded_phys_properties = self.disk_jockey.data_bulks["self_analysis"]["physical_properties"]
-
-                self.HF_method = loaded_phys_properties["HF_method"]
-                self.reference_state_energy = loaded_phys_properties["reference_state_energy"]
-                self.check_off("mol_init")
-
-                if "full_CI_sol" in loaded_checklist:
-                    loaded_full_CI_sol = self.disk_jockey.data_bulks["self_analysis"]["full_CI_sol"]
-                    self.ci_energy = loaded_full_CI_sol["E"]
-                    self.ci_sol = {self.occ_tuple_restore(k): v for k, v in loaded_full_CI_sol["sol"].items()}
-                    self.check_off("full_CI_sol")
-                    self.log.write("Results from SCF performed on the full CI loaded...", 4)
-
-                if "LE_sol" in loaded_checklist:
-                    loaded_LE_sol = self.disk_jockey.data_bulks["self_analysis"]["LE_sol"]
-                    self.LE_description = self.disk_jockey.metadata["self_analysis"]["LE_sol"]
-                    # We need to re-tuple the scope
-                    self.LE_description["scope"] = [tuple(prom_label) for prom_label in self.LE_description["scope"]]
-                    self.LE_sol = {
-                        "E" : loaded_LE_sol["E"],
-                        "sol" : {self.str_to_prom_tuple(k): v for k, v in loaded_LE_sol["sol"].items()}
-                        }
-                    for prop in ["red", "CSRM", "TPM", "SRRM", "SOPM", "RSOPM", "RNCS"]:
-                        if prop in loaded_LE_sol:
-                            self.LE_sol[prop] = np.array(loaded_LE_sol[prop])
-                    """self.LE_sol = {
-                        "E" : loaded_LE_sol["E"],
-                        "sol" : {self.str_to_prom_tuple(k): v for k, v in loaded_LE_sol["sol"].items()},
-                        #"red" : np.array(loaded_LE_sol["red"]),
-                        #"CSRM" : np.array(loaded_LE_sol["CSRM"]),
-                        #"TPM" : np.array(loaded_LE_sol["TPM"]),
-                        #"SRRM" : np.array(loaded_LE_sol["SRRM"]),
-                        #"SOPM" : np.array(loaded_LE_sol["SOPM"]),
-                        "RSOPM" : np.array(loaded_LE_sol["RSOPM"]),
-                        "RNCS" : np.array(loaded_LE_sol["RNCS"])
-                        }"""
-                    self.check_off("LE_sol")
-                    self.log.write(f"Results from diagonalisation on a low-excitation basis loaded...", 4)
-                    self.log.write(f"  -environment: {self.LE_description["env"]}", 4)
-                    self.log.write(f"  -specification: {self.LE_description["spec"]}", 4)
-                    self.log.write(f"  -scope: {self.LE_description["scope"]}", 4)
-                    self.log.write(f"  -description: {self.LE_description["label"]}", 4)
-                    self.log.write(f"  -parameters:", 4)
-                    for param_name, param_val in self.LE_description["params"].items():
-                        self.log.write(f"    -{param_name}: {param_val}", 4)
-
-                self.log.exit()
-
-            if "measured_datasets" in what_to_load:
-                self.log.enter("Restoring measured datasets...", 3)
-                for loaded_dataset in load_specific_datasets:
-                    if loaded_dataset not in self.disk_jockey.data_nodes.keys():
-                        self.log.write(f"WARNING: Requested dataset '{loaded_dataset}' not found on disk.")
-                    elif loaded_dataset in self.measured_datasets:
-                        self.log.write(f"WARNING: Requested dataset '{loaded_dataset}' initialised during computation session. Loading aborted to not overwrite session data.")
-                    else:
-                        self.log.enter(f"Loading dataset '{loaded_dataset}'...", 4)
-                        for dataset_datum in self.disk_jockey.data_nodes[loaded_dataset]:
-                            self.disk_jockey.load_datum(loaded_dataset, dataset_datum)
-                        self.measured_datasets.append(loaded_dataset)
-                        self.log.write(f"Results from dataset '{loaded_dataset}' loaded.", 4)
-                        self.log.write(f"  -sampling method: {self.disk_jockey.metadata[loaded_dataset]["basis_samples"]["method"]}", 4)
-                        self.log.write(f"  -parameters:", 4)
-                        for param_name, param_val in self.disk_jockey.metadata[loaded_dataset]["basis_samples"]["params"].items():
-                            self.log.write(f"    -{param_name}: {param_val}", 4)
-
-                        self.log.exit()
-                self.log.exit()
-
-            self.log.exit()
+        self.log.exit()
 
 
     # ------------------------------- Plotting --------------------------------
+
+    def plot_grid_potential_surfaces(self, surface_labels = None, ax = None, i_d = None):
+        # if surface_labels is None, we plot all known surfaces
+        # i_d is the list of dimensions indices along which the plot is drawn.
+        # By default this is [0] for 1D grids and [0, 1] for higher-dimensional
+        # grids. The pivot is always base_g.
+
+        assert isinstance(self.structure, MGGrid)
+
+        self.user_actions += f"plot_grid_potential_surfaces\n"
+
+        self.log.enter("Plotting potential surfaces...", 5)
+
+        if surface_labels is None:
+            surface_labels = list(self.structure.surfaces.keys())
+
+        if ax is None:
+            ax = plt.gca()
+
+        if i_d is None:
+            # We choose the default option
+            if self.structure.D == 1:
+                i_d = [0]
+            else:
+                i_d = [0, 1]
+
+        pivot_i_r = self.structure.find(self.structure.base_can_i)
+        subgrid = self.structure.get_subgrid_through_pivot(pivot_i_r, i_d)
+
+        if len(i_d) == 1:
+            # 1D graph
+
+            xspace = []
+            yspaces = {}
+            for sl in surface_labels:
+                yspaces[sl] = []
+
+            for i_r in subgrid:
+                xspace.append(i_r[i_d[0]])
+                can_i = np.vdot(i_r, self.structure.weights)
+
+                for sl in surface_labels:
+                    yspaces[sl].append(self.structure.surfaces[sl].E[can_i])
+
+            for sl in surface_labels:
+                ax.plot(xspace, yspaces[sl], label = sl)
+
+        if len(i_d) == 2:
+            # 2D graph
+
+            xspace = np.arange(self.structure.spans[i_d[0]], dtype = int)
+            yspace = np.arange(self.structure.spans[i_d[1]], dtype = int)
+            X, Y = np.meshgrid(xspace, yspace)
+            zspaces = {}
+            can_i_prefix = np.vdot(np.delete(pivot_i_r, i_d), np.delete(self.structure.weights, i_d))
+            for sl in surface_labels:
+                zspaces[sl] = np.zeros((self.structure.spans[i_d[0]], self.structure.spans[i_d[1]]))
+                for i_x in range(self.structure.spans[i_d[0]]):
+                    for i_y in range(self.structure.spans[i_d[1]]):
+                        can_i = can_i_prefix + i_x * self.structure.weights[i_d[0]] + i_y * self.structure.weights[i_d[1]]
+                        zspaces[sl][i_x][i_y] = self.structure.surfaces[sl].E[can_i]
+
+            for sl in surface_labels:
+                ax.plot_surface(X, Y, zspaces[sl], cmap="coolwarm", linewidth=0, antialiased=False, label = sl)
+
+        ax.legend()
+
+        self.log.exit()
 
 
 

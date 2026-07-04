@@ -1,0 +1,10 @@
+{
+  "basis": {
+    "type": "occupancy"
+  },
+  "nda_dtype": "float64",
+  "nda_shape": [
+    9,
+    14400
+  ]
+}

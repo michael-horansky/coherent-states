@@ -15,7 +15,7 @@
       "mean_field_reference_state_energy",
       "base_sol_energies",
       "base_sol_coefs",
-      "base_sol_spin_mult"
+      "base_sol_spins"
     ],
     "diagnostics": [
       "diagnostic_log"
@@ -25,6 +25,18 @@
       "coef"
     ],
     "FCI[1]": [
+      "energy",
+      "coef"
+    ],
+    "FCI[2]": [
+      "energy",
+      "coef"
+    ],
+    "FCI[3]": [
+      "energy",
+      "coef"
+    ],
+    "FCI[4]": [
       "energy",
       "coef"
     ]
@@ -45,7 +57,7 @@
       "mean_field_reference_state_energy": "nda",
       "base_sol_energies": "nda",
       "base_sol_coefs": "nda",
-      "base_sol_spin_mult": "nda"
+      "base_sol_spins": "nda"
     },
     "diagnostics": {
       "diagnostic_log": "txt"
@@ -55,6 +67,18 @@
       "coef": "nda"
     },
     "FCI[1]": {
+      "energy": "nda",
+      "coef": "nda"
+    },
+    "FCI[2]": {
+      "energy": "nda",
+      "coef": "nda"
+    },
+    "FCI[3]": {
+      "energy": "nda",
+      "coef": "nda"
+    },
+    "FCI[4]": {
       "energy": "nda",
       "coef": "nda"
     }
@@ -75,7 +99,7 @@
       "mean_field_reference_state_energy": "json",
       "base_sol_energies": "json",
       "base_sol_coefs": "json",
-      "base_sol_spin_mult": "json"
+      "base_sol_spins": "json"
     },
     "diagnostics": {
       "diagnostic_log": "json"
@@ -85,6 +109,18 @@
       "coef": "json"
     },
     "FCI[1]": {
+      "energy": "json",
+      "coef": "json"
+    },
+    "FCI[2]": {
+      "energy": "json",
+      "coef": "json"
+    },
+    "FCI[3]": {
+      "energy": "json",
+      "coef": "json"
+    },
+    "FCI[4]": {
       "energy": "json",
       "coef": "json"
     }

@@ -308,7 +308,7 @@ class MPSNode():
 
         FCI_energies = np.zeros(N_surf)
         FCI_coefs = np.zeros((N_surf, math.comb(self.N_orb, self.S_alpha) * math.comb(self.N_orb, self.S_beta)))
-        FCI_spin_mult = np.zeros(N_surf, dtype = int)
+        FCI_spins = np.zeros(N_surf, dtype = int)
 
         if self.HF_method == "RHF":
             cisolver = fci.FCI(self.mol, self.get_MO_coefs())
@@ -329,8 +329,9 @@ class MPSNode():
                     FCI_coefs[i_surf][self.addr_to_index(a, b)] = raw_FCI_sol[i_surf][a, b]
 
             # Read the S^2 eigenvalues and related multiplicities
-            S2, mult = cisolver.spin_square(FCI_coefs[i_surf], self.N_orb, (self.S_alpha, self.S_beta))
-            FCI_spin_mult[i_surf] = mult
+            S2, mult = cisolver.spin_square(raw_FCI_sol[i_surf], self.N_orb, (self.S_alpha, self.S_beta))
 
-        return(FCI_energies, FCI_coefs, FCI_spin_mult)
+            FCI_spins[i_surf] = np.round(S2)
+
+        return(FCI_energies, FCI_coefs, FCI_spins)
 

@@ -63,9 +63,11 @@ class MGGrid(MGStructure):
             self.ranges = ranges
 
         self.spans = [] # for each i, this counts the width of the interval
+        self.lows = [] # lower range, for ease of accessing
         for i in range(self.D):
             min_c, max_c = self.ranges[i]
             self.spans.append(max_c - min_c + 1)
+            self.lows.append(min_c)
 
         self.weights = [1] * self.D # weights_i = spans_{i + 1} * ... * spans_{D - 1}
         for i in range(self.D - 2, -1, -1):
@@ -143,8 +145,7 @@ class MGGrid(MGStructure):
         r = np.zeros(self.D, dtype = int)
         for i_rep in range(self.D - 1, -1, -1):
             remainder = i % self.spans[i_rep]
-            min_c, max_c = self.ranges[i_rep]
-            r[i_rep] = min_c + remainder
+            r[i_rep] = self.lows[i_rep] + remainder
             i = i // self.spans[i_rep]
         return(r)
 

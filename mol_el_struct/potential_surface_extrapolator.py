@@ -2,6 +2,7 @@ import math
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
+from matplotlib import cm
 
 from pyscf import gto, scf, cc, ao2mo, ci, fci, pbc
 
@@ -81,7 +82,7 @@ class potential_surface_extrapolator():
             "mean_field_reference_state_energy" : "nda",
             "base_sol_energies" : "nda",
             "base_sol_coefs" : "nda",
-            "base_sol_spin_mult" : "nda"
+            "base_sol_spins" : "nda"
             },
 
         "diagnostics" : {"diagnostic_log" : "txt"} # Condition numbers, eigenvalue min-max ratios, norms etc
@@ -429,7 +430,7 @@ class potential_surface_extrapolator():
 
         self.disk_jockey.commit_datum_bulk("structure", "base_sol_energies", self.structure.base_sol_energies)
         self.disk_jockey.commit_datum_bulk("structure", "base_sol_coefs", self.structure.base_sol_coefs)
-        self.disk_jockey.commit_datum_bulk("structure", "base_sol_spin_mult", self.structure.base_sol_spin_mult)
+        self.disk_jockey.commit_datum_bulk("structure", "base_sol_spins", self.structure.base_sol_spins)
 
 
     # ----------------------- Load structure from disk ------------------------
@@ -487,7 +488,7 @@ class potential_surface_extrapolator():
         self.structure.load_base_sol(
             self.disk_jockey.data_bulks["structure"]["base_sol_energies"],
             self.disk_jockey.data_bulks["structure"]["base_sol_coefs"],
-            self.disk_jockey.data_bulks["structure"]["base_sol_spin_mult"]
+            self.disk_jockey.data_bulks["structure"]["base_sol_spins"]
             )
 
         self.log.write(f"Base node solution loaded (for the {self.structure.N_surf} lowest-energy surfaces)")
@@ -719,7 +720,7 @@ class potential_surface_extrapolator():
 
     # ------------------------------- Plotting --------------------------------
 
-    def plot_grid_potential_surfaces(self, surface_labels = None, ax = None, i_d = None):
+    def plot_grid_potential_surfaces(self, surface_labels = None, ax = None, i_d = None, i_surf = None):
         # if surface_labels is None, we plot all known surfaces
         # i_d is the list of dimensions indices along which the plot is drawn.
         # By default this is [0] for 1D grids and [0, 1] for higher-dimensional
@@ -771,17 +772,40 @@ class potential_surface_extrapolator():
             xspace = np.arange(self.structure.spans[i_d[0]], dtype = int)
             yspace = np.arange(self.structure.spans[i_d[1]], dtype = int)
             X, Y = np.meshgrid(xspace, yspace)
-            zspaces = {}
-            can_i_prefix = np.vdot(np.delete(pivot_i_r, i_d), np.delete(self.structure.weights, i_d))
-            for sl in surface_labels:
-                zspaces[sl] = np.zeros((self.structure.spans[i_d[0]], self.structure.spans[i_d[1]]))
-                for i_x in range(self.structure.spans[i_d[0]]):
-                    for i_y in range(self.structure.spans[i_d[1]]):
-                        can_i = can_i_prefix + i_x * self.structure.weights[i_d[0]] + i_y * self.structure.weights[i_d[1]]
-                        zspaces[sl][i_x][i_y] = self.structure.surfaces[sl].E[can_i]
+            X_hr, Y_hr = np.meshgrid(xspace + self.structure.lows[i_d[0]], yspace + self.structure.lows[i_d[1]])
+
+            index_matrix = (np.vdot(np.delete(pivot_i_r, i_d), np.delete(self.structure.weights, i_d))
+                + X * self.structure.weights[i_d[0]]
+                + Y * self.structure.weights[i_d[1]]
+                )
+
+            colors = cm.tab10.colors
 
             for sl in surface_labels:
-                ax.plot_surface(X, Y, zspaces[sl], cmap="coolwarm", linewidth=0, antialiased=False, label = sl)
+                if i_surf is not None:
+                    if self.structure.surfaces[sl].meta["i_surf"] not in i_surf:
+                        continue
+
+                Z = self.structure.surfaces[sl].E[index_matrix] #np.zeros((self.structure.spans[i_d[1]], self.structure.spans[i_d[0]]))
+
+                if "fancy_label" in self.structure.surfaces[sl].meta:
+                    plot_label = self.structure.surfaces[sl].meta["fancy_label"]
+                else:
+                    plot_label = sl
+
+                #functions.plot_3d_surface(ax, X_hr, Y_hr, Z, plot_label)
+                #ax.plot_surface(X_hr, Y_hr, Z, cmap="coolwarm", linewidth=0, antialiased=False, label = plot_label)
+
+                col = colors[self.structure.surfaces[sl].meta["i_surf"] % len(colors)]
+
+                ax.plot_surface(
+                    X_hr, Y_hr, Z,
+                    color=col,
+                    linewidth=0.3,
+                    antialiased=True,
+                    alpha=0.9,
+                    label = plot_label
+                )
 
         ax.legend()
 

@@ -23,8 +23,10 @@ class MPSurface():
         #
         # meta is a dict of metadata. Currently tracked keywords:
         #   -"i_surf": eigenvalue index corresponding to surface
+        #   -"spin": the spin eigenvalue corresponding to the surface
         #   -"method": method used to calculate surface
         #   -"duration": time (in s) of calculation
+        #   -"fancy_label": If present, will be used in pyplot instead of label
 
         self.label = label
 

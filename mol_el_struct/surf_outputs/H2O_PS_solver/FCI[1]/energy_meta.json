@@ -1,10 +1,11 @@
 {
   "i_surf": 1,
-  "spin_mult": 2,
+  "spin": 2,
   "method": "FCI",
-  "duration": 3.6958060264587402,
+  "duration": 290.29626631736755,
+  "fancy_label": "$E_{2}^{\\rm (FCI)}$ (trip.)",
   "nda_dtype": "float64",
   "nda_shape": [
-    9
+    441
   ]
 }

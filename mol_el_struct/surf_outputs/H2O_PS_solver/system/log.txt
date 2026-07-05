@@ -9,22 +9,24 @@ Initialising structure by automatic calculation...
 |   [93m-[0matoms: O, H, H (2)
 |   [93m-[0mbasis: sto-3g
 |   [93m-[0munit: Bohr
-| Structure geometry loaded (9 nodes).
-| HF calculation begins at 22:08:45
+| Structure geometry loaded (441 nodes).
+| HF calculation begins at 01:34:26
 | | HF calculation waiting for the first event...
-| \_ HF calculation finished at 22:08:47 (duration 1 sec 970 ms)             
+| \_ HF calculation finished at 01:35:39 (duration 1 min 13 sec)               
 | Mean-field properties loaded for each node:
 |   [93m-[0mHartree-Fock method: RHF
 |   [93m-[0mNumber of spatial molecular orbitals: 7
 |   [93m-[0mElectrons with spin alpha: 5
 |   [93m-[0mElectrons with spin beta: 5
-| LOL! dtype of mult: int64
-| Base node solution loaded (for the 2 lowest-energy surfaces)
+| Base node solution loaded (for the 5 lowest-energy surfaces)
 | Running FCI for every node in the geometry structure...
 | | Allocating memory for results...
-| | Performing FCI begins at 22:08:49
+| | Performing FCI begins at 01:35:41
 | | | Performing FCI waiting for the first event...
-| | \_ FCI calculation finished at 22:08:53 (duration 3 sec 696 ms)            
-| | Spin multiplicities: [[1 1 1 1 1 1 1 1 1]
- [2 2 2 2 2 2 2 2 2]]
+| | \_ FCI calculation finished at 01:40:31 (duration 4 min 50 sec)              
+| |                       [93m/[0m 0  0  0 ... 0
+| |                       [93m|[0m 2  2  2 ... 2
+| | Spin multiplicities = [93m|[0m 2  2  2 ... 0
+| |                       [93m|[0m 0  0  0 ... 2
+| |                       [93m\[0m 0  0  0 ... 0
 | \_

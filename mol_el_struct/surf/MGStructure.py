@@ -29,6 +29,8 @@
 import math
 import numpy as np
 
+import utils.functions as functions
+
 from surf.MGeometry import MGeometry
 from surf.MPSNode import MPSNode
 from surf.MPSurface import MPSurface
@@ -128,23 +130,23 @@ class MGStructure():
 
     # -------------------- 4. Base solution initialisation --------------------
 
-    def load_base_sol(self, energies, coefs, spin_mult):
+    def load_base_sol(self, energies, coefs, spins):
         # energies: H eigenvals for each root
         # coefs: occ basis rep for each root
-        # spin_mult: spin multiplicity 2S + 1 for each root
+        # spins: spin^2 eigenvalue for each root
 
         self.N_surf = len(energies)
 
         self.base_sol_energies = energies
         self.base_sol_coefs = coefs
-        self.base_sol_spin_mult = spin_mult
+        self.base_sol_spins = spins
 
 
     def find_base_sol(self, N_surf):
 
         self.N_surf = N_surf
 
-        self.base_sol_energies, self.base_sol_coefs, self.base_sol_spin_mult = self.nodes[self.base_can_i].run_FCI(self.N_surf)
+        self.base_sol_energies, self.base_sol_coefs, self.base_sol_spins = self.nodes[self.base_can_i].run_FCI(self.N_surf)
 
     # ------------------------- FCI surface analysis
 
@@ -163,29 +165,38 @@ class MGStructure():
         #            Otherwise, proper overlap transport analysis must be used.
         # This method returns (energies, coefs, meta)
 
-        energies, coefs, spin_mult, duration = self.nodewise_FCI_calculation()
+        energies, coefs, spins, duration = self.nodewise_FCI_calculation()
 
-        self.log.write(f"Spin multiplicities: {spin_mult}")
+        self.log.print_matrix(spins, "Spin multiplicities", dec_points = 0)
 
-        nodewise_surf_order = self.classify_FCI_surfaces(energies, coefs, spin_mult)
-
-        #ordered_energies = np.zeros((self.N_surf, self.N_nodes))
-        #ordered_coefs = np.zeros((self.N_surf, self.N_nodes, math.comb(self.mean_field["N_orb"], self.mean_field["S_alpha"]) * math.comb(self.mean_field["N_orb"], self.mean_field["S_beta"])))
-        #ordered_spin_mult = np.zeros((self.N_surf, self.N_nodes))
+        nodewise_surf_order = self.classify_FCI_surfaces(energies, coefs, spins)
 
         meta = []
 
         for i_s in range(self.N_surf):
             meta.append({
                 "i_surf" : i_s,
-                "spin_mult" : int(self.base_sol_spin_mult[i_s]),
+                "spin" : int(self.base_sol_spins[i_s]),
                 "method" : "FCI",
-                "duration" : duration
+                "duration" : duration,
+                "fancy_label" : f"$E_{{{i_s + 1}}}^{{\\rm (FCI)}}$ ({functions.spin_label(int(self.base_sol_spins[i_s]), True)})"
                 })
 
+        ordered_energies = np.zeros_like(energies)
+        ordered_coefs = np.zeros_like(coefs)
+
+        for i_s in range(self.N_surf):
+            for i_n in range(self.N_nodes):
+                if nodewise_surf_order[i_n, i_s] == -1:
+                    # datapoint missing
+                    ordered_energies[i_s, i_n] = np.nan
+                else:
+                    ordered_energies[i_s, i_n] = energies[nodewise_surf_order[i_n, i_s], i_n]
+                    ordered_coefs[i_s, i_n] = coefs[nodewise_surf_order[i_n, i_s], i_n]
+
         return(
-            energies[nodewise_surf_order.T, np.arange(self.N_nodes)],
-            coefs[nodewise_surf_order.T, np.arange(self.N_nodes)],
+            ordered_energies,
+            ordered_coefs,
             meta
             )
 
@@ -195,45 +206,50 @@ class MGStructure():
 
         FCI_energies = np.zeros((self.N_surf, self.N_nodes))
         FCI_coefs = np.zeros((self.N_surf, self.N_nodes, math.comb(self.mean_field["N_orb"], self.mean_field["S_alpha"]) * math.comb(self.mean_field["N_orb"], self.mean_field["S_beta"]))) # real coefs for FCI
-        FCI_spin_mult = np.zeros((self.N_surf, self.N_nodes), dtype = int)
+        FCI_spins = np.zeros((self.N_surf, self.N_nodes), dtype = int)
 
         self.log.enter("Performing FCI", semaphored = True, tau_space = np.linspace(0, self.N_nodes, 1000 + 1))
 
         for i in range(self.N_nodes):
-            cur_FCI_energies, cur_FCI_coefs, cur_FCI_spin_mult = self.nodes[i].run_FCI(self.N_surf)
+            cur_FCI_energies, cur_FCI_coefs, cur_FCI_spins = self.nodes[i].run_FCI(self.N_surf)
             for i_surf in range(self.N_surf):
                 FCI_energies[i_surf, i] = cur_FCI_energies[i_surf]
                 FCI_coefs[i_surf, i] = cur_FCI_coefs[i_surf]
-                FCI_spin_mult[i_surf, i] = cur_FCI_spin_mult[i_surf]
+                FCI_spins[i_surf, i] = cur_FCI_spins[i_surf]
             self.log.update_semaphor_event(i + 1)
 
         duration = self.log.exit("FCI calculation")
 
-        return(FCI_energies, FCI_coefs, FCI_spin_mult, duration)
+        return(FCI_energies, FCI_coefs, FCI_spins, duration)
 
-    def classify_FCI_surfaces(self, energies, coefs, spin_mult):
+    def classify_FCI_surfaces(self, energies, coefs, spins):
 
         # First, we look at the indices by spin subspace for the reference node
         base_index_in_mult_subspace = {}
         for i_s in range(self.N_surf):
-            if self.base_sol_spin_mult[i_s] not in base_index_in_mult_subspace.keys():
-                base_index_in_mult_subspace[self.base_sol_spin_mult[i_s]] = [i_s]
+            if self.base_sol_spins[i_s] not in base_index_in_mult_subspace.keys():
+                base_index_in_mult_subspace[self.base_sol_spins[i_s]] = [i_s]
             else:
-                base_index_in_mult_subspace[self.base_sol_spin_mult[i_s]].append(i_s)
+                base_index_in_mult_subspace[self.base_sol_spins[i_s]].append(i_s)
 
-        nodewise_surf_order = np.zeros((self.N_nodes, self.N_surf), dtype = int)
+        nodewise_surf_order = np.full((self.N_nodes, self.N_surf), -1, dtype=int) #np.zeros((self.N_nodes, self.N_surf), dtype = int)
 
         for i_n in range(self.N_nodes):
 
             index_in_mult_subspace = {}
 
             for i_s in range(self.N_surf):
-                if spin_mult[i_s, i_n] not in index_in_mult_subspace.keys():
-                    nodewise_surf_order[i_n, i_s] = base_index_in_mult_subspace[spin_mult[i_s, i_n]][0]
-                    index_in_mult_subspace[spin_mult[i_s, i_n]] = 1
+                occ = index_in_mult_subspace.get(spins[i_s, i_n], 0)
+                index_in_mult_subspace[spins[i_s, i_n]] = occ + 1
+                """if spins[i_s, i_n] not in index_in_mult_subspace.keys():
+                    index_in_mult_subspace[spins[i_s, i_n]] = 0
                 else:
-                    nodewise_surf_order[i_n, i_s] = base_index_in_mult_subspace[spin_mult[i_s, i_n]][index_in_mult_subspace[spin_mult[i_s, i_n]]]
-                    index_in_mult_subspace[spin_mult[i_s, i_n]] += 1
+                    #nodewise_surf_order[i_n, i_s] = base_index_in_mult_subspace[spins[i_s, i_n]][index_in_mult_subspace[spins[i_s, i_n]]]
+                    index_in_mult_subspace[spins[i_s, i_n]] += 1"""
+
+                if spins[i_s, i_n] in base_index_in_mult_subspace:
+                    if occ < len(base_index_in_mult_subspace[spins[i_s, i_n]]):
+                        nodewise_surf_order[i_n, i_s] = base_index_in_mult_subspace[spins[i_s, i_n]][occ]
         return(nodewise_surf_order)
 
 

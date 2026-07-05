@@ -1,6 +1,8 @@
 import math
 import numpy as np
 
+from matplotlib import cm
+
 #------------------------------------------------------------------------------
 #------------------------- Methods for linear algebra -------------------------
 #------------------------------------------------------------------------------
@@ -185,6 +187,16 @@ def dtstr(seconds, max_depth = 2):
     # Milliseconds
     return(f"{int(np.round(seconds / 0.001))} ms")
 
+def spin_label(s, short = False):
+    spin_labels = {
+        True : ["sing.", "doub.", "trip.", "quad.", "quin.", "sext.", "sept."],
+        False : ["singlet", "doublet", "triplet", "quadruplet", "quintuplet", "sextuplet", "septuplet"]
+        }
+    if s < 7:
+        return(spin_labels[short][s])
+    return(f"S = {s}")
+
+
 # ------------------------------ Plot formatting ------------------------------
 
 def subplot_dimensions(number_of_plots):
@@ -328,6 +340,13 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
             texts.append(text)
 
     return texts
+
+
+# ------------ 3D plotting functions
+
+def plot_3d_surface(ax, X_hr, Y_hr, zspace, plot_label):
+
+    colors = cm.tab10.colors
 
 
 

@@ -8,14 +8,17 @@ Initialising molecule...
 | | The molecule is occupied by 10 electrons in total: 5 with spin alpha, 5 with spin beta.
 | | The molecule consists of the following atoms: ['O', 'H', 'H']
 | | The atomic orbitals are ordered as follows: ['0 O 1s    ', '0 O 2s    ', '0 O 2px   ', '0 O 2py   ', '0 O 2pz   ', '1 H 1s    ', '2 H 1s    ']
-| | The nuclear repulsion energy is 18.367234513153473
+| | The nuclear repulsion energy is 13.70241189038986
+| | -------------------- Hilbert space properties --------------------
+| |   [93m-[0mTotal number of Slater determinants: 441
+| |   [93m-[0mTotal number of S_z-preserving spin-adapted configurations: 196
 | | Calculating 1e integrals...
 | | Calculating 2e integrals...
 | \_
 | Performing mean-field calculations to determine the molecular orbitals...
 | | Mean field method: Restricted Hartree-Fock (selected by user)
 | | Finding the molecular orbitals using mean-field approximations...
-| | Done! Reference state energy is -72.80965
+| | Done! Reference state energy is -73.86579
 | | Transforming 1e and 2e integrals to MO basis...
 | \_
 | Reference state analysis
@@ -23,8 +26,8 @@ Initialising molecule...
 | |   -in the spin-alpha subspace: [0, 1, 2, 3, 4]
 | |   -in the spin-beta subspace:  [0, 1, 2, 3, 4]
 | | Testing each CS type Hamiltonian overlap evaluation against the reference state...
-| |   -For Thouless: E_ref = -72.80965, which agrees with the true value
-| |   -For Qubit: E_ref = -72.80965, which agrees with the true value
+| |   -For Thouless: E_ref = -73.86579, which agrees with the true value
+| |   -For Qubit: E_ref = -73.86579, which agrees with the true value
 | \_
 \_
 Loading data from the disk...
@@ -40,23 +43,311 @@ Loading data from the disk...
 | |     -diag_alg: SCF
 | \_
 | Restoring measured datasets...
-| | Loading dataset 'RNCS_50_50_rp'...
-| | | Results from dataset 'RNCS_50_50_rp' loaded.
+| | Loading dataset 'B1SCV_i1_100_50_rp'...
+| | | Results from dataset 'B1SCV_i1_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i2_100_50_rp'...
+| | | Results from dataset 'B1SCV_i2_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i3_100_50_rp'...
+| | | Results from dataset 'B1SCV_i3_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i4_100_50_rp'...
+| | | Results from dataset 'B1SCV_i4_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i5_100_50_rp'...
+| | | Results from dataset 'B1SCV_i5_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i6_100_50_rp'...
+| | | Results from dataset 'B1SCV_i6_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i7_100_50_rp'...
+| | | Results from dataset 'B1SCV_i7_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i8_100_50_rp'...
+| | | Results from dataset 'B1SCV_i8_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i9_100_50_rp'...
+| | | Results from dataset 'B1SCV_i9_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i10_100_50_rp'...
+| | | Results from dataset 'B1SCV_i10_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i11_100_50_rp'...
+| | | Results from dataset 'B1SCV_i11_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i12_100_50_rp'...
+| | | Results from dataset 'B1SCV_i12_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i13_100_50_rp'...
+| | | Results from dataset 'B1SCV_i13_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i14_100_50_rp'...
+| | | Results from dataset 'B1SCV_i14_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i15_100_50_rp'...
+| | | Results from dataset 'B1SCV_i15_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i16_100_50_rp'...
+| | | Results from dataset 'B1SCV_i16_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i17_100_50_rp'...
+| | | Results from dataset 'B1SCV_i17_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i18_100_50_rp'...
+| | | Results from dataset 'B1SCV_i18_100_50_rp' loaded.
+| | |   -sampling method: manual_sample
+| | |   -parameters:
+| | \_
+| | Loading dataset 'B1SCV_i19_100_50_rp'...
+| | | Results from dataset 'B1SCV_i19_100_50_rp' loaded.
 | | |   -sampling method: manual_sample
 | | |   -parameters:
 | | \_
 | \_
 \_
 Collecting info about datasets...
-| Requested datasets: RNCS_50_50_rp
-| Dataset 'RNCS_50_50_rp' under scrutiny...
+| Requested datasets: B1SCV_i1_100_50_rp, B1SCV_i2_100_50_rp, B1SCV_i3_100_50_rp, B1SCV_i4_100_50_rp, B1SCV_i5_100_50_rp, B1SCV_i6_100_50_rp, B1SCV_i7_100_50_rp, B1SCV_i8_100_50_rp, B1SCV_i9_100_50_rp, B1SCV_i10_100_50_rp, B1SCV_i11_100_50_rp, B1SCV_i12_100_50_rp, B1SCV_i13_100_50_rp, B1SCV_i14_100_50_rp, B1SCV_i15_100_50_rp, B1SCV_i16_100_50_rp, B1SCV_i17_100_50_rp, B1SCV_i18_100_50_rp, B1SCV_i19_100_50_rp
+| Dataset 'B1SCV_i1_100_50_rp' under scrutiny...
 | | Meta-analysis on sqrt N linfit begins...
-| | | Base error is given as 0.003958050317612842
-| | | Cutoff N values range from 1 to 49.
+| | | Base error is given as 0.004265934615198579
+| | | Cutoff N values range from 1 to 91.
 | | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
-| | | Lowest consistent cutoff N value is 21; corresponding ext. E = -72.82096 +- 0.00094
+| | | Lowest consistent cutoff N value is 64; corresponding ext. E = -73.89954 +- 0.00000
 | | \_
-| |   -Ground state energy estimate: -72.81902694043723
-| |   -Lowest self-consistent extrapolated energy: -72.82096 +- 0.00094
-| |   -Dataset calculation duration: 1 min 50 sec
+| |   -Ground state energy estimate: -73.89376102566997
+| |   -Lowest self-consistent extrapolated energy: -73.89954 +- 0.00000
+| |   -Dataset calculation duration: 8 min 5 sec
+| \_
+| Dataset 'B1SCV_i2_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.004385452206358543
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 45; corresponding ext. E = -73.91033 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89369757036708
+| |   -Lowest self-consistent extrapolated energy: -73.91033 +- 0.00000
+| |   -Dataset calculation duration: 8 min 6 sec
+| \_
+| Dataset 'B1SCV_i3_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.004283433868877765
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 12; corresponding ext. E = -73.90032 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89381555182001
+| |   -Lowest self-consistent extrapolated energy: -73.90032 +- 0.00000
+| |   -Dataset calculation duration: 8 min 6 sec
+| \_
+| Dataset 'B1SCV_i4_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.004098305739586918
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 64; corresponding ext. E = -73.89707 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.8937500041051
+| |   -Lowest self-consistent extrapolated energy: -73.89707 +- 0.00000
+| |   -Dataset calculation duration: 8 min 16 sec
+| \_
+| Dataset 'B1SCV_i5_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.004099235870237349
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 89; corresponding ext. E = -73.89480 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89380867380339
+| |   -Lowest self-consistent extrapolated energy: -73.89480 +- 0.00000
+| |   -Dataset calculation duration: 8 min 2 sec
+| \_
+| Dataset 'B1SCV_i6_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.003802299639617955
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 19; corresponding ext. E = -73.90299 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89370854176383
+| |   -Lowest self-consistent extrapolated energy: -73.90299 +- 0.00000
+| |   -Dataset calculation duration: 8 min 16 sec
+| \_
+| Dataset 'B1SCV_i7_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.004163134798392445
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 73; corresponding ext. E = -73.90017 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.8937674542125
+| |   -Lowest self-consistent extrapolated energy: -73.90017 +- 0.00000
+| |   -Dataset calculation duration: 9 min 19 sec
+| \_
+| Dataset 'B1SCV_i8_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.004026817343502026
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 48; corresponding ext. E = -73.90308 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.8936668576464
+| |   -Lowest self-consistent extrapolated energy: -73.90308 +- 0.00000
+| |   -Dataset calculation duration: 9 min 33 sec
+| \_
+| Dataset 'B1SCV_i9_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.004179242962324584
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 68; corresponding ext. E = -73.90056 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89367269388352
+| |   -Lowest self-consistent extrapolated energy: -73.90056 +- 0.00000
+| |   -Dataset calculation duration: 9 min 33 sec
+| \_
+| Dataset 'B1SCV_i10_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.0037304215404130666
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 79; corresponding ext. E = -73.89942 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89380016416291
+| |   -Lowest self-consistent extrapolated energy: -73.89942 +- 0.00000
+| |   -Dataset calculation duration: 9 min 32 sec
+| \_
+| Dataset 'B1SCV_i11_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.004147267181173092
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 22; corresponding ext. E = -73.90346 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.8937754788495
+| |   -Lowest self-consistent extrapolated energy: -73.90346 +- 0.00000
+| |   -Dataset calculation duration: 9 min 25 sec
+| \_
+| Dataset 'B1SCV_i12_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.003976600275165725
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 20; corresponding ext. E = -73.90015 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89381713030636
+| |   -Lowest self-consistent extrapolated energy: -73.90015 +- 0.00000
+| |   -Dataset calculation duration: 9 min 27 sec
+| \_
+| Dataset 'B1SCV_i13_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.004166654842643304
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 36; corresponding ext. E = -73.90091 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89380304373441
+| |   -Lowest self-consistent extrapolated energy: -73.90091 +- 0.00000
+| |   -Dataset calculation duration: 9 min 32 sec
+| \_
+| Dataset 'B1SCV_i14_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.004324500744938917
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 43; corresponding ext. E = -73.90048 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89368219521377
+| |   -Lowest self-consistent extrapolated energy: -73.90048 +- 0.00000
+| |   -Dataset calculation duration: 9 min 44 sec
+| \_
+| Dataset 'B1SCV_i15_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.0039052662004873976
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 74; corresponding ext. E = -73.89982 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89369086359797
+| |   -Lowest self-consistent extrapolated energy: -73.89982 +- 0.00000
+| |   -Dataset calculation duration: 9 min 31 sec
+| \_
+| Dataset 'B1SCV_i16_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.003766200074396836
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 85; corresponding ext. E = -73.89696 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89380447171064
+| |   -Lowest self-consistent extrapolated energy: -73.89696 +- 0.00000
+| |   -Dataset calculation duration: 9 min 36 sec
+| \_
+| Dataset 'B1SCV_i17_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.003971506531358919
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 86; corresponding ext. E = -73.89512 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89380007648755
+| |   -Lowest self-consistent extrapolated energy: -73.89512 +- 0.00000
+| |   -Dataset calculation duration: 9 min 31 sec
+| \_
+| Dataset 'B1SCV_i18_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.004141286771335494
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 59; corresponding ext. E = -73.89876 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89374556468772
+| |   -Lowest self-consistent extrapolated energy: -73.89876 +- 0.00000
+| |   -Dataset calculation duration: 9 min 25 sec
+| \_
+| Dataset 'B1SCV_i19_100_50_rp' under scrutiny...
+| | Meta-analysis on sqrt N linfit begins...
+| | | Base error is given as 0.004085065354239469
+| | | Cutoff N values range from 1 to 91.
+| | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
+| | | Lowest consistent cutoff N value is 25; corresponding ext. E = -73.90299 +- 0.00000
+| | \_
+| |   -Ground state energy estimate: -73.89369659126864
+| |   -Lowest self-consistent extrapolated energy: -73.90299 +- 0.00000
+| |   -Dataset calculation duration: 9 min 50 sec
 | \_

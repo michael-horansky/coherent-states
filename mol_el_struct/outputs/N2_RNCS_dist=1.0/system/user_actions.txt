@@ -1,0 +1,6 @@
+initialised solver N2_RNCS_dist=1.0
+initialise_molecule [M = 20, S = 14]
+full_CI_sol
+find_LE_solution_SE [diag_alg = 'SCF']
+find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching [N = 100, N_sub = 50, N_no_cov = 0, rs = rp, alpha = 1.0, eta = 0.1]
+save_data

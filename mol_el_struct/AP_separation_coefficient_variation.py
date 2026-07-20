@@ -35,6 +35,9 @@ rs = params[3]
 freeze_basis = (params[4] == 1)
 load_analysis = (params[5] == 1)
 c_restrict = params[6]
+ds_id = params[7]
+sys_id = params[8]
+abf_basis = params[9]
 
 
 
@@ -42,7 +45,7 @@ c_restrict = params[6]
 #nontrivial_separations = [0.8, 0.9, 0.95, 1.05, 1.1, 1.15, 1.3]
 nontrivial_separations = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1.05, 1.1, 1.15, 1.2, 1.3, 1.4, 1.7, 2.0]
 
-global_ds_label = f"RNCS_{N}_{N_sub}"
+global_ds_label = f"{ds_id}_{N}_{N_sub}"
 if rs != "ai":
     global_ds_label += f"_{rs}"
 if freeze_basis == False:
@@ -51,6 +54,8 @@ if freeze_basis == False:
 # Assemble the molecules we work with
 mol_objs = {} # [sep coef] = pyscf.gto.mol object
 cur_am = mol_catalogue[cur_molecule]
+
+cur_am.basis = abf_basis
 
 for separation_coef in [1.0] + nontrivial_separations:
     mol_objs[separation_coef] = cur_am.get_gto_Mole(separation_coef)
@@ -63,7 +68,7 @@ mol_solvers = {} # [sep coef] = ground_state_solver object
 
 if freeze_basis or (c_restrict == 0 or c_restrict == 1):
     # Standard sep
-    mol_solvers[1.0] = ground_state_solver(f"{cur_molecule}_RNCS_dist=1.0")
+    mol_solvers[1.0] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist=1.0")
     mol_solvers[1.0].initialise_molecule(mol_objs[1.0])
     if load_analysis:
         mol_solvers[1.0].load_data(["self_analysis"])
@@ -83,7 +88,7 @@ if freeze_basis or (c_restrict == 0 or c_restrict == 1):
 for i_separation_coef in range(len(nontrivial_separations)):
     if c_restrict == 0 or c_restrict == i_separation_coef + 2:
         separation_coef = nontrivial_separations[i_separation_coef]
-        mol_solvers[separation_coef] = ground_state_solver(f"{cur_molecule}_RNCS_dist={separation_coef}")
+        mol_solvers[separation_coef] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist={separation_coef}")
         mol_solvers[separation_coef].initialise_molecule(mol_objs[separation_coef])
         if load_analysis:
             mol_solvers[separation_coef].load_data(["self_analysis"])

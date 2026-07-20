@@ -1,0 +1,6 @@
+initialised solver N2_RNCS_dist=1.15
+initialise_molecule [M = 20, S = 14]
+full_CI_sol
+find_LE_solution_SE [diag_alg = 'SCF']
+find_ground_state_from_z_tensor
+save_data

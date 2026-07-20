@@ -21,31 +21,64 @@ class AccessPoint():
         self.desc = desc
         self.params = params
 
+        self.param_names = []
+        for i in range(len(self.params)):
+            self.param_names.append(self.params[i][0])
+
+    def enforce_type(self, i, val):
+        try:
+            return(self.params[i][1](val))
+        except:
+            raise Exception(f"Conversion of parameter \"{self.params[i][0]}\" failed (type \"{str(self.params[i][1])}\" expected; provided value {val} is of type {type(val)})")
+
     def process_cmd_args(self):
         # Returns a list of properly-typed arguments if cmd_args is sane
         # Raises an error and returns None if cmd_args is ill-formed
 
         cmd_args = sys.argv[1:]
-        N_a = len(cmd_args)
-        N_p = len(self.params)
 
         res = []
 
         print("Processing command parameters...")
 
-        if N_a > N_p:
-            raise Exception(f"Too many parameters provided ({N_p} expected; {N_a} provided)")
+        # We split the positional and keyword arguments
 
-        for i in range(N_a):
-            try:
-                res.append(self.params[i][1](cmd_args[i]))
-            except:
-                raise Exception(f"Conversion of parameter \"{self.params[i][0]}\" failed (type \"{str(self.params[i][1])}\" expected; provided value {cmd_args[i]} is of type {type(cmd_args[i])})")
+        args_pos = []
+        args_kw = {}
+
+        initialised_params = []
+
+        kw_arg_encountered = False
+        for i in range(len(cmd_args)):
+            if "=" in cmd_args[i]:
+                key, value = cmd_args[i].split("=", 1)
+                if key not in self.param_names:
+                    raise Exception(f"Unknown keyword argument \"{key}\" (provided value {value}).")
+                param_index = self.param_names.index(key)
+                if param_index in initialised_params:
+                    raise Exception(f"Keyword argument \"{key}\" has encountered duplicate value assignment.")
+                initialised_params.append(param_index)
+                args_kw[key] = value
+                kw_arg_encountered = True
+            elif kw_arg_encountered:
+                raise Exception(f"Positional argument (i. {i + 1}, val. {cmd_args[i]}) encountered after a keyword argument. Please use the format [positional arguments] [keyword arguments].")
+            else:
+                args_pos.append(cmd_args[i])
+                initialised_params.append(i)
+
+
+        for i in range(len(args_pos)):
+            res.append(self.enforce_type(i, args_pos[i]))
             print(f"  \"{self.params[i][0]}\" set to {res[i]}")
 
-        for i in range(N_a, N_p):
-            if self.params[i][2] is None:
-                raise Exception(f"Parameter \"{self.params[i][0]}\" mandatory but not provided (parameter index {i})")
+        for i in range(len(args_pos), len(self.params)):
+
+            if self.params[i][0] in args_kw.keys():
+                res.append(self.enforce_type(i, args_kw[self.params[i][0]]))
+                print(f"  \"{self.params[i][0]}\" set to {res[i]}")
+
+            elif self.params[i][2] is None:
+                raise Exception(f"Parameter \"{self.params[i][0]}\" mandatory but not provided (parameter index {i}).")
             else:
                 res.append(self.params[i][2])
                 print(f"  \"{self.params[i][0]}\" defaulted to {res[i]}")
@@ -80,7 +113,10 @@ sep_coef_AP = AccessPoint(
             ["sr", str, "rp", "Sign randomisation for parameter tensor. \"ai\": as is. \"rs\": random sign. \"rp\": random complex phase."],
             ["freeze_basis", int, 1, "Whether the parameter tensor is frozen based on the sampling for the default separation coefficient. 1: frozen. 0: not frozen (much higher time complexity)."],
             ["load_analysis", int, 0, "Whether the CI and CISD solution and derived properties are loaded from the disk for each molecule geometry. 0: no loading, the analysis is calculated from scratch. 1: loading."],
-            ["c_restrict", int, 0, "Restricts the calculation to a single value of c. 0: no restriction, code runs for all values of c. n > 0: code is restricted to the value of c at index n-1, with n = 1 corresponding to c = 1.0."]
+            ["c_restrict", int, 0, "Restricts the calculation to a single value of c. 0: no restriction, code runs for all values of c. n > 0: code is restricted to the value of c at index n-1, with n = 1 corresponding to c = 1.0."],
+            ["ds_id", str, "RNCS", "Dataset identifier."],
+            ["sys_id", str, "sto3g", "System identifier."],
+            ["basis", str, "sto-3g", "System identifier."]
         ]
     )
 

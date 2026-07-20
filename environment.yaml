@@ -1,0 +1,9 @@
+name: mol-el-struct-env
+
+dependencies:
+  - python=3.12
+  - numpy
+  - scipy
+  - matplotlib
+  - h5py
+  - pyscf

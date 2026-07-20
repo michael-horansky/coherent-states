@@ -9,6 +9,9 @@ Initialising molecule...
 | | The molecule consists of the following atoms: ['F', 'F']
 | | The atomic orbitals are ordered as follows: ['0 F 1s    ', '0 F 2s    ', '0 F 2px   ', '0 F 2py   ', '0 F 2pz   ', '1 F 1s    ', '1 F 2s    ', '1 F 2px   ', '1 F 2py   ', '1 F 2pz   ']
 | | The nuclear repulsion energy is 31.774170223919054
+| | -------------------- Hilbert space properties --------------------
+| |   [93m-[0mTotal number of Slater determinants: 100
+| |   [93m-[0mTotal number of S_z-preserving spin-adapted configurations: 55
 | | Calculating 1e integrals...
 | | Calculating 2e integrals...
 | \_
@@ -52,11 +55,11 @@ Collecting info about datasets...
 | Dataset 'RNCS_50_50_rp' under scrutiny...
 | | Meta-analysis on sqrt N linfit begins...
 | | | Base error is given as 0.000814025212471776
-| | | Cutoff N values range from 1 to 49.
+| | | Cutoff N values range from 1 to 41.
 | | | Extrapolated energy and its uncertainty calculated for each cutoff N value.
-| | | Lowest consistent cutoff N value is 32; corresponding ext. E = -196.04925 +- 0.00041
+| | | Lowest consistent cutoff N value is 37; corresponding ext. E = -196.04897 +- 0.00000
 | | \_
 | |   -Ground state energy estimate: -196.04861249575833
-| |   -Lowest self-consistent extrapolated energy: -196.04925 +- 0.00041
+| |   -Lowest self-consistent extrapolated energy: -196.04897 +- 0.00000
 | |   -Dataset calculation duration: 7 min 45 sec
 | \_

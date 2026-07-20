@@ -1,3 +1,3 @@
 ----------------- BeH2_RNCS_dist=1.1 diagnostic log -----------------
-find_ground_state_from_z_tensor (RNCS_50_50_rp)
-    Full sample condition number = 47.547385929832
+find_ground_state_from_z_tensor (B1SCV_i19_100_50_rp)
+    Full sample condition number = 1420.5154739049835

@@ -19,7 +19,7 @@ import utils.functions
 from molecules_abstract import *
 
 
-cur_molecule = 'Li2'
+cur_molecule = 'H2O'
 
 
 
@@ -27,13 +27,13 @@ cur_molecule = 'Li2'
 #nontrivial_separations = [0.8, 0.9, 0.95, 1.05, 1.1, 1.15, 1.3]
 nontrivial_separations = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1.05, 1.15, 1.2, 1.3, 1.4, 1.7, 2.0]
 
-N = 50
+N = 100
 N_sub = 50
 rs = "rp"
-freeze_basis = False
+freeze_basis = True
 
 #atasets_to_load = ["RNCS_50_50_rp", "RNCS_50_50_rp_nf", "RNCS_100_50_rp"] # None for default
-datasets_to_load = ["RNCS_50_50_rp"] # None for default
+datasets_to_load = ["B1SCV_i1_100_50_rp"] # None for default
 
 global_ds_label = f"RNCS_{N}_{N_sub}"
 if rs != "ai":
@@ -70,6 +70,9 @@ for ds in datasets_to_load:
     base_sep_datasets_to_load.append(base_sep_dataset_buf[ds])
 
 mol_solvers[1.0].load_data(["self_analysis", "measured_datasets"], base_sep_datasets_to_load)
+
+mol_solvers[1.0].plot_datasets_extra()
+
 mol_solvers[1.0].log.close_journal()
 
 
@@ -92,7 +95,7 @@ err_func_roster = {"$1/\\sqrt{N}$" : None}
 
 cmap = plt.get_cmap("tab10")
 
-for sep_c in [1.0] + nontrivial_separations[:3]:
+for sep_c in [1.0] + nontrivial_separations[:1]:
     for i_ds in range(len(datasets_to_load)):
         ds = datasets_to_load[i_ds]
 
@@ -101,12 +104,48 @@ for sep_c in [1.0] + nontrivial_separations[:3]:
         base_err = mol_solvers[1.0].disk_jockey.metadata[ds]["result_energy_states"]["E_base_err"]
         N_cutoff_space = np.arange(1, 48, 1, dtype = int)
 
-        plt.title(f"${{\\rm Li}}_2$ extrapolation by inv. sqrt law")
-        plt.xlabel("cutoff N")
-        plt.ylabel("E [H]")
-        plt.axhline(y = mol_solvers[sep_c].ci_energy, linestyle = "dashed", label = "$E_g$")
+        #plt.title(f"${{\\rm Li}}_2$ extrapolation by inv. sqrt law")
+        #plt.xlabel()
+        #plt.ylabel()
+        #plt.axhline(y = mol_solvers[sep_c].ci_energy, linestyle = "dashed", label = "$E_g$")
 
-        i_err_func = 1
+        # Taking the points as error-less, we see if the fit error has a minimum
+        E_ext_space = np.zeros(len(N_cutoff_space))
+        E_ext_err_space = np.zeros(len(N_cutoff_space))
+
+        for i in range(len(N_cutoff_space)):
+
+            cur_E_ext, cur_E_ext_err = mol_solvers[sep_c].extrapolate_by_inverse_sqrt(csv_sol, N_cutoff_space[i])
+            E_ext_space[i] = cur_E_ext
+            E_ext_err_space[i] = cur_E_ext_err # * base_err
+
+
+        fig, ax1 = plt.subplots()
+
+        color = 'tab:red'
+        ax1.set_xlabel("cutoff N")
+        ax1.set_ylabel("$E$ [H]", color=color)
+        ax1.plot(N_cutoff_space, E_ext_space, color=color)
+        ax1.tick_params(axis='y', labelcolor=color)
+        ax1.axhline(y = mol_solvers[sep_c].ci_energy, linestyle = "dashed", label = "$E_g$")
+
+        ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
+
+        color = 'tab:blue'
+        ax2.set_ylabel("$\\sigma_E$ [H]", color=color)  # we already handled the x-label with ax1
+        ax2.plot(N_cutoff_space, E_ext_err_space, color=color)
+        ax2.tick_params(axis='y', labelcolor=color)
+
+        fig.tight_layout()  # otherwise the right y-label is slightly clipped
+        plt.show()
+
+
+
+        #plt.errorbar(N_cutoff_space, E_ext_space, yerr = E_ext_err_space, capsize = 3, label = r"$E_{\rm ext.}$")
+        #plt.plot(N_cutoff_space, E_ext_space, label = r"$E_{\rm ext.}$")
+        #plt.plot(N_cutoff_space, E_ext_err_space, label = r"$\sigma_{\rm ext.}$")
+
+        r"""i_err_func = 1
         for err_func_label, err_func in err_func_roster.items():
             E_ext_space = np.zeros(len(N_cutoff_space))
             E_ext_err_space = np.zeros(len(N_cutoff_space))
@@ -137,9 +176,9 @@ for sep_c in [1.0] + nontrivial_separations[:3]:
 
         #plt.plot(N_cutoff_space, E_ext_space, label = r"$E_{\rm ext.}$")
         #plt.plot(N_cutoff_space, E_ext_err_space, label = r"$\sigma_{E_{\rm ext.}}$")
-
-        plt.legend()
-        plt.show()
+        """
+        #plt.legend()
+        #plt.show()
 
 
 

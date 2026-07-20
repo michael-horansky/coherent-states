@@ -1,0 +1,127 @@
+Initialising molecule solver O2_RNCS_dist=1.0 at log_verbosity = 5
+| Initialising Data Storage Manager...
+| Initialising self-analysis properties...
+\_
+Initialising molecule...
+| Building molecule...
+| | There are 10 atomic orbitals, each able to hold 2 electrons of opposing spin.
+| | The molecule is occupied by 16 electrons in total: 8 with spin alpha, 8 with spin beta.
+| | The molecule consists of the following atoms: ['O', 'O']
+| | The atomic orbitals are ordered as follows: ['0 O 1s    ', '0 O 2s    ', '0 O 2px   ', '0 O 2py   ', '0 O 2pz   ', '1 O 1s    ', '1 O 2s    ', '1 O 2px   ', '1 O 2py   ', '1 O 2pz   ']
+| | The nuclear repulsion energy is 28.04748772736159
+| | Calculating 1e integrals...
+| | Calculating 2e integrals...
+| \_
+| Performing mean-field calculations to determine the molecular orbitals...
+| | Mean field method: Restricted Hartree-Fock (determined automatically for a singlet molecule)
+| | Finding the molecular orbitals using mean-field approximations...
+| | Done! Reference state energy is -147.55109
+| | Transforming 1e and 2e integrals to MO basis...
+| \_
+| Reference state analysis
+| | Occupied orbitals:
+| |   -in the spin-alpha subspace: [0, 1, 2, 3, 4, 5, 6, 7]
+| |   -in the spin-beta subspace:  [0, 1, 2, 3, 4, 5, 6, 7]
+| | Testing each CS type Hamiltonian overlap evaluation against the reference state...
+| |   -For Thouless: E_ref = -147.55109, which agrees with the true value
+| |   -For Qubit: E_ref = -147.55109, which agrees with the true value
+| \_
+\_
+Performing SCF on full CI...
+| FCI solver initialised...
+| Regularising solution as a dict of tuples...
+| Ground state energy as calculated by SCF (full configuration) = -147.74404
+\_
+Obtaining low-excitation solution with env. RHF, spec SE...
+| Solving on a single-excitation closed-shell basis using SCF on a CISD basis...
+| | SCF on CISD basis...
+| | | Obtained CISD solution (basis length = 273)
+| | | Ground state energy: -147.69071 (compare to full CI: -147.74404)
+| | | Regularising solution as a dict of tuples...
+| | \_
+| | Deriving the reduction matrix for the LE solution...
+| | | Calculating the norm of the solution on singlets and mixed-spin doublets...
+| | | Low excitation solution norm squared:
+| | |   -for all singlet and mixed-doublet excitations: <LE | LE> = 0.99469
+| | |   -for all singlet and mixed-doublet excitations, ignoring the HF state: <LE | LE> = 0.11108
+| | |   -for closed-shell mixed-doublet excitations: <LE | LE> = 0.98166
+| | | Calculating reduced simultanous occupancy proportion matrix begins at 01:35:11
+| | | | Calculating reduced simultanous occupancy proportion matrix waiting for the first event...
+| | | \_ Calculation finished at 01:35:13 (duration 1 sec 955 ms)
+| | | Calculating the reduced null-coherent state...
+| | | | Trace of RSOPM = 16.000000000000004; expected value is S = 16; renormalising...
+| | | | Norm squared of initial guess is 35.2860294916189. Renormalising...
+| | | | Norm squared of initial guess was renormalised to 1.0000000000000007.
+| | | | Parameters for the gradient descent:
+| | | |   -eta (step size) = 0.1
+| | | |   -epsilon (max allowed error) = 1e-06
+| | | | Calculating z_i to match reduced mode occupancies begins at 01:35:13
+| | | | | Calculating z_i to match reduced mode occupancies waiting for the first event...
+| | | | \_ Calculation finished at 02:18:46 (duration 43 min 33 sec)
+| | | | Final norm squared = 1.0
+| | | |  <S_i> diagnostic> [93m|[0m < LE | S_i | LE >  < Z | S_i | Z >  Err % 
+| | | | [93m------------------------------------------------------------------------[0m
+| | | |        1(a)        [93m|[0m     0.999989          0.999989       0.0  
+| | | |        2(a)        [93m|[0m     0.999991           0.99999       0.0  
+| | | |        3(a)        [93m|[0m     0.975516          0.975516      -0.0  
+| | | |        4(a)        [93m|[0m     0.984368          0.984368      -0.0  
+| | | |        5(a)        [93m|[0m     0.982455          0.982455      -0.0  
+| | | |        6(a)        [93m|[0m     0.918983          0.918983      -0.0  
+| | | |        7(a)        [93m|[0m     0.427997          0.427997      -0.0  
+| | | |        8(a)        [93m|[0m     0.711934          0.711934      -0.0  
+| | | |        9(a)        [93m|[0m      0.8856            0.8856       -0.0  
+| | | |        10(a)       [93m|[0m     0.113168          0.113169      -0.0  
+| | | |        1(b)        [93m|[0m     0.999989          0.999989       0.0  
+| | | |        2(b)        [93m|[0m     0.999991           0.99999       0.0  
+| | | |        3(b)        [93m|[0m     0.975516          0.975516      -0.0  
+| | | |        4(b)        [93m|[0m     0.984368          0.984368      -0.0  
+| | | |        5(b)        [93m|[0m     0.982455          0.982455      -0.0  
+| | | |        6(b)        [93m|[0m     0.918983          0.918983      -0.0  
+| | | |        7(b)        [93m|[0m     0.427997          0.427997      -0.0  
+| | | |        8(b)        [93m|[0m     0.711934          0.711934      -0.0  
+| | | |        9(b)        [93m|[0m      0.8856            0.8856       -0.0  
+| | | |        10(b)       [93m|[0m     0.113168          0.113169      -0.0  
+| | | | [93m------------------------------------------------------------------------[0m
+| | | \_
+| | \_
+| | Success!
+| \_
+\_
+Obtaining the ground state with the method "LEGS Zombie cov RSOPM moment matching" [N = 100, N_sub = 50, N_no_cov = 0, rs = rp, alpha = 1.0, eta = 0.1]
+| Parameter phases are randomised.
+|  LE Zombie diag. [93m|[0m mean    std      var     gershgorin disc    leeway    leeway % 
+| [93m-------------------------------------------------------------------------------------------[0m
+|         1        [93m|[0m 0.0   22.4741  505.0835     1664.8024     -1159.719    -229.6  
+|         2        [93m|[0m 0.0   23.528   553.5661     1718.0778     -1164.5117   -210.4  
+|         3        [93m|[0m 0.0   0.4832    0.2334       45.8472       -45.6137   -19539.9 
+|         4        [93m|[0m 0.0   0.6061    0.3674       57.7006       -57.3333   -15606.7 
+|         5        [93m|[0m 0.0   0.5718    0.327        54.4026       -54.0756   -16538.4 
+|         6        [93m|[0m 0.0   0.2615    0.0684       24.1413       -24.0729   -35202.8 
+|         7        [93m|[0m 0.0   0.0786    0.0062       4.9535        -4.9474    -80168.1 
+|         8        [93m|[0m 0.0   0.1295    0.0168       10.5351       -10.5183   -62700.8 
+|         9        [93m|[0m 0.0   0.2179    0.0475       19.7609       -19.7134   -41505.0 
+|        10        [93m|[0m 0.0   0.0352    0.0012        1.14         -1.1388    -91652.8 
+| [93m-------------------------------------------------------------------------------------------[0m
+|                     [93m/[0m 505.08348  528.7641   10.72466  13.51468  12.73766  5.63389   1.155   2.45603  4.60925  0.26649
+|                     [93m|[0m 528.7641   553.56614  11.2276   14.14846   13.335   5.89809  1.20917  2.57121  4.8254   0.27899
+|                     [93m|[0m 10.72466    11.2276   0.23344   0.28691   0.27041   0.1195   0.02411  0.05189  0.0988   0.00522
+|                     [93m|[0m 13.51468   14.14846   0.28691   0.36736   0.34078   0.15064  0.03058  0.06551  0.12356  0.00702
+|                     [93m|[0m 12.73766    13.335    0.27041   0.34078   0.32697   0.14197  0.02878  0.06172  0.1162   0.00674
+| covariance matrix = [93m|[0m  5.63389    5.89809    0.1195   0.15064   0.14197   0.06838  0.0121   0.0269   0.05349  0.00177
+|                     [93m|[0m   1.155     1.20917   0.02411   0.03058   0.02878   0.0121   0.00617  0.00381  0.00971  0.0009 
+|                     [93m|[0m  2.45603    2.57121   0.05189   0.06551   0.06172   0.0269   0.00381  0.01678  0.02188  0.00151
+|                     [93m|[0m  4.60925    4.8254     0.0988   0.12356    0.1162   0.05349  0.00971  0.02188  0.0475     0.0  
+|                     [93m\[0m  0.26649    0.27899   0.00522   0.00702   0.00674   0.00177  0.0009   0.00151    0.0    0.00124
+| Warning: Covariance matrix is not positive-semidefinite (min eig = -0.00016734802153998103)
+| Randomising parameter signs...
+| Affixing |Z_alpha> = |Z_beta> for each basis state...
+| Conditioned sampling with ground state search on 100 states, each taken from 50 random states begins at 02:18:46
+| | Conditioned sampling with ground state search on 100 states, each taken from 50 random states waiting for the first event...
+| \_ Evaluation finished at 17:39:24 (duration 15 hours 21 min)
+| Estimating the error on an N=1 dataset begins at 17:39:24
+| | Estimating the error on an N=1 dataset waiting for the first event...
+| \_ Error evaluation finished at 17:53:07 (duration 13 min 44 sec)
+| Error on a single-state basis: 0.02300502065189694
+| Value of lin fit at x = 0: -147.71489415841404 +- 0.05427250866025155.sigma_0, where sigma_0 is the error on a single datapoint.
+| Measured datasets: ['B1SCV_i9_100_50_rp']
+\_

@@ -781,12 +781,14 @@ class potential_surface_extrapolator():
 
             colors = cm.tab10.colors
 
+            E_nuc_surf = self.structure.get_E_nuc_surface()[index_matrix]
+
             for sl in surface_labels:
                 if i_surf is not None:
                     if self.structure.surfaces[sl].meta["i_surf"] not in i_surf:
                         continue
 
-                Z = self.structure.surfaces[sl].E[index_matrix] #np.zeros((self.structure.spans[i_d[1]], self.structure.spans[i_d[0]]))
+                Z = self.structure.surfaces[sl].E[index_matrix] - self.structure.surfaces["FCI[0]"].E[index_matrix] #np.zeros((self.structure.spans[i_d[1]], self.structure.spans[i_d[0]]))
 
                 if "fancy_label" in self.structure.surfaces[sl].meta:
                     plot_label = self.structure.surfaces[sl].meta["fancy_label"]
@@ -798,7 +800,12 @@ class potential_surface_extrapolator():
 
                 col = colors[self.structure.surfaces[sl].meta["i_surf"] % len(colors)]
 
-                ax.plot_surface(
+                """mask = np.isfinite(Z)
+                ax.plot_trisurf(
+                    X_hr[mask].ravel(), Y_hr[mask].ravel(), Z[mask].ravel()
+                )"""
+
+                ax.plot_trisurf(
                     X_hr, Y_hr, Z,
                     color=col,
                     linewidth=0.3,

@@ -1,0 +1,31 @@
+#!/bin/bash 
+#SBATCH --job-name=miniforge_job
+#SBATCH --output=output_%A_%a.out
+#SBATCH --error=error_%A_%a.err
+#SBATCH --time=12:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --account=chmdsh_project
+
+#SBATCH --array=0-79
+
+module load miniforge/24.7.1
+conda activate mol-el-struct-env
+
+molecules=(BeH2 F2 H2O Li2)
+
+mol_index=$(($SLURM_ARRAY_TASK_ID / 20))
+ds_index=$(($SLURM_ARRAY_TASK_ID % 20))
+
+mol=${molecules[$mol_index]}
+ds_id="RNCS_i${ds_index}"
+
+cd /users/vzwt2244/coherent-states/mol_el_struct
+
+python -u AP_separation_coefficient_variation.py \
+    $mol \
+    100 \
+    50 \
+    load_analysis=1 \
+    ds_id=$ds_id

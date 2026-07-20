@@ -17,8 +17,17 @@ class AbstractMolecule():
 
     def get_atoms(self, scale = 1.0):
         res = ""
-        for atom in self.atoms:
-            res += f"{atom[0]}   {atom[1] * scale}   {atom[2] * scale}   {atom[3] * scale}\n"
+
+        # We do something goofy here: since we're working with triatomic molecules, we will only rescale the pos of the first two atoms, so that only one bond stretches
+        for i in range(len(self.atoms)):
+            if i < 2:
+                cur_scale = scale
+            else:
+                cur_scale = 1.0
+            atom = self.atoms[i]
+            res += f"{atom[0]}   {atom[1] * cur_scale}   {atom[2] * cur_scale}   {atom[3] * cur_scale}\n"
+        #for atom in self.atoms:
+        #    res += f"{atom[0]}   {atom[1] * scale}   {atom[2] * scale}   {atom[3] * scale}\n"
         return(res)
 
     def get_gto_Mole(self, scale = 1.0):
@@ -76,6 +85,17 @@ n2_am = AbstractMolecule(
     basis = 'sto-3g',
     unit = 'Bohr',
     label = r'${\rm N}_2$'
+    )
+
+# ------------------------------ O2
+
+# O2: bond length = 1.2075 Å = 2.2818443 Bohr
+# placed symmetrically about origin: half-distance = 1.14092215 Bohr
+o2_am = AbstractMolecule(
+    atoms = [["O", 0.0, 0.0, -1.14092215], ["O", 0.0, 0.0, 1.14092215]],
+    basis = 'sto-3g',
+    unit = 'Bohr',
+    label = r'${\rm O}_2$'
     )
 
 # ---------------------------------- C2
@@ -140,10 +160,13 @@ H2O_am = AbstractMolecule(
     )
 
 
+
+
 mol_catalogue = {
     'Li2' : li2_am,
     'BeH' : beh_am,
     'N2' : n2_am,
+    'O2' : o2_am,
     'C2' : c2_am,
     'NO' : no_am,
     'BeH2' : BeH2_am,

@@ -1,1 +1,3 @@
 ----------------- Li2_RNCS_dist=0.95 diagnostic log -----------------
+find_ground_state_from_z_tensor (RNCS_100_50_rp)
+    Full sample condition number = 46363.048462047234

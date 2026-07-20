@@ -1,3 +1,3 @@
 ----------------- H2O_RNCS_dist=1.1 diagnostic log -----------------
-find_ground_state_from_z_tensor (RNCS_50_50_rp)
-    Full sample condition number = 116.29845265070254
+find_ground_state_from_z_tensor (B1SCV_i10_100_50_rp)
+    Full sample condition number = 59304.917546784396

@@ -19,21 +19,21 @@ import utils.functions
 from molecules_abstract import *
 
 
-cur_molecule = 'Li2'
-
 
 
 #nontrivial_separations = [0.5, 0.6, 0.7, 0.85, 1.2, 1.4, 1.7, 2.0]
 #nontrivial_separations = [0.8, 0.9, 0.95, 1.05, 1.1, 1.15, 1.3]
 nontrivial_separations = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1.05, 1.15, 1.2, 1.3, 1.4, 1.7, 2.0]
 
-N = 50
+
+cur_molecule = 'H2O'
+N = 100
 N_sub = 50
 rs = "rp"
-freeze_basis = False
+freeze_basis = True
 
 #atasets_to_load = ["RNCS_50_50_rp", "RNCS_50_50_rp_nf", "RNCS_100_50_rp"] # None for default
-datasets_to_load = ["RNCS_50_50_rp_nf"] # None for default
+datasets_to_load = None #["RNCS_50_50_rp_nf"] # None for default
 
 global_ds_label = f"RNCS_{N}_{N_sub}"
 if rs != "ai":
@@ -86,6 +86,8 @@ for ds in datasets_to_load:
     E_data[-1][ds] = E_data_base_sep[base_sep_dataset_buf[ds]]
 E_data[-1]["c"] = 1.0
 
+#ref_E_base_err = mol_solvers[1.0].disk_jockey.metadata[base_sep_dataset_buf[ds]]["result_energy_states"]["E_base_err"]
+
 for ds in datasets_to_load:
     E_base_err[ds] = mol_solvers[1.0].disk_jockey.metadata[base_sep_dataset_buf[ds]]["result_energy_states"]["E_base_err"]
     #duration = mol_solvers[1.0].disk_jockey.metadata[ds]["result_energy_states"]["duration"]
@@ -107,7 +109,7 @@ for i in range(len(nontrivial_separations)):
     #E_ref[i + 1] = mol_solvers[separation_coef].reference_state_energy
     #E_fullCI[i + 1] = mol_solvers[separation_coef].ci_energy
     #E_data.append([separation_coef, mol_solvers[separation_coef].ci_energy, mol_solvers[separation_coef].reference_state_energy, mol_solvers[separation_coef].disk_jockey.metadata[global_ds_label]["result_energy_states"]["E_g"]])
-    E_data.append(mol_solvers[separation_coef].get_dataset_info(datasets_to_load, None))
+    E_data.append(mol_solvers[separation_coef].get_dataset_info(datasets_to_load, E_base_err))
     E_data[-1]["c"] = separation_coef
     #mol_solvers[separation_coef].plot_datasets(reference_energies = [])
     mol_solvers[separation_coef].save_data()
@@ -239,6 +241,16 @@ plt.show()
 
 # 1 Improve extrapolation
 # 2 larger molecules
+
+
+
+# 1 Repeat calc ( batch job)
+# larger basis (100) for H2O, BeH2
+# Only stretch one bond for triatomic mols (break sym)
+# Intro: review of stochastic methods: Martin Patterson, Ali Allavi (slater det space random walk)
+# Small note about the PNCCS
+# JCP communication
+
 
 
 

@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
@@ -3419,7 +3420,7 @@ class ground_state_solver():
     # Helper methods
 
     def extrapolate_by_inverse_sqrt(self, dataset_dict, min_N = 10, err_func = None):
-        sigma_zero = 1.0 # dummy val of inherent err
+        """sigma_zero = 1.0 # dummy val of inherent err
 
         N_space = []
         E_space = []
@@ -3454,9 +3455,36 @@ class ground_state_solver():
         l_err, c_err = np.sqrt(np.diag(pcov))
 
         E_zero = c_best
-        E_zero_err = c_err / sigma_zero
+        E_zero_err = c_err # / sigma_zero
 
-        return(E_zero, E_zero_err)
+        return(E_zero, E_zero_err)"""
+
+
+        N_space = []
+        E_space = []
+        trim_i = 0
+        for row in dataset_dict:
+            N_space.append(row["N"])
+            E_space.append(row["E [H]"])
+
+        while(N_space[trim_i] < min_N):
+            trim_i += 1
+            if trim_i == len(N_space):
+                trim_i = 0
+                return(0.0, 0.0) # default vals for failed calc
+
+
+        sqinv_N_space = np.array(1/np.sqrt(N_space))
+
+        #self.log.write(str(sqinv_N_space) + "  " + str(E_space))
+
+        res = sp.stats.linregress(sqinv_N_space[trim_i:], E_space[trim_i:])
+
+        #self.log.write(f"For N_min = {min_N}; intercept {res.intercept} +- {res.intercept_stderr}")
+
+        return(res.intercept, res.intercept_stderr)
+
+
 
     def get_dataset_info(self, dataset_label_list, base_err_dict = None):
 
@@ -3494,7 +3522,7 @@ class ground_state_solver():
                 N_space = []
                 for row in self.disk_jockey.data_bulks[dataset_label]["result_energy_states"]:
                     N_space.append(row["N"])
-                N_cutoff_space = N_space[:-2]
+                N_cutoff_space = N_space[:-10] # we don't consider cutoffs for which the number of datapoints is smaller than 10
 
                 self.log.write(f"Cutoff N values range from {N_cutoff_space[0]} to {N_cutoff_space[-1]}.")
 
@@ -3509,7 +3537,7 @@ class ground_state_solver():
                 self.log.write("Extrapolated energy and its uncertainty calculated for each cutoff N value.")
 
                 # As our FINAL GUESS, we select the first datapoint (lowest cutoff) for which all subsequent datapoints are within its interval of uncertainty
-                for i in range(len(N_cutoff_space)):
+                """for i in range(len(N_cutoff_space)):
                     is_consistent_with_subsequent_datapoints = True
                     for j in range(i + 1, len(N_cutoff_space)):
                         if E_ext_space[j] > E_ext_space[i] + E_ext_err_space[i] or E_ext_space[j] < E_ext_space[i] - E_ext_err_space[i]:
@@ -3519,7 +3547,10 @@ class ground_state_solver():
                         final_guess = E_ext_space[i]
                         final_guess_err = E_ext_err_space[i]
                         final_guess_index = i
-                        break
+                        break"""
+                final_guess_index = np.argmin(E_ext_err_space)
+                final_guess = E_ext_space[final_guess_index]
+                final_guess_err = E_ext_err_space[final_guess_index]
                 self.log.write(f"Lowest consistent cutoff N value is {N_cutoff_space[final_guess_index]}; corresponding ext. E = {final_guess:0.5f} +- {final_guess_err:0.5f}")
                 self.log.exit()
             else:
@@ -3580,6 +3611,13 @@ class ground_state_solver():
         self.log.write(f"The atomic orbitals are ordered as follows: {self.mol.ao_labels()}", 3)
         self.log.write(f"The nuclear repulsion energy is {self.mol.energy_nuc()}", 3)
         #print(gto.charge("O"))
+        self.log.write("-" * 20 + " Hilbert space properties " + "-" * 20)
+        assert (self.S + self.mol.spin) % 2 == 0
+        assert (self.S - self.mol.spin) % 2 == 0
+        self.log.print_itemize({
+            "Total number of Slater determinants" : math.comb(self.mol.nao, self.S_alpha) * math.comb(self.mol.nao, self.S_beta),
+            "Total number of S_z-preserving spin-adapted configurations" : int((self.mol.spin + 1) / (self.mol.nao + 1) * math.comb(self.mol.nao + 1, int((self.S - self.mol.spin) / 2)) * math.comb(self.mol.nao + 1, int((self.S + self.mol.spin) / 2) + 1))
+            })
 
         self.log.write("Calculating 1e integrals...", 1)
         AO_H_one = self.mol.intor('int1e_kin', hermi = 1) + self.mol.intor('int1e_nuc', hermi = 1)

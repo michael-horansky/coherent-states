@@ -1,4 +1,5 @@
 initialised solver Li2_RNCS_dist=0.5
 initialise_molecule [M = 20, S = 6]
 load_data
+find_ground_state_from_z_tensor
 save_data

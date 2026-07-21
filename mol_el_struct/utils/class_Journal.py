@@ -1,5 +1,6 @@
 
 from utils.class_Semaphor import Semaphor
+import utils.functions as functions
 
 # -----------------------------------------------------------------------------
 # -------------------------- Typographical constants --------------------------
@@ -121,7 +122,91 @@ class Journal():
     for a_val in answer_strings.values():
         valid_answers += a_val
 
-    def __init__(self, verbosity = 0, print_on_the_fly = True, fancy_printing = True, max_row_width = 200):
+    @classmethod
+    def sample_behaviour(cls, **kwargs):
+        # useful when testing whether behaviour is as expected
+        sample_journal = cls(**kwargs)
+
+        sample_journal.enter("Journal behaviour test commences...")
+        sample_journal.write("This is a sample instance of class Journal. Please take note of when the announced function does not agree with the output.")
+
+        sample_journal.enter("Testing special object printing methods...")
+        sample_journal.write("Special objects, such as item lists, tables, or matrices, can be printed with special formatting using these methods.")
+
+        sample_journal.enter("Testing item list printing...")
+        sample_journal.print_itemize({
+            "print_itemize" : "Prints an itemized/enumerated list from a standard object. Supports nested lists.",
+            "nested numbered list" : ["First element", "Second element", {"this" : "First part of third element", "that" : "Second part of third element"}, "Fourth element"],
+            "nested itemized list" : {"Keyword" : "Value", "Other keyword" : "Other value"}
+            })
+        sample_journal.exit()
+
+        sample_journal.enter("Testing matrix printing...")
+        sample_journal.print_matrix(
+            [[0.5 + 1j] * 5, [0.554 + 0.518j] * 5, [0.245] * 5, [0.5 - 0.5j] * 5, [0.5 - 1j] * 5],
+            "Example matrix",
+            2,
+            4
+            )
+        sample_journal.exit()
+
+        sample_journal.enter("Testing table printing...")
+        sample_journal.print_table(
+            table_name = "Current properties",
+            column_names = ["value", "default", "description"],
+            row_names = ["verbosity", "print_on_the_fly", "fancy_printing", "max_row_width", "yes"],
+            list_of_rows = [
+                [sample_journal.verbosity, 5, "Only logs with lower or equal value of verbosity are printed."],
+                [sample_journal.print_on_the_fly, "True", "Whether the log is also printed to an output stream."],
+                [sample_journal.fancy_printing, "True", "Formatting: font weight and color, rolling last line."],
+                [sample_journal.max_row_width, 200, "Rows get trimmed if length exceeds this value."],
+                [sample_journal.yes, None, "If not None, used instead of asking for input."]
+                ],
+            subtable_borders=[1]
+            )
+        sample_journal.exit()
+
+        sample_journal.exit()
+
+        sample_journal.enter("Testing semaphors...")
+        sample_journal.write("Semaphor is used to update the user periodically when the program spends a long time on one task.")
+
+        sample_journal.enter("Calculating gibberish", semaphored = True, tau_space = list(range(102)))
+
+        for a in range(10):
+            for b in range(10):
+                # We do something very computationally heavy here, I think
+
+                total = 0
+                for i in range(1000):
+                    for j in range(1000):
+                        total += ((i + a) * (j + b)) % 97
+
+                sample_journal.update_semaphor_event(a * 10 + b)
+                # Don't forget to update the semaphor with the current sim time!
+
+        duration = sample_journal.exit("Evaluation")
+        sample_journal.write(f"The calculation duration was {functions.dtstr(duration)}")
+
+        sample_journal.exit()
+
+        sample_journal.enter("Testing user input collection...")
+        sample_journal.write("The journal can ask yes/no questions. This pauses the program. Set the 'yes' property to assume the answers.")
+        ans = sample_journal.ask_yes_no("Is this true?")
+        if ans:
+            sample_journal.write("The user has decided that this is true.")
+        else:
+            sample_journal.write("The user has decided that this is false.")
+        sample_journal.exit()
+
+        sample_journal.exit()
+        sample_journal.close_journal()
+
+        print(sample_journal.dump())
+
+
+
+    def __init__(self, verbosity = 5, print_on_the_fly = True, fancy_printing = True, max_row_width = 200, yes = None):
 
         self.journal_text = ""
         self.routine_stack = [] # every routine is [header, max required verbosity]
@@ -132,6 +217,8 @@ class Journal():
         self.fancy_printing = fancy_printing # if True, we use colors, highlighting etc
 
         self.max_row_width = max_row_width # used for clever wrapping
+
+        self.yes = yes # If not None, used instead of asking for input
 
         self.last_printed_line = None # Always printed with \r until next line is staged, with different colour
         self.last_printed_depth = 0
@@ -195,10 +282,13 @@ class Journal():
 
     # Write method
 
-    def write(self, msg, v = -1, prevent_printing_on_the_fly = False):
+    def write(self, msg, v = -1, prevent_printing_on_the_fly = False, plain_msg = None):
         # Writes a message inside current routine at current depth
         if self.verbosity >= max(v, self.get_stack_v()):
-            self.journal_text += self.pre(False) + msg + "\n"
+            if plain_msg is None:
+                self.journal_text += self.pre(False) + msg + "\n"
+            else:
+                self.journal_text += self.pre(False) + plain_msg + "\n"
             if self.print_on_the_fly and not prevent_printing_on_the_fly:
                 if self.fancy_printing:
                     # We firstly print the last submitted line, and then the preprint of the current line
@@ -210,49 +300,97 @@ class Journal():
 
     # Special object printing methods
 
-    def print_itemize(self, dict_of_items):
-        for label, value in dict_of_items.items():
+    def print_itemize(self, std_object):
+        # std_object is an object with the following properties:
+        #   1. It is either a dict or a list
+        #   2. Every element is either a valid std_object or a string
+        def peel_layer(cur_std_object, key = None, itemize_depth = 0):
+            if isinstance(cur_std_object, dict):
+                if key is not None:
+                    plain_msg = " " * (2 * (itemize_depth + 1)) + "-" + str(key)
+                    if self.fancy_printing:
+                        self.write(" " * (2 * (itemize_depth + 1)) + color.BRIGHT_YELLOW + "-" + color.END + str(key), plain_msg = plain_msg)
+                    else:
+                        self.write(plain_msg)
+                for label, value in cur_std_object.items():
+                    peel_layer(value, label, itemize_depth + 1)
+            elif isinstance(cur_std_object, list):
+                if key is not None:
+                    plain_msg = " " * (2 * (itemize_depth + 1)) + "-" + str(key)
+                    if self.fancy_printing:
+                        self.write(" " * (2 * (itemize_depth + 1)) + color.BRIGHT_YELLOW + "-" + color.END + str(key), plain_msg = plain_msg)
+                    else:
+                        self.write(plain_msg)
+                for i in range(len(cur_std_object)):
+                    peel_layer(cur_std_object[i], str(i + 1), itemize_depth + 1)
+            else:
+                plain_msg = " " * (2 * (itemize_depth + 1)) + f"-{key}: {cur_std_object}"
+                if self.fancy_printing:
+                    self.write(" " * (2 * (itemize_depth + 1)) + color.BRIGHT_YELLOW + "-" + color.END + f"{key}: {cur_std_object}", plain_msg = plain_msg)
+                else:
+                    self.write(plain_msg)
+
+        peel_layer(std_object)
+        """for label, value in dict_of_items.items():
             if self.fancy_printing:
                 self.write("  " + color.BRIGHT_YELLOW + "-" + color.END + label + f": {value}")
             else:
-                self.write(f"  -{label}: {value}")
+                self.write(f"  -{label}: {value}")"""
 
     def print_matrix(self, m, label, dec_points = 5, max_rows = 11):
 
         # First, we create the label prefix
-        print_queue = []
+        fancy_print_queue = []
+        plain_print_queue = []
+        def pq_app(msg, i):
+            if self.fancy_printing:
+                fancy_print_queue[i] += msg
+            plain_print_queue[i] += msg
         no_of_rows = min(len(m), max_rows)
 
-        pre_col = []
+        def rdec(n):
+            if isinstance(n, int):
+                return(f"{n}")
+            if isinstance(n, complex):
+                if n.imag < 0:
+                    return(f"{round(n.real, dec_points)}{round(n.imag, dec_points)}j")
+                else:
+                    return(f"{round(n.real, dec_points)}+{round(n.imag, dec_points)}j")
+            return(f"{round(n, dec_points)}")
+
+        fancy_pre_col = []
+        plain_pre_col = []
         if no_of_rows == 1:
             if self.fancy_printing:
-                pre_col = [color.BRIGHT_YELLOW + "(" + color.END]
-            else:
-                pre_col = ["("]
+                fancy_pre_col = [color.BRIGHT_YELLOW + "(" + color.END]
+            plain_pre_col = ["("]
         else:
             if self.fancy_printing:
-                pre_col = [color.BRIGHT_YELLOW + "/" + color.END]
+                fancy_pre_col = [color.BRIGHT_YELLOW + "/" + color.END]
                 for i in range(no_of_rows - 2):
-                    pre_col.append(color.BRIGHT_YELLOW + "|" + color.END)
-                pre_col.append(color.BRIGHT_YELLOW + "\\" + color.END)
-            else:
-                pre_col = ["/"]
-                for i in range(no_of_rows - 2):
-                    pre_col.append("|")
-                pre_col.append("\\")
+                    fancy_pre_col.append(color.BRIGHT_YELLOW + "|" + color.END)
+                fancy_pre_col.append(color.BRIGHT_YELLOW + "\\" + color.END)
+            plain_pre_col = ["/"]
+            for i in range(no_of_rows - 2):
+                plain_pre_col.append("|")
+            plain_pre_col.append("\\")
 
         for i in range(no_of_rows):
             if i == no_of_rows // 2:
-                print_queue.append(f"{label} = {pre_col[i]}")
+                if self.fancy_printing:
+                    fancy_print_queue.append(f"{label} = {fancy_pre_col[i]}")
+                plain_print_queue.append(f"{label} = {plain_pre_col[i]}")
             else:
-                print_queue.append(" " * (len(label) + 3) + f"{pre_col[i]}")
+                if self.fancy_printing:
+                    fancy_print_queue.append(" " * (len(label) + 3) + f"{fancy_pre_col[i]}")
+                plain_print_queue.append(" " * (len(label) + 3) + f"{plain_pre_col[i]}")
 
 
         # Now, we calculate how many numbers we can afford to print to respect the line length
         col_width = [0] * len(m[0])
         for i in range(len(m)):
             for j in range(len(m[0])):
-                cur_len = len(str(round(m[i][j], dec_points))) + 2 # the 2 is for minimal padding
+                cur_len = len(rdec(m[i][j])) + 2 # the 2 is for minimal padding
                 if cur_len > col_width[j]:
                     col_width[j] = cur_len
 
@@ -270,43 +408,46 @@ class Journal():
                 # we can print the entire matrix
                 for i in range(len(m)):
                     for j in range(len(m[i]) - 1):
-                        print_queue[i] += st(str(round(m[i][j], dec_points)), col_width[j])
-                    print_queue[i] += " " + st(str(round(m[i][len(m[i]) - 1], dec_points)), col_width[-1] - 2)
+                        pq_app(st(rdec(m[i][j]), col_width[j]), i)
+                    pq_app(" " + st(rdec(m[i][len(m[i]) - 1]), col_width[-1] - 2), i)
             else:
                 # we trim after max_rows - 2
                 for i in range(max_rows - 2):
                     for j in range(len(m[i]) - 1):
-                        print_queue[i] += st(str(round(m[i][j], dec_points)), col_width[j])
-                    print_queue[i] += " " + st(str(round(m[i][len(m[i]) - 1], dec_points)), col_width[-1] - 2)
+                        pq_app(st(rdec(m[i][j]), col_width[j]), i)
+                    pq_app(" " + st(rdec(m[i][len(m[i]) - 1]), col_width[-1] - 2), i)
                 for j in range(len(m[0]) - 1):
-                    print_queue[max_rows - 2] += st("...", col_width[j])
-                print_queue[max_rows - 2] += " " + st("...", col_width[-1] - 2)
+                    pq_app(st("...", col_width[j]), max_rows - 2)
+                pq_app(" " + st("...", col_width[-1] - 2), max_rows - 2)
                 for j in range(len(m[-1]) - 1):
-                    print_queue[max_rows - 1] += st(str(round(m[-1][j], dec_points)), col_width[j])
-                print_queue[max_rows - 1] += " " + st(str(round(m[-1][len(m[-1]) - 1], dec_points)), col_width[-1] - 2)
+                    pq_app(st(rdec(m[-1][j]), col_width[j]), max_rows - 1)
+                pq_app(" " + st(rdec(m[-1][len(m[-1]) - 1]), col_width[-1] - 2), max_rows - 1)
         else:
             # we have to trim the number of entries per row
             if len(m) <= max_rows:
                 # we can print all rows
                 for i in range(len(m)):
                     for j in range(trim_N):
-                        print_queue[i] += st(str(round(m[i][j], dec_points)), col_width[j])
-                    print_queue[i] += "... " + st(str(round(m[i][len(m[i]) - 1], dec_points)), col_width[-1] - 2)
+                        pq_app(st(rdec(m[i][j]), col_width[j]), i)
+                    pq_app("... " + st(rdec(m[i][len(m[i]) - 1]), col_width[-1] - 2), i)
             else:
                 # we trim rows and columns
                 for i in range(max_rows - 2):
                     for j in range(trim_N):
-                        print_queue[i] += st(str(round(m[i][j], dec_points)), col_width[j])
-                    print_queue[i] += "... " + st(str(round(m[i][len(m[i]) - 1], dec_points)), col_width[-1] - 2)
+                        pq_app(st(rdec(m[i][j]), col_width[j]), i)
+                    pq_app("... " + st(rdec(m[i][len(m[i]) - 1]), col_width[-1] - 2), i)
                 for j in range(trim_N):
-                    print_queue[max_rows - 2] += st("...", col_width[j])
-                print_queue[max_rows - 2] += "    " + st("...", col_width[-1] - 2)
+                    pq_app(st("...", col_width[j]), max_rows - 2)
+                pq_app("    " + st("...", col_width[-1] - 2), max_rows - 2)
                 for j in range(trim_N):
-                    print_queue[max_rows - 1] += st(str(round(m[-1][j], dec_points)), col_width[j])
-                print_queue[max_rows - 1] += "... " + st(str(round(m[-1][len(m[-1]) - 1], dec_points)), col_width[-1] - 2)
+                    pq_app(st(rdec(m[-1][j]), col_width[j]), max_rows - 1)
+                pq_app("... " + st(rdec(m[-1][len(m[-1]) - 1]), col_width[-1] - 2), max_rows - 1)
 
-        for line in print_queue:
-            self.write(line)
+        for i in range(len(plain_print_queue)):
+            if self.fancy_printing:
+                self.write(fancy_print_queue[i], plain_msg = plain_print_queue[i])
+            else:
+                self.write(plain_print_queue[i])
 
 
 
@@ -314,12 +455,13 @@ class Journal():
     def print_table(self, table_name, column_names, row_names, list_of_rows, subtable_borders = [], header_separation = 2):
         # column_names[N], row_names[M], list_of_rows[M][N]
 
-        print_queue = [] # each line is an element
+        fancy_print_queue = [] # each line is an element
+        plain_print_queue = []
 
         if self.fancy_printing:
-            vert_sep = color.BRIGHT_YELLOW + "|" + color.END
-        else:
-            vert_sep = "|"
+            fancy_vert_sep = color.BRIGHT_YELLOW + "|" + color.END
+        plain_vert_sep = "|"
+        vert_sep_len = len(plain_vert_sep)
 
         max_len_row_names = len(str(table_name))
         for row_name in row_names:
@@ -334,31 +476,50 @@ class Journal():
                 if max_len_by_column[j] < len(str(list_of_rows[i][j])):
                     max_len_by_column[j] = len(str(list_of_rows[i][j]))
 
-        header_str = st(table_name, max_len_row_names + header_separation) + vert_sep
+        if self.fancy_printing:
+            fancy_header_str = st(table_name, max_len_row_names + header_separation) + fancy_vert_sep
+            for i in range(len(column_names)):
+                fancy_header_str += st(column_names[i], max_len_by_column[i] + header_separation)
+                if i in subtable_borders:
+                    fancy_header_str += fancy_vert_sep
+        plain_header_str = st(table_name, max_len_row_names + header_separation) + plain_vert_sep
+        header_length = max_len_row_names + header_separation + vert_sep_len
         for i in range(len(column_names)):
-            header_str += st(column_names[i], max_len_by_column[i] + header_separation)
+            plain_header_str += st(column_names[i], max_len_by_column[i] + header_separation)
+            header_length += max_len_by_column[i] + header_separation
             if i in subtable_borders:
-                header_str += vert_sep
+                plain_header_str += plain_vert_sep
+                header_length += vert_sep_len
 
-        print_queue.append(header_str)
         if self.fancy_printing:
-            print_queue.append(color.BRIGHT_YELLOW + "-" * len(header_str) + color.END)
-        else:
-            print_queue.append("-" * len(header_str))
+            fancy_print_queue.append(fancy_header_str)
+        plain_print_queue.append(plain_header_str)
+        if self.fancy_printing:
+            fancy_print_queue.append(color.BRIGHT_YELLOW + "-" * header_length + color.END)
+        plain_print_queue.append("-" * header_length)
         for i in range(len(row_names)):
-            cur_str = st(row_names[i], max_len_row_names + header_separation) + vert_sep
+            if self.fancy_printing:
+                fancy_cur_str = st(row_names[i], max_len_row_names + header_separation) + fancy_vert_sep
+                for j in range(len(column_names)):
+                    fancy_cur_str += st(list_of_rows[i][j], max_len_by_column[j] + header_separation)
+                    if j in subtable_borders:
+                        fancy_cur_str += fancy_vert_sep
+                fancy_print_queue.append(fancy_cur_str)
+            plain_cur_str = st(row_names[i], max_len_row_names + header_separation) + plain_vert_sep
             for j in range(len(column_names)):
-                cur_str += st(list_of_rows[i][j], max_len_by_column[j] + header_separation)
+                plain_cur_str += st(list_of_rows[i][j], max_len_by_column[j] + header_separation)
                 if j in subtable_borders:
-                    cur_str += vert_sep
-            print_queue.append(cur_str)
+                    plain_cur_str += plain_vert_sep
+            plain_print_queue.append(plain_cur_str)
         if self.fancy_printing:
-            print_queue.append(color.BRIGHT_YELLOW + "-" * len(header_str) + color.END)
-        else:
-            print_queue.append("-" * len(header_str))
+            fancy_print_queue.append(color.BRIGHT_YELLOW + "-" * header_length + color.END)
+        plain_print_queue.append("-" * header_length)
 
-        for line in print_queue:
-            self.write(line)
+        for i in range(len(plain_print_queue)):
+            if self.fancy_printing:
+                self.write(fancy_print_queue[i], plain_msg = plain_print_queue[i])
+            else:
+                self.write(plain_print_queue[i])
 
 
 
@@ -385,7 +546,7 @@ class Journal():
             self.write(header, v)
         self.depth += 1
 
-        if semaphored:
+        if semaphored and self.fancy_printing:
             # We create the placeholder line
             self.write(header + " waiting for the first event...", v)
 
@@ -396,17 +557,13 @@ class Journal():
                 # We don't write update messages into the log which meant to be saved, only to print on the fly
                 if self.fancy_printing:
                     print(self.pipe_stack(self.depth - 1) + self.spinning_pipe() + self.cur_highlight(msg), end='\r')
+                    self.last_printed_line = msg
+                    self.cur_semaphor_prefix_id = (self.cur_semaphor_prefix_id + 1) % len(Journal.semaphor_prefixes)
                 else:
-                    print(self.pipe_stack(self.depth - 1) + self.spinning_pipe() + msg, end='\r')
-                self.last_printed_line = msg
-                self.cur_semaphor_prefix_id = (self.cur_semaphor_prefix_id + 1) % len(Journal.semaphor_prefixes)
-            else:
+                    print(self.pipe_stack(self.depth) + msg, end='\r')
+            elif self.fancy_printing:
                 # We just reprint the last statement with a rotated pipe
-                if self.fancy_printing:
-                    print(self.pipe_stack(self.depth - 1) + self.spinning_pipe() + self.cur_highlight(self.last_printed_line), end='\r')
-                else:
-                    print(self.pipe_stack(self.depth - 1) + self.spinning_pipe() + self.last_printed_line, end='\r')
-                self.cur_semaphor_prefix_id = (self.cur_semaphor_prefix_id + 1) % len(Journal.semaphor_prefixes)
+                print(self.pipe_stack(self.depth - 1) + self.spinning_pipe() + self.cur_highlight(self.last_printed_line), end='\r')
 
     def exit(self, end_message = None):
         # If popping a semaphor, it will return the duration in ms
@@ -445,9 +602,16 @@ class Journal():
         # Doesn't proceed until given answer
         # Returns True if yes, False if no
 
+        if self.yes is not None:
+            if self.yes:
+                self.write(question + " (Automatically decided 'yes')")
+            else:
+                self.write(question + " (Automatically decided 'no')")
+            return(self.yes)
+
         if not self.print_on_the_fly:
             # Assume yes
-            self.write(question + "(Assumed 'yes')")
+            self.write(question + " (Assumed 'yes')")
             return(True)
 
         # First, we commit the previous line

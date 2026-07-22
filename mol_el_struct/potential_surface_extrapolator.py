@@ -12,7 +12,7 @@ from coherent_states.CS_sample import CS_sample
 
 from utils.class_Journal import Journal
 from utils.class_Disk_Jockey import Disk_Jockey
-import utils.functions as functions
+import functions
 
 from surf.MBlueprint import bp_catalogue
 

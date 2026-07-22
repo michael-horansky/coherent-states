@@ -29,7 +29,7 @@
 import math
 import numpy as np
 
-import utils.functions as functions
+import functions
 
 from surf.MGeometry import MGeometry
 from surf.MPSNode import MPSNode

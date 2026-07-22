@@ -11,7 +11,7 @@ from coherent_states.CS_sample import CS_sample
 
 from utils.class_Journal import Journal
 from utils.class_Disk_Jockey import Disk_Jockey
-import utils.functions as functions
+import functions
 
 
 def esp(roots, order, omit = []):
@@ -77,6 +77,19 @@ all_indices = get_nonascending_pairs(ao_pairs)
 
 
 
+def parse_param(kwargs, key, default = None, options = None):
+    # if default is None, this is a mandatory parameter
+    # if options are None, we don't check whether value is valid
+
+    if default is None and key not in kwargs:
+        raise ValueError(f'Mandatory parameter "{key}" not provided.')
+
+    val = kwargs.get(key, default)
+    if options is not None and val not in options:
+        raise ValueError(f"Parameter \"{key}\" (provided value = {val}) not matching valid options ({', '.join(map(str, options))}).")
+
+    return(val)
+
 
 class ground_state_solver():
 
@@ -114,10 +127,10 @@ class ground_state_solver():
     }
 
 
-    def __init__(self, ID, log_verbosity = 5):
+    def __init__(self, ID, **kwargs):
 
         self.ID = ID
-        self.log = Journal(log_verbosity, print_on_the_fly = True)
+        self.log = Journal(**kwargs)
         # Verbosity key:
         #   0/None: Important, always prints (user methods)
         #   2: Important, major subroutine
@@ -125,7 +138,7 @@ class ground_state_solver():
         #   10: Micro-subroutine (expected to repeat many times)
         # Typically, writes within subroutines are one level of verbosity higher than the subroutine itself
 
-        self.log.enter(f"Initialising molecule solver {ID} at log_verbosity = {log_verbosity}")
+        self.log.enter(f"Initialising molecule solver {ID} at log_verbosity = {self.log.verbosity}")
 
         # Data Storage Manager
         self.log.write("Initialising Data Storage Manager...", 1)
@@ -2767,6 +2780,11 @@ class ground_state_solver():
         #         -"ai": As is. Defalt option
         #         -"rs": Random sign. The parameter signs are randomised, but kept real.
         #         -"rp": Random phase. The parameter complex phases are randomised.
+        #     -sym: Four options:
+        #         -"default": Based on HF method. Default option.
+        #         -"full": Spin-subspace sampling fully symmetrical (default for RHF)
+        #         -"phase": The magnitudes are symmetrical, but phase masks are not.
+        #         -"none": The spin-subspace samplings are independent. (default for UHF)
         #     -alpha: strength of correlation. Default 1.0
         #     -eta: step-size for moment matching; default 1e-8
         #     ------------------------
@@ -2774,42 +2792,20 @@ class ground_state_solver():
 
         # -------------------- Parameter initialisation
 
-        assert "N" in kwargs
-        N = kwargs["N"]
+        N = parse_param(kwargs, "N")
+        N_subsample = parse_param(kwargs, "N_sub", 1)
+        N_no_cov = min(parse_param(kwargs, "N_no_cov", 0), N_subsample)
 
-        if "N_sub" in kwargs:
-            N_subsample = kwargs["N_sub"]
-        else:
-            N_subsample = 1
-
-        if "N_no_cov" in kwargs:
-            N_no_cov = min(kwargs["N_no_cov"], N_subsample)
-        else:
-            N_no_cov = 0
-
-        if "rs" in kwargs:
-            if kwargs["rs"] in ["ai", "rs", "rp"]:
-                randomise_signs = kwargs["rs"]
-        else:
-            randomise_signs = "ai"
+        randomise_signs = parse_param(kwargs, "rs", "rp", {"ai", "rs", "rp"})
         rs_label = f"({randomise_signs})"
 
-        if "alpha" in kwargs:
-            alpha = kwargs["alpha"]
-        else:
-            alpha = 1.0
+        sym = parse_param(kwargs, "sym", "default", {"default", "full", "phase", "none"})
+        alpha = parse_param(kwargs, "alpha", 1.0)
+        eta = parse_param(kwargs, "eta", 1e-1)
 
-        if "eta" in kwargs:
-            eta = kwargs["eta"]
-        else:
-            eta = 1e-1
+        dataset_label = parse_param(kwargs, "dataset_label", f"LEGS_Zombie_cov_RSOPM_moment_matching_{N}_{N_subsample}_{N_no_cov}_{rs_label}_{sym}_{alpha}")
 
-        if "dataset_label" in kwargs:
-            dataset_label = kwargs["dataset_label"]
-        else:
-            dataset_label = f"LEGS_Zombie_cov_RSOPM_moment_matching_{N}_{N_subsample}_{N_no_cov}_{rs_label}_{alpha}"
-
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov RSOPM moment matching\" [N = {N}, N_sub = {N_subsample}, N_no_cov = {N_no_cov}, rs = {randomise_signs}, alpha = {alpha}, eta = {eta}]", 1)
+        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov RSOPM moment matching\" [N = {N}, N_sub = {N_subsample}, N_no_cov = {N_no_cov}, rs = {randomise_signs}, sym = {sym}, alpha = {alpha}, eta = {eta}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -2821,11 +2817,12 @@ class ground_state_solver():
                     "N_sub" : N_subsample,
                     "N_no_cov" : N_no_cov,
                     "rs" : randomise_signs,
+                    "sym" : sym,
                     "alpha" : alpha,
                     "eta" : eta
                 }
             })
-        self.user_actions += f"find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching [N = {N}, N_sub = {N_subsample}, N_no_cov = {N_no_cov}, rs = {randomise_signs}, alpha = {alpha}, eta = {eta}]\n"
+        self.user_actions += f"find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching [N = {N}, N_sub = {N_subsample}, N_no_cov = {N_no_cov}, rs = {randomise_signs}, sym = {sym}, alpha = {alpha}, eta = {eta}]\n"
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
@@ -2839,6 +2836,15 @@ class ground_state_solver():
             self.log.write("Parameter signs are randomised.")
         elif randomise_signs == "rp":
             self.log.write("Parameter phases are randomised.")
+
+        if sym == "default":
+            self.log.write("Automatic symmetry determination.")
+            if self.HF_method == "RHF":
+                sym = "phase"
+                self.log.write("Restricted HF -> magnitudes symmetrical, phases randomised.")
+            elif self.HF_method == "UHF":
+                sym = "none"
+                self.log.write("Unrestricted HF -> no symmetrisation between spin-subspaces except for covariance.")
 
         # We now manually sample Thouless states guided by the LE solution
         cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
@@ -2893,7 +2899,7 @@ class ground_state_solver():
                 cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", j)] = cur_cov
                 cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", j)] # conjugate?
 
-        if self.HF_method == "RHF":
+        if sym == "full":
             diagnostic_table = []
             for i in range(self.mol.nao):
                 diagnostic_table.append([
@@ -2913,7 +2919,7 @@ class ground_state_solver():
                 )
 
             self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
-        elif self.HF_method == "UHF":
+        else:
             diagnostic_table = []
             for s in ["a", "b"]:
                 for i in range(self.mol.nao):
@@ -2948,41 +2954,69 @@ class ground_state_solver():
         # ...and some without
         rand_X_no_cov = np.random.randn(N * N_no_cov, 2 * self.mol.nao) * np.sqrt(variances) + means
 
-        #if randomise_signs:
-        self.log.write("Randomising parameter signs...")
-        rand_X = rand_X * functions.randsign_mask(rand_X.shape, randomise_signs)
-        rand_X_no_cov = rand_X_no_cov * functions.randsign_mask(rand_X_no_cov.shape, randomise_signs)
+        raw_Z_sample = np.zeros((2, N, N_subsample, self.mol.nao), dtype = complex)
 
-        raw_Z_sample = [
-            np.zeros((N, N_subsample, self.mol.nao), dtype = complex),
-            np.zeros((N, N_subsample, self.mol.nao), dtype = complex)
-            ]
 
-        if self.HF_method == "RHF":
-            # We assume |Z_alpha> = |Z_beta>
-            self.log.write("Affixing |Z_alpha> = |Z_beta> for each basis state...")
-        elif self.HF_method == "UHF":
-            # We do not assume |Z_alpha> = |Z_beta>
-            self.log.write("Alpha and beta spin subspace parameters sampled only based on covariance")
+        self.log.enter("Treating phase randomisation and spin symmetrisation of sample...")
 
-        for n in range(N):
-            # First, the cov elements...
-            for n_sub in range(N_subsample - N_no_cov):
-                for i in range(self.mol.nao):
-                    raw_Z_sample[0][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("a", i)]
-                    if self.HF_method == "RHF":
-                        raw_Z_sample[1][n][n_sub][i] = raw_Z_sample[0][n][n_sub][i]
-                    elif self.HF_method == "UHF":
+        if sym == "full":
+            self.log.write("Full symmetry across spin-subspaces.")
+
+            for n in range(N):
+                # First, the cov elements...
+                for n_sub in range(N_subsample - N_no_cov):
+                    for i in range(self.mol.nao):
+                        raw_Z_sample[0][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("a", i)]
+                # ...then the no cov elements.
+                for n_sub in range(N_no_cov):
+                    for i in range(self.mol.nao):
+                        raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
+
+            self.log.write("Randomising parameter phases...")
+            spin_symmetrical_randsign_mask = functions.randsign_mask((N, N_subsample, self.mol.nao), randomise_signs)
+            raw_Z_sample[0] = raw_Z_sample[0] * spin_symmetrical_randsign_mask
+
+            self.log.write("Setting |Z_beta> = |Z_alpha> for each basis state...")
+            raw_Z_sample[1] = raw_Z_sample[0]
+
+        if sym == "phase":
+            self.log.write("Magnitudes symmetrical, phases randomised across spin-subspaces.")
+
+            for n in range(N):
+                # First, the cov elements...
+                for n_sub in range(N_subsample - N_no_cov):
+                    for i in range(self.mol.nao):
+                        raw_Z_sample[0][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("a", i)]
+                # ...then the no cov elements.
+                for n_sub in range(N_no_cov):
+                    for i in range(self.mol.nao):
+                        raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
+
+            raw_Z_sample[1] = raw_Z_sample[0]
+
+            self.log.write("Randomising parameter phases...")
+            raw_Z_sample = raw_Z_sample * functions.randsign_mask(raw_Z_sample.shape, randomise_signs)
+
+
+        if sym == "none":
+            self.log.write("No symmetrisation between spin-subspaces.")
+
+            for n in range(N):
+                # First, the cov elements...
+                for n_sub in range(N_subsample - N_no_cov):
+                    for i in range(self.mol.nao):
+                        raw_Z_sample[0][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("a", i)]
                         raw_Z_sample[1][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("b", i)]
-            # ...then the no cov elements.
-            for n_sub in range(N_no_cov):
-                for i in range(self.mol.nao):
-                    raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
-                    if self.HF_method == "RHF":
-                        raw_Z_sample[1][n][N_subsample - N_no_cov + n_sub][i] = raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i]
-                    elif self.HF_method == "UHF":
+                # ...then the no cov elements.
+                for n_sub in range(N_no_cov):
+                    for i in range(self.mol.nao):
+                        raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
                         raw_Z_sample[1][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("b", i)]
 
+            self.log.write("Randomising parameter phases...")
+            raw_Z_sample = raw_Z_sample * functions.randsign_mask(raw_Z_sample.shape, randomise_signs)
+
+        self.log.exit()
 
         N_vals = [1]
         convergence_sols = [self.reference_state_energy]
@@ -3022,7 +3056,7 @@ class ground_state_solver():
 
 
         # We estimate the error on a single-basis-state energy estimate
-        N_err_est = 100
+        N_err_est = 10
 
         self.log.enter("Estimating the error on an N=1 dataset", semaphored = True, tau_space = np.linspace(0, N_err_est, 100 + 1))
 

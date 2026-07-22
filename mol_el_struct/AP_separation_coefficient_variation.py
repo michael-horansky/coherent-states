@@ -15,12 +15,12 @@ from utils.class_Semaphor import Semaphor
 from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_sample import CS_sample
 
-import utils.functions
+import functions
 
 from molecules_abstract import *
 
 # AP header
-from class_Access_Point import sep_coef_AP
+from AP_catalogue import sep_coef_AP
 sep_coef_AP.man()
 
 params = sep_coef_AP.process_cmd_args()
@@ -68,7 +68,7 @@ mol_solvers = {} # [sep coef] = ground_state_solver object
 
 if freeze_basis or (c_restrict == 0 or c_restrict == 1):
     # Standard sep
-    mol_solvers[1.0] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist=1.0")
+    mol_solvers[1.0] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist=1.0", yes = True, fancy_printing = False)
     mol_solvers[1.0].initialise_molecule(mol_objs[1.0])
     if load_analysis:
         mol_solvers[1.0].load_data(["self_analysis"])
@@ -88,7 +88,7 @@ if freeze_basis or (c_restrict == 0 or c_restrict == 1):
 for i_separation_coef in range(len(nontrivial_separations)):
     if c_restrict == 0 or c_restrict == i_separation_coef + 2:
         separation_coef = nontrivial_separations[i_separation_coef]
-        mol_solvers[separation_coef] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist={separation_coef}")
+        mol_solvers[separation_coef] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist={separation_coef}", yes = True, fancy_printing = False)
         mol_solvers[separation_coef].initialise_molecule(mol_objs[separation_coef])
         if load_analysis:
             mol_solvers[separation_coef].load_data(["self_analysis"])

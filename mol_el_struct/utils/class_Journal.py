@@ -1,6 +1,4 @@
-
 from utils.class_Semaphor import Semaphor
-import utils.functions as functions
 
 # -----------------------------------------------------------------------------
 # -------------------------- Typographical constants --------------------------
@@ -103,6 +101,40 @@ def st(a, w):
         diff = w - len(str(a))
         return(" " * int(diff // 2) + str(a) + " " * int(diff - diff // 2))
 
+def _dtstr(seconds, max_depth = 2):
+    # Dynamically chooses the right format
+    # max_depth is the number of different measurements (e.g. max_depth = 2: "2 days 5 hours")
+    if seconds >= 60 * 60 * 24:
+        # Days
+        if max_depth == 1:
+            return(f"{int(round(seconds / (60 * 60 * 24)))} days")
+        remainder = seconds % (60 * 60 * 24)
+        days = int((seconds - remainder) / (60 * 60 * 24))
+        return(f"{days} days {_dtstr(remainder, max_depth - 1)}")
+    if seconds >= 60 * 60:
+        # Hours
+        if max_depth == 1:
+            return(f"{int(round(seconds / (60 * 60)))} hours")
+        remainder = seconds % (60 * 60)
+        hours = int((seconds - remainder) / (60 * 60))
+        return(f"{hours} hours {_dtstr(remainder, max_depth - 1)}")
+    if seconds >= 60:
+        # Minutes
+        if max_depth == 1:
+            return(f"{int(round(seconds / 60))} min")
+        remainder = seconds % (60)
+        minutes = int((seconds - remainder) / (60))
+        return(f"{minutes} min {_dtstr(remainder, max_depth - 1)}")
+    if seconds >= 1:
+        # Seconds
+        if max_depth == 1:
+            return(f"{int(round(seconds))} sec")
+        remainder = seconds % (1)
+        secs = int((seconds - remainder))
+        return(f"{secs} sec {_dtstr(remainder, max_depth - 1)}")
+    # Milliseconds
+    return(f"{int(round(seconds / 0.001))} ms")
+
 # -----------------------------------------------------------------------------
 # ------------------------------- class Journal -------------------------------
 # -----------------------------------------------------------------------------
@@ -154,13 +186,14 @@ class Journal():
         sample_journal.print_table(
             table_name = "Current properties",
             column_names = ["value", "default", "description"],
-            row_names = ["verbosity", "print_on_the_fly", "fancy_printing", "max_row_width", "yes"],
+            row_names = ["verbosity", "print_on_the_fly", "fancy_printing", "max_row_width", "yes", "plain_semaphor_N"],
             list_of_rows = [
                 [sample_journal.verbosity, 5, "Only logs with lower or equal value of verbosity are printed."],
                 [sample_journal.print_on_the_fly, "True", "Whether the log is also printed to an output stream."],
                 [sample_journal.fancy_printing, "True", "Formatting: font weight and color, rolling last line."],
                 [sample_journal.max_row_width, 200, "Rows get trimmed if length exceeds this value."],
-                [sample_journal.yes, None, "If not None, used instead of asking for input."]
+                [sample_journal.yes, None, "If not None, used instead of asking for input."],
+                [sample_journal.plain_semaphor_N, 20, "Forced number of flags for a plain semaphor event."]
                 ],
             subtable_borders=[1]
             )
@@ -171,7 +204,7 @@ class Journal():
         sample_journal.enter("Testing semaphors...")
         sample_journal.write("Semaphor is used to update the user periodically when the program spends a long time on one task.")
 
-        sample_journal.enter("Calculating gibberish", semaphored = True, tau_space = list(range(102)))
+        sample_journal.enter("Calculating gibberish", semaphored = True, tau_space = list(range(101)))
 
         for a in range(10):
             for b in range(10):
@@ -186,7 +219,7 @@ class Journal():
                 # Don't forget to update the semaphor with the current sim time!
 
         duration = sample_journal.exit("Evaluation")
-        sample_journal.write(f"The calculation duration was {functions.dtstr(duration)}")
+        sample_journal.write(f"The calculation duration was {_dtstr(duration)}")
 
         sample_journal.exit()
 
@@ -213,6 +246,8 @@ class Journal():
         self.verbosity = verbosity # The higher the verbosity, the more in detail the Journal is
         self.print_on_the_fly = print_on_the_fly # If True, printing to terminal happens concurrently
         self.depth = 0
+
+        self.plain_semaphor_N = 20 # forced number of flags for a plain semaphor event
 
         self.fancy_printing = fancy_printing # if True, we use colors, highlighting etc
 
@@ -307,26 +342,26 @@ class Journal():
         def peel_layer(cur_std_object, key = None, itemize_depth = 0):
             if isinstance(cur_std_object, dict):
                 if key is not None:
-                    plain_msg = " " * (2 * (itemize_depth + 1)) + "-" + str(key)
+                    plain_msg = " " * (2 * itemize_depth) + "-" + str(key)
                     if self.fancy_printing:
-                        self.write(" " * (2 * (itemize_depth + 1)) + color.BRIGHT_YELLOW + "-" + color.END + str(key), plain_msg = plain_msg)
+                        self.write(" " * (2 * itemize_depth) + color.BRIGHT_YELLOW + "-" + color.END + str(key), plain_msg = plain_msg)
                     else:
                         self.write(plain_msg)
                 for label, value in cur_std_object.items():
                     peel_layer(value, label, itemize_depth + 1)
             elif isinstance(cur_std_object, list):
                 if key is not None:
-                    plain_msg = " " * (2 * (itemize_depth + 1)) + "-" + str(key)
+                    plain_msg = " " * (2 * itemize_depth) + "-" + str(key)
                     if self.fancy_printing:
-                        self.write(" " * (2 * (itemize_depth + 1)) + color.BRIGHT_YELLOW + "-" + color.END + str(key), plain_msg = plain_msg)
+                        self.write(" " * (2 * itemize_depth) + color.BRIGHT_YELLOW + "-" + color.END + str(key), plain_msg = plain_msg)
                     else:
                         self.write(plain_msg)
                 for i in range(len(cur_std_object)):
                     peel_layer(cur_std_object[i], str(i + 1), itemize_depth + 1)
             else:
-                plain_msg = " " * (2 * (itemize_depth + 1)) + f"-{key}: {cur_std_object}"
+                plain_msg = " " * (2 * itemize_depth) + f"-{key}: {cur_std_object}"
                 if self.fancy_printing:
-                    self.write(" " * (2 * (itemize_depth + 1)) + color.BRIGHT_YELLOW + "-" + color.END + f"{key}: {cur_std_object}", plain_msg = plain_msg)
+                    self.write(" " * (2 * itemize_depth) + color.BRIGHT_YELLOW + "-" + color.END + f"{key}: {cur_std_object}", plain_msg = plain_msg)
                 else:
                     self.write(plain_msg)
 
@@ -538,7 +573,23 @@ class Journal():
                 s_nl = False
                 if "newline" in kwargs:
                     s_nl = kwargs["newline"]
-                semaphor_event_ID, semaphor_header = self.semaphor.create_event(kwargs["tau_space"], header, s_nl)
+
+                if self.fancy_printing:
+                    tau_space = kwargs["tau_space"]
+                else:
+                    # We transform tau_space into a special array
+                    smallest_tau = kwargs["tau_space"][1]
+                    largest_tau = kwargs["tau_space"][-1]
+
+                    tau_coef = pow(largest_tau / smallest_tau, 1 / (self.plain_semaphor_N + 1))
+
+                    tau_space = [0, smallest_tau]
+
+                    for i in range(self.plain_semaphor_N):
+                        tau_space.append(tau_space[-1] * tau_coef)
+                    tau_space.append(largest_tau)
+
+                semaphor_event_ID, semaphor_header = self.semaphor.create_event(tau_space, header, s_nl)
                 self.cur_semaphor_event = semaphor_event_ID
                 self.write(semaphor_header, v)
 
@@ -560,7 +611,7 @@ class Journal():
                     self.last_printed_line = msg
                     self.cur_semaphor_prefix_id = (self.cur_semaphor_prefix_id + 1) % len(Journal.semaphor_prefixes)
                 else:
-                    print(self.pipe_stack(self.depth) + msg, end='\r')
+                    print(self.pipe_stack(self.depth) + msg)
             elif self.fancy_printing:
                 # We just reprint the last statement with a rotated pipe
                 print(self.pipe_stack(self.depth - 1) + self.spinning_pipe() + self.cur_highlight(self.last_printed_line), end='\r')

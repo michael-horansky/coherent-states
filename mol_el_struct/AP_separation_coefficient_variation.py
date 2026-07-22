@@ -25,19 +25,23 @@ sep_coef_AP.man()
 
 params = sep_coef_AP.process_cmd_args()
 
-cur_molecule = params[0]
+cur_molecule = params["mol"]
 if cur_molecule not in mol_catalogue.keys():
     raise Exception(f"Molecule \"{cur_molecule}\" not known.")
 
-N = params[1]
-N_sub = params[2]
-rs = params[3]
-freeze_basis = (params[4] == 1)
-load_analysis = (params[5] == 1)
-c_restrict = params[6]
-ds_id = params[7]
-sys_id = params[8]
-abf_basis = params[9]
+N = params["N"]
+N_sub = params["N_sub"]
+rs = params["sr"]
+sym = params["sym"]
+freeze_basis = (params["freeze_basis"] == 1)
+load_analysis = (params["load_analysis"] == 1)
+c_restrict = params["c_restrict"]
+ds_id = params["ds_id"]
+sys_id = params["sys_id"]
+abf_basis = params["basis"]
+number_of_NOs = params["N_MO"]
+if number_of_NOs == 0:
+    number_of_NOs = None
 
 
 
@@ -69,7 +73,7 @@ mol_solvers = {} # [sep coef] = ground_state_solver object
 if freeze_basis or (c_restrict == 0 or c_restrict == 1):
     # Standard sep
     mol_solvers[1.0] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist=1.0", yes = True, fancy_printing = False)
-    mol_solvers[1.0].initialise_molecule(mol_objs[1.0])
+    mol_solvers[1.0].initialise_molecule(mol_objs[1.0], N_MO = number_of_NOs)
     if load_analysis:
         mol_solvers[1.0].load_data(["self_analysis"])
     else:
@@ -89,7 +93,7 @@ for i_separation_coef in range(len(nontrivial_separations)):
     if c_restrict == 0 or c_restrict == i_separation_coef + 2:
         separation_coef = nontrivial_separations[i_separation_coef]
         mol_solvers[separation_coef] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist={separation_coef}", yes = True, fancy_printing = False)
-        mol_solvers[separation_coef].initialise_molecule(mol_objs[separation_coef])
+        mol_solvers[separation_coef].initialise_molecule(mol_objs[separation_coef], N_MO = number_of_NOs)
         if load_analysis:
             mol_solvers[separation_coef].load_data(["self_analysis"])
         else:

@@ -32,12 +32,12 @@ class AccessPoint():
             raise Exception(f"Conversion of parameter \"{self.params[i][0]}\" failed (type \"{str(self.params[i][1])}\" expected; provided value {val} is of type {type(val)})")
 
     def process_cmd_args(self):
-        # Returns a list of properly-typed arguments if cmd_args is sane
+        # Returns a dict of properly-typed arguments if cmd_args is sane
         # Raises an error and returns None if cmd_args is ill-formed
 
         cmd_args = sys.argv[1:]
 
-        res = []
+        res = {}
 
         print("Processing command parameters...")
 
@@ -68,20 +68,20 @@ class AccessPoint():
 
 
         for i in range(len(args_pos)):
-            res.append(self.enforce_type(i, args_pos[i]))
-            print(f"  \"{self.params[i][0]}\" set to {res[i]}")
+            res[self.param_names[i]] = self.enforce_type(i, args_pos[i])
+            print(f"  \"{self.params[i][0]}\" set to {res[self.param_names[i]]}")
 
         for i in range(len(args_pos), len(self.params)):
 
-            if self.params[i][0] in args_kw.keys():
-                res.append(self.enforce_type(i, args_kw[self.params[i][0]]))
-                print(f"  \"{self.params[i][0]}\" set to {res[i]}")
+            if self.param_names[i] in args_kw.keys():
+                res[self.param_names[i]] = self.enforce_type(i, args_kw[self.param_names[i]])
+                print(f"  \"{self.param_names[i]}\" set to {res[self.param_names[i]]}")
 
             elif self.params[i][2] is None:
                 raise Exception(f"Parameter \"{self.params[i][0]}\" mandatory but not provided (parameter index {i}).")
             else:
-                res.append(self.params[i][2])
-                print(f"  \"{self.params[i][0]}\" defaulted to {res[i]}")
+                res[self.param_names[i]] = self.params[i][2]
+                print(f"  \"{self.param_names[i]}\" defaulted to {res[self.param_names[i]]}")
         print("  Success!")
         return(res)
 

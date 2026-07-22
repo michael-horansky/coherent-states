@@ -1,0 +1,6 @@
+initialised solver Li2_N_MO=5_dist=1.1
+initialise_molecule [HF_method = "default", N_MO = 5]
+full_CI_sol
+find_LE_solution_SE [diag_alg = 'SCF']
+find_ground_state_from_z_tensor
+save_data

@@ -14,7 +14,7 @@ class CS_sample:
         self.solver = solver
         self.CS_class = CS_class
 
-        self.M = self.solver.mol.nao
+        self.M = self.solver.N_MO
         self.S_alpha = self.solver.S_alpha
         self.S_beta = self.solver.S_beta
 

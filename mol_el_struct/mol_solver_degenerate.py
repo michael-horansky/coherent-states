@@ -339,7 +339,7 @@ class ground_state_solver():
         self.log.enter(f"Getting the full electronic occupancy basis with trim_M = {trim_M}", 5)
 
         if trim_M is None:
-            M = self.mol.nao
+            M = self.N_MO
         else:
             M = trim_M
         self.log.write(f"Mode number for basis = {M}", 6)
@@ -458,7 +458,7 @@ class ground_state_solver():
         self.log.enter(f"Finding the ground state on full occupancy basis with trim_M = {trim_M}", 2)
 
         if trim_M is None:
-            M = self.mol.nao
+            M = self.N_MO
         else:
             M = trim_M
 
@@ -546,17 +546,17 @@ class ground_state_solver():
         # We sample around the HF null guess, i.e. Z = 0
         # We include one extra basis vector - the null point itself!
         self.log.write(f"Sampling the Z-parameter space with provided methods.", 3)
-        cur_CS_sample = [[ground_state_solver.coherent_state_types[CS_type].null_state(self.mol.nao, self.S_alpha), ground_state_solver.coherent_state_types[CS_type].null_state(self.mol.nao, self.S_beta)]]
+        cur_CS_sample = [[ground_state_solver.coherent_state_types[CS_type].null_state(self.N_MO, self.S_alpha), ground_state_solver.coherent_state_types[CS_type].null_state(self.N_MO, self.S_beta)]]
         for i in range(N - 1):
 
             if assume_spin_symmetry:
-                new_sample_state = ground_state_solver.coherent_state_types[CS_type].random_state(self.mol.nao, self.S_alpha, sampling_method)
+                new_sample_state = ground_state_solver.coherent_state_types[CS_type].random_state(self.N_MO, self.S_alpha, sampling_method)
                 cur_CS_sample.append([new_sample_state, new_sample_state])
 
             else:
                 cur_CS_sample.append([
-                    ground_state_solver.coherent_state_types[CS_type].random_state(self.mol.nao, self.S_alpha, sampling_method),
-                    ground_state_solver.coherent_state_types[CS_type].random_state(self.mol.nao, self.S_beta, sampling_method)
+                    ground_state_solver.coherent_state_types[CS_type].random_state(self.N_MO, self.S_alpha, sampling_method),
+                    ground_state_solver.coherent_state_types[CS_type].random_state(self.N_MO, self.S_beta, sampling_method)
                     ])
 
         basis_samples_bulk = []
@@ -853,23 +853,23 @@ class ground_state_solver():
         # Here, depending on the CS type, we set up the normal distribution parameters
         self.log.write(f"Determining proper Z-parameter constants for the sampling process...", 7)
         if CS_type == "Thouless":
-            shape_alpha = (self.mol.nao - self.S_alpha, self.S_alpha)
-            shape_beta = (self.mol.nao - self.S_beta, self.S_beta)
+            shape_alpha = (self.N_MO - self.S_alpha, self.S_alpha)
+            shape_beta = (self.N_MO - self.S_beta, self.S_beta)
             centres_alpha = np.zeros(shape_alpha)
             centres_beta = np.zeros(shape_beta)
             widths_alpha =  np.sqrt(cur_SECS_heatmap)
             widths_beta =  np.sqrt(cur_SECS_heatmap)
         elif CS_type == "Qubit":
             # mu_0 = (ref occupancy); std = sum(eta, axis)
-            shape_alpha = (self.mol.nao,)
-            shape_beta = (self.mol.nao,)
+            shape_alpha = (self.N_MO,)
+            shape_beta = (self.N_MO,)
             centres_alpha = np.concatenate((
                         np.ones(self.S_alpha),
-                        np.zeros(self.mol.nao - self.S_alpha)
+                        np.zeros(self.N_MO - self.S_alpha)
                     ))
             centres_beta = np.concatenate((
                         np.ones(self.S_beta),
-                        np.zeros(self.mol.nao - self.S_beta)
+                        np.zeros(self.N_MO - self.S_beta)
                     ))
             widths_alpha = np.concatenate((
                         np.sqrt(np.sum(cur_SECS_heatmap, axis = 1)),
@@ -892,8 +892,8 @@ class ground_state_solver():
             # We add the best out of 10 random states
             cur_subsample = []
             for n_sub in range(N_subsample):
-                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, np.random.normal(centres_alpha, widths_alpha, shape_alpha))
-                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, np.random.normal(centres_beta, widths_beta, shape_beta))
+                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.N_MO, self.S_alpha, np.random.normal(centres_alpha, widths_alpha, shape_alpha))
+                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.N_MO, self.S_beta, np.random.normal(centres_beta, widths_beta, shape_beta))
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -974,8 +974,8 @@ class ground_state_solver():
 
         self.log.write(f"Determining proper Z-parameter constants for the sampling process...", 7)
 
-        shape_alpha = (self.mol.nao - self.S_alpha, self.S_alpha)
-        shape_beta = (self.mol.nao - self.S_beta, self.S_beta)
+        shape_alpha = (self.N_MO - self.S_alpha, self.S_alpha)
+        shape_beta = (self.N_MO - self.S_beta, self.S_beta)
         centres_alpha = np.zeros(shape_alpha)
         centres_beta = np.zeros(shape_beta)
 
@@ -993,8 +993,8 @@ class ground_state_solver():
             # We add the best out of 10 random states
             cur_subsample = []
             for n_sub in range(N_subsample):
-                rand_z_alpha = CS_Thouless(self.mol.nao, self.S_alpha, np.sqrt(cur_SECS_heatmap) * np.exp(1j * np.random.random(shape_alpha) * 2.0 * np.pi))
-                rand_z_beta = CS_Thouless(self.mol.nao, self.S_beta, np.sqrt(cur_SECS_heatmap) * np.exp(1j * np.random.random(shape_beta) * 2.0 * np.pi))
+                rand_z_alpha = CS_Thouless(self.N_MO, self.S_alpha, np.sqrt(cur_SECS_heatmap) * np.exp(1j * np.random.random(shape_alpha) * 2.0 * np.pi))
+                rand_z_beta = CS_Thouless(self.N_MO, self.S_beta, np.sqrt(cur_SECS_heatmap) * np.exp(1j * np.random.random(shape_beta) * 2.0 * np.pi))
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -1076,27 +1076,27 @@ class ground_state_solver():
         cur_sample = CS_sample(self, ground_state_solver.coherent_state_types[CS_type], add_ref_state = True)
 
         # We flatten the heatmap
-        len_a = self.S_alpha * (self.mol.nao - self.S_alpha)
-        len_b = self.S_beta * (self.mol.nao - self.S_beta)
-        a_ij_to_i = lambda i,j : i * (self.mol.nao - self.S_alpha) + j
-        b_ij_to_i = lambda i,j : self.S_alpha * (self.mol.nao - self.S_alpha) + i * (self.mol.nao - self.S_beta) + j
+        len_a = self.S_alpha * (self.N_MO - self.S_alpha)
+        len_b = self.S_beta * (self.N_MO - self.S_beta)
+        a_ij_to_i = lambda i,j : i * (self.N_MO - self.S_alpha) + j
+        b_ij_to_i = lambda i,j : self.S_alpha * (self.N_MO - self.S_alpha) + i * (self.N_MO - self.S_beta) + j
         means = np.zeros( len_a + len_b )
         stds = sigma + np.zeros( len_a + len_b) #TODO what if sigma is not always the same?
 
-        for i in range(self.mol.nao - self.S_alpha):
+        for i in range(self.N_MO - self.S_alpha):
             for j in range(self.S_alpha):
                 # j -> i on alpha
                 means[a_ij_to_i(i, j)] = cur_LE_heatmap["a"][i][j]
-        for i in range(self.mol.nao - self.S_beta):
+        for i in range(self.N_MO - self.S_beta):
             for j in range(self.S_beta):
                 # j -> i on beta
                 means[b_ij_to_i(i, j)] = cur_LE_heatmap["b"][i][j]
 
         product_means = np.outer(means, means) + np.diag(stds * stds) # we start with no covariance except natural widths and then change the off-diagonal block
 
-        for i in range(self.mol.nao - self.S_alpha):
+        for i in range(self.N_MO - self.S_alpha):
             for j in range(self.S_alpha):
-                for k in range(self.mol.nao - self.S_beta):
+                for k in range(self.N_MO - self.S_beta):
                     for l in range(self.S_beta):
                         # j -> i on alpha, l -> k on beta
                         product_means[a_ij_to_i(i, j)][b_ij_to_i(k, l)] = cur_LE_heatmap["ab"][i][j][k][l]
@@ -1112,16 +1112,16 @@ class ground_state_solver():
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov_matrix, N * N_subsample)
         raw_Z_sample = [
-            np.zeros((N, N_subsample, self.mol.nao - self.S_alpha, self.S_alpha)),
-            np.zeros((N, N_subsample, self.mol.nao - self.S_beta, self.S_beta))
+            np.zeros((N, N_subsample, self.N_MO - self.S_alpha, self.S_alpha)),
+            np.zeros((N, N_subsample, self.N_MO - self.S_beta, self.S_beta))
             ]
         for n in range(N):
             for n_sub in range(N_subsample):
-                for i in range(self.mol.nao - self.S_alpha):
+                for i in range(self.N_MO - self.S_alpha):
                     for j in range(self.S_alpha):
                         # j -> i on alpha
                         raw_Z_sample[0][n][n_sub][i][j] = rand_X[n * N_subsample + n_sub][a_ij_to_i(i, j)]
-                for i in range(self.mol.nao - self.S_beta):
+                for i in range(self.N_MO - self.S_beta):
                     for j in range(self.S_beta):
                         # j -> i on beta
                         raw_Z_sample[1][n][n_sub][i][j] = rand_X[n * N_subsample + n_sub][b_ij_to_i(i, j)]
@@ -1141,8 +1141,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.N_MO, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -1233,27 +1233,27 @@ class ground_state_solver():
         cur_sample = CS_sample(self, ground_state_solver.coherent_state_types[CS_type], add_ref_state = True)
 
         # We flatten the heatmap
-        len_a = self.S_alpha * (self.mol.nao - self.S_alpha)
-        len_b = self.S_beta * (self.mol.nao - self.S_beta)
+        len_a = self.S_alpha * (self.N_MO - self.S_alpha)
+        len_b = self.S_beta * (self.N_MO - self.S_beta)
         a_ij_to_i = lambda i,j : i * self.S_alpha + j
-        b_ij_to_i = lambda i,j : self.S_alpha * (self.mol.nao - self.S_alpha) + i * self.S_beta + j
+        b_ij_to_i = lambda i,j : self.S_alpha * (self.N_MO - self.S_alpha) + i * self.S_beta + j
         means = np.zeros( len_a + len_b )
         stds = sigma + np.zeros( len_a + len_b) #TODO what if sigma is not always the same?
 
-        for i in range(self.mol.nao - self.S_alpha):
+        for i in range(self.N_MO - self.S_alpha):
             for j in range(self.S_alpha):
                 # j -> i on alpha
                 means[a_ij_to_i(i, j)] = cur_LE_heatmap["a"][i][j]
-        for i in range(self.mol.nao - self.S_beta):
+        for i in range(self.N_MO - self.S_beta):
             for j in range(self.S_beta):
                 # j -> i on beta
                 means[b_ij_to_i(i, j)] = cur_LE_heatmap["b"][i][j]
 
         product_means = np.outer(means, means) # we start with no covariance except natural widths and then change the off-diagonal block
 
-        for i in range(self.mol.nao - self.S_alpha):
+        for i in range(self.N_MO - self.S_alpha):
             for j in range(self.S_alpha):
-                for k in range(self.mol.nao - self.S_beta):
+                for k in range(self.N_MO - self.S_beta):
                     for l in range(self.S_beta):
                         # j -> i on alpha, l -> k on beta
                         product_means[a_ij_to_i(i, j)][b_ij_to_i(k, l)] = cur_LE_heatmap["ab"][i][j][k][l]
@@ -1274,16 +1274,16 @@ class ground_state_solver():
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov_matrix, N * N_subsample)
         raw_Z_sample = [
-            np.zeros((N, N_subsample, self.mol.nao - self.S_alpha, self.S_alpha)),
-            np.zeros((N, N_subsample, self.mol.nao - self.S_beta, self.S_beta))
+            np.zeros((N, N_subsample, self.N_MO - self.S_alpha, self.S_alpha)),
+            np.zeros((N, N_subsample, self.N_MO - self.S_beta, self.S_beta))
             ]
         for n in range(N):
             for n_sub in range(N_subsample):
-                for i in range(self.mol.nao - self.S_alpha):
+                for i in range(self.N_MO - self.S_alpha):
                     for j in range(self.S_alpha):
                         # j -> i on alpha
                         raw_Z_sample[0][n][n_sub][i][j] = rand_X[n * N_subsample + n_sub][a_ij_to_i(i, j)]
-                for i in range(self.mol.nao - self.S_beta):
+                for i in range(self.N_MO - self.S_beta):
                     for j in range(self.S_beta):
                         # j -> i on beta
                         raw_Z_sample[1][n][n_sub][i][j] = rand_X[n * N_subsample + n_sub][b_ij_to_i(i, j)]
@@ -1303,8 +1303,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                rand_z_alpha = ground_state_solver.coherent_state_types[CS_type](self.N_MO, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -1379,12 +1379,12 @@ class ground_state_solver():
 
         # We find the means and the covariances
         spin_idx_dict = {"a" : 0, "b" : 1}
-        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
-        means = np.zeros( 2 * self.mol.nao )
-        cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.N_MO + i
+        means = np.zeros( 2 * self.N_MO )
+        cov = np.zeros( (2 * self.N_MO, 2 * self.N_MO) )
 
 
-        self.log.print_matrix(self.LE_sol["red"][:self.mol.nao,:self.mol.nao], "qubit transition matrix", dec_points = 5)
+        self.log.print_matrix(self.LE_sol["red"][:self.N_MO,:self.N_MO], "qubit transition matrix", dec_points = 5)
 
 
 
@@ -1396,12 +1396,12 @@ class ground_state_solver():
             means[spat_to_spin_idx("b", i)] = 0.5 * (1.0 + np.sqrt(2.0 * self.LE_sol["red"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)] - 1.0))
 
         # initialise variances
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             norm_coef = 1.0
             if i >= self.S_alpha:
                 norm_coef = 1.0 / self.S_alpha
             cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] = norm_coef * self.LE_sol["red"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - means[spat_to_spin_idx("a", i)] * means[spat_to_spin_idx("a", i)]
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             norm_coef = 1.0
             if i >= self.S_beta:
                 norm_coef = 1.0 / self.S_beta
@@ -1409,8 +1409,8 @@ class ground_state_solver():
 
         # initialise covariances
         # alpha-alpha
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 if i < self.S_alpha and j < self.S_alpha:
                     # agnostic
                     continue
@@ -1421,8 +1421,8 @@ class ground_state_solver():
                     cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = 1.0 / self.S_alpha * self.LE_sol["red"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] - means[spat_to_spin_idx("a", i)] * means[spat_to_spin_idx("a", j)]
                     cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
         # beta-beta
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 if i < self.S_beta and j < self.S_beta:
                     # agnostic
                     continue
@@ -1439,7 +1439,7 @@ class ground_state_solver():
         dec_point = 4
 
         diagnostic_table = []
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             diagnostic_table.append([
                 np.round(means[spat_to_spin_idx("a", i)], dec_point),
                 np.round(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
@@ -1450,11 +1450,11 @@ class ground_state_solver():
         self.log.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "var", "gershgorin disc", "leeway"],
-            row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+            row_names = np.arange(1, self.N_MO + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        self.log.print_matrix(cov[:self.N_MO,:self.N_MO], "covariance matrix", dec_points = 5)
 
         """print("")
         print("- Means -")
@@ -1470,7 +1470,7 @@ class ground_state_solver():
 
 
         """self.log.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
-        for i in range(2 * self.mol.nao):
+        for i in range(2 * self.N_MO):
             cov[i][i] = np.sum(np.abs(cov[i]))"""
 
         eigvals, eigvecs = np.linalg.eigh(cov)
@@ -1481,12 +1481,12 @@ class ground_state_solver():
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
         raw_Z_sample = [
-            np.zeros((N, N_subsample, self.mol.nao)),
-            np.zeros((N, N_subsample, self.mol.nao))
+            np.zeros((N, N_subsample, self.N_MO)),
+            np.zeros((N, N_subsample, self.N_MO))
             ]
         for n in range(N):
             for n_sub in range(N_subsample):
-                for i in range(self.mol.nao):
+                for i in range(self.N_MO):
                     raw_Z_sample[0][n][n_sub][i] = rand_X[n * N_subsample + n_sub][spat_to_spin_idx("a", i)]
                     raw_Z_sample[1][n][n_sub][i] = rand_X[n * N_subsample + n_sub][spat_to_spin_idx("b", i)]
 
@@ -1502,8 +1502,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = CS_Qubit(self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = CS_Qubit(self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                rand_z_alpha = CS_Qubit(self.N_MO, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -1578,18 +1578,18 @@ class ground_state_solver():
 
         # We find the means and the covariances
         spin_idx_dict = {"a" : 0, "b" : 1}
-        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
-        means = np.zeros( 2 * self.mol.nao )
-        sq_means = np.zeros( 2 * self.mol.nao )
-        variances = np.zeros( 2 * self.mol.nao )
-        cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.N_MO + i
+        means = np.zeros( 2 * self.N_MO )
+        sq_means = np.zeros( 2 * self.N_MO )
+        variances = np.zeros( 2 * self.N_MO )
+        cov = np.zeros( (2 * self.N_MO, 2 * self.N_MO) )
 
 
-        self.log.print_matrix(self.LE_sol["red"][:self.mol.nao,:self.mol.nao], "qubit transition matrix", dec_points = 5)
+        self.log.print_matrix(self.LE_sol["red"][:self.N_MO,:self.N_MO], "qubit transition matrix", dec_points = 5)
 
         # initialise means and variances Dima style (mean = std)
         self.log.write("Means and variances Dima style (mean = std, and derived from the calculated mean of square)")
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             norm_coef = 1.0
             if i >= self.S_alpha:
                 norm_coef = 1.0 / self.S_alpha
@@ -1599,7 +1599,7 @@ class ground_state_solver():
             else:
                 means[spat_to_spin_idx("a", i)] = 0
             variances[spat_to_spin_idx("a", i)] = sq_means[spat_to_spin_idx("a", i)] - means[spat_to_spin_idx("a", i)] * means[spat_to_spin_idx("a", i)]
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             norm_coef = 1.0
             if i >= self.S_beta:
                 norm_coef = 1.0 / self.S_beta
@@ -1614,8 +1614,8 @@ class ground_state_solver():
 
         # initialise covariances
         # alpha-alpha
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 if i < self.S_alpha and j < self.S_alpha:
                     # agnostic
                     continue
@@ -1626,8 +1626,8 @@ class ground_state_solver():
                     cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = 1.0 / self.S_alpha * self.LE_sol["red"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] - means[spat_to_spin_idx("a", i)] * means[spat_to_spin_idx("a", j)]
                     cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
         # beta-beta
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 if i < self.S_beta and j < self.S_beta:
                     # agnostic
                     continue
@@ -1646,7 +1646,7 @@ class ground_state_solver():
         dec_point = 4
 
         diagnostic_table = []
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             diagnostic_table.append([
                 np.round(means[spat_to_spin_idx("a", i)], dec_point),
                 np.round(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
@@ -1657,11 +1657,11 @@ class ground_state_solver():
         self.log.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "var", "gershgorin disc", "leeway"],
-            row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+            row_names = np.arange(1, self.N_MO + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        self.log.print_matrix(cov[:self.N_MO,:self.N_MO], "covariance matrix", dec_points = 5)
 
         """print("")
         print("- Means -")
@@ -1677,7 +1677,7 @@ class ground_state_solver():
 
 
         """self.log.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
-        for i in range(2 * self.mol.nao):
+        for i in range(2 * self.N_MO):
             cov[i][i] = np.sum(np.abs(cov[i]))"""
 
         eigvals, eigvecs = np.linalg.eigh(cov)
@@ -1688,12 +1688,12 @@ class ground_state_solver():
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
         raw_Z_sample = [
-            np.zeros((N, N_subsample, self.mol.nao)),
-            np.zeros((N, N_subsample, self.mol.nao))
+            np.zeros((N, N_subsample, self.N_MO)),
+            np.zeros((N, N_subsample, self.N_MO))
             ]
         for n in range(N):
             for n_sub in range(N_subsample):
-                for i in range(self.mol.nao):
+                for i in range(self.N_MO):
                     raw_Z_sample[0][n][n_sub][i] = rand_X[n * N_subsample + n_sub][spat_to_spin_idx("a", i)]
                     raw_Z_sample[1][n][n_sub][i] = raw_Z_sample[0][n][n_sub][i] #rand_X[n * N_subsample + n_sub][spat_to_spin_idx("b", i)]
 
@@ -1709,8 +1709,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = CS_Qubit(self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = CS_Qubit(self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                rand_z_alpha = CS_Qubit(self.N_MO, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -1788,18 +1788,18 @@ class ground_state_solver():
 
         # We find the means and the covariances
         spin_idx_dict = {"a" : 0, "b" : 1}
-        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
-        means = np.zeros( 2 * self.mol.nao )
-        sq_means = np.zeros( 2 * self.mol.nao )
-        variances = np.zeros( 2 * self.mol.nao )
-        cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.N_MO + i
+        means = np.zeros( 2 * self.N_MO )
+        sq_means = np.zeros( 2 * self.N_MO )
+        variances = np.zeros( 2 * self.N_MO )
+        cov = np.zeros( (2 * self.N_MO, 2 * self.N_MO) )
 
 
-        self.log.print_matrix(self.LE_sol["SRRM"][:self.mol.nao,:self.mol.nao], "qubit transition matrix", dec_points = 5)
+        self.log.print_matrix(self.LE_sol["SRRM"][:self.N_MO,:self.N_MO], "qubit transition matrix", dec_points = 5)
 
         # initialise means and variances Dima style (mean = std)
         self.log.write("Means and variances Dima style (mean = std, and derived from the calculated mean of square)")
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             norm_coef = 1.0
             if i >= self.S_alpha:
                 norm_coef = 1.0 / self.S_alpha
@@ -1809,7 +1809,7 @@ class ground_state_solver():
             else:
                 means[spat_to_spin_idx("a", i)] = 0
             variances[spat_to_spin_idx("a", i)] = sq_means[spat_to_spin_idx("a", i)] - means[spat_to_spin_idx("a", i)] * means[spat_to_spin_idx("a", i)]
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             norm_coef = 1.0
             if i >= self.S_beta:
                 norm_coef = 1.0 / self.S_beta
@@ -1824,8 +1824,8 @@ class ground_state_solver():
 
         # initialise covariances
         # alpha-alpha
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 if i < self.S_alpha and j < self.S_alpha:
                     # agnostic
                     continue
@@ -1836,8 +1836,8 @@ class ground_state_solver():
                     cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = 1.0 / self.S_alpha * self.LE_sol["SRRM"][spat_to_spin_idx("a", i)][j] - means[spat_to_spin_idx("a", i)] * means[spat_to_spin_idx("a", j)]
                     cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
         # beta-beta
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 if i < self.S_beta and j < self.S_beta:
                     # agnostic
                     continue
@@ -1856,7 +1856,7 @@ class ground_state_solver():
         dec_point = 4
 
         diagnostic_table = []
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             diagnostic_table.append([
                 np.round(means[spat_to_spin_idx("a", i)], dec_point),
                 np.round(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
@@ -1867,11 +1867,11 @@ class ground_state_solver():
         self.log.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "var", "gershgorin disc", "leeway"],
-            row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+            row_names = np.arange(1, self.N_MO + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        self.log.print_matrix(cov[:self.N_MO,:self.N_MO], "covariance matrix", dec_points = 5)
 
         """print("")
         print("- Means -")
@@ -1889,20 +1889,20 @@ class ground_state_solver():
 
         """
         self.log.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
-        for i in range(2 * self.mol.nao):
+        for i in range(2 * self.N_MO):
             cov[i][i] = np.sum(np.abs(cov[i]))"""
         self.log.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...")
-        for i in range(2 * self.mol.nao):
+        for i in range(2 * self.N_MO):
             row_coef = (np.sum(np.abs(cov[i])) - cov[i][i]) / cov[i][i]
             if row_coef > 1.0:
                 # negative leeway
-                for j in range(2 * self.mol.nao):
+                for j in range(2 * self.N_MO):
                     if i == j:
                         continue
                     cov[i][j] /= row_coef
 
         diagnostic_table = []
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             diagnostic_table.append([
                 np.round(means[spat_to_spin_idx("a", i)], dec_point),
                 np.round(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
@@ -1913,7 +1913,7 @@ class ground_state_solver():
         self.log.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "var", "gershgorin disc", "leeway"],
-            row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+            row_names = np.arange(1, self.N_MO + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
@@ -1925,12 +1925,12 @@ class ground_state_solver():
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
         raw_Z_sample = [
-            np.zeros((N, N_subsample, self.mol.nao)),
-            np.zeros((N, N_subsample, self.mol.nao))
+            np.zeros((N, N_subsample, self.N_MO)),
+            np.zeros((N, N_subsample, self.N_MO))
             ]
         for n in range(N):
             for n_sub in range(N_subsample):
-                for i in range(self.mol.nao):
+                for i in range(self.N_MO):
                     raw_Z_sample[0][n][n_sub][i] = rand_X[n * N_subsample + n_sub][spat_to_spin_idx("a", i)]
                     raw_Z_sample[1][n][n_sub][i] = raw_Z_sample[0][n][n_sub][i] #rand_X[n * N_subsample + n_sub][spat_to_spin_idx("b", i)]
 
@@ -1946,8 +1946,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = CS_Qubit(self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = CS_Qubit(self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                rand_z_alpha = CS_Qubit(self.N_MO, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -2038,11 +2038,11 @@ class ground_state_solver():
 
         # We find the means and the covariances
         spin_idx_dict = {"a" : 0, "b" : 1}
-        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
-        means = np.zeros( 2 * self.mol.nao )
-        sq_means = np.zeros( 2 * self.mol.nao )
-        variances = np.zeros( 2 * self.mol.nao )
-        cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.N_MO + i
+        means = np.zeros( 2 * self.N_MO )
+        sq_means = np.zeros( 2 * self.N_MO )
+        variances = np.zeros( 2 * self.N_MO )
+        cov = np.zeros( (2 * self.N_MO, 2 * self.N_MO) )
 
 
 
@@ -2060,12 +2060,12 @@ class ground_state_solver():
         variances[spat_to_spin_idx("a", 0)] = 1.0
         for i in range(1, self.S_alpha):
             variances[spat_to_spin_idx("a", i)] = (1 - self.LE_sol["red"][spat_to_spin_idx("a", 0)][spat_to_spin_idx("a", 0)]) / (1 - self.LE_sol["red"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)])
-        for i in range(self.S_alpha, self.mol.nao):
+        for i in range(self.S_alpha, self.N_MO):
             variances[spat_to_spin_idx("a", i)] = self.LE_sol["red"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] / self.S_alpha
         variances[spat_to_spin_idx("b", 0)] = 1.0
         for i in range(1, self.S_beta):
             variances[spat_to_spin_idx("b", i)] = (1 - self.LE_sol["red"][spat_to_spin_idx("b", 0)][spat_to_spin_idx("b", 0)]) / (1 - self.LE_sol["red"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)])
-        for i in range(self.S_beta, self.mol.nao):
+        for i in range(self.S_beta, self.N_MO):
             variances[spat_to_spin_idx("b", i)] = self.LE_sol["red"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)] / self.S_beta
         cov = np.diag(variances)
 
@@ -2076,18 +2076,18 @@ class ground_state_solver():
 
 
 
-        self.log.print_matrix(self.LE_sol["SRRM"][:self.mol.nao,:self.mol.nao], "qubit transition matrix", dec_points = 5)
+        self.log.print_matrix(self.LE_sol["SRRM"][:self.N_MO,:self.N_MO], "qubit transition matrix", dec_points = 5)
 
         # initialise means and variances Dima style (mean = std)
         self.log.write("Means and variances Dima style (mean = std, and derived from the calculated mean of square)")
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             if i < self.S_alpha:
                 sq_means[spat_to_spin_idx("a", i)] = self.LE_sol["SRRM"][spat_to_spin_idx("a", i)][i]
                 variances[spat_to_spin_idx("a", i)] = sq_means[spat_to_spin_idx("a", i)] - means[spat_to_spin_idx("a", i)] * means[spat_to_spin_idx("a", i)]
             if i >= self.S_alpha:
                 sq_means[spat_to_spin_idx("a", i)] = self.LE_sol["SRRM"][spat_to_spin_idx("a", i)][i] / self.S_alpha
                 variances[spat_to_spin_idx("a", i)] = var_alpha * (sq_means[spat_to_spin_idx("a", i)] - means[spat_to_spin_idx("a", i)] * means[spat_to_spin_idx("a", i)])
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             #norm_coef = 1.0
             #if i >= self.S_beta:
             #    norm_coef = 1.0 / self.S_beta
@@ -2106,8 +2106,8 @@ class ground_state_solver():
 
         # initialise covariances
         # alpha-alpha
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 if i < self.S_alpha and j < self.S_alpha:
                     # agnostic
                     continue
@@ -2120,8 +2120,8 @@ class ground_state_solver():
                     cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = cov_alpha * cur_cov
                     cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
         # beta-beta
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 if i < self.S_beta and j < self.S_beta:
                     # agnostic
                     continue
@@ -2141,8 +2141,8 @@ class ground_state_solver():
 
         # initialise covariances
         # alpha-alpha
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 if i < self.S_alpha and j < self.S_alpha:
                     # agnostic
                     continue
@@ -2155,8 +2155,8 @@ class ground_state_solver():
                     cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = cov_alpha * cur_cov
                     cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
         # beta-beta
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 if i < self.S_beta and j < self.S_beta:
                     # agnostic
                     continue
@@ -2175,7 +2175,7 @@ class ground_state_solver():
 
 
         diagnostic_table = []
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             diagnostic_table.append([
                 np.round(means[spat_to_spin_idx("a", i)], dec_point),
                 np.round(np.sqrt(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]), dec_point),
@@ -2188,27 +2188,27 @@ class ground_state_solver():
         self.log.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
-            row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+            row_names = np.arange(1, self.N_MO + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        self.log.print_matrix(cov[:self.N_MO,:self.N_MO], "covariance matrix", dec_points = 5)
 
         # -------------- making sure covariances dont overshadow the variances ----------------
 
 
         #self.log.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
-        #for i in range(2 * self.mol.nao):
+        #for i in range(2 * self.N_MO):
         #    cov[i][i] = np.sum(np.abs(cov[i]))
         self.log.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...")
-        for i in range(2 * self.mol.nao):
+        for i in range(2 * self.N_MO):
             if np.sum(np.abs(cov[i])) - cov[i][i] == 0.0:
                 # No off-diagonal terms, we protect against div by zero
                 continue
             row_coef = (cov[i][i] * cov_proportion) / (np.sum(np.abs(cov[i])) - cov[i][i])
             if row_coef < 1.0:
                 # negative leeway
-                for j in range(2 * self.mol.nao):
+                for j in range(2 * self.N_MO):
                     if i == j:
                         continue
                     cov[i][j] *= row_coef
@@ -2219,12 +2219,12 @@ class ground_state_solver():
         # spin symmetry
 
         # but let's encode the goofy thing
-        #for i in range(self.mol.nao):
+        #for i in range(self.N_MO):
         #    cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", i)] = np.sqrt(variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("b", i)]) * (1 - cov_proportion)
         #    cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", i)]
 
         diagnostic_table = []
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             diagnostic_table.append([
                 np.round(means[spat_to_spin_idx("a", i)], dec_point),
                 np.round(np.sqrt(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]), dec_point),
@@ -2237,7 +2237,7 @@ class ground_state_solver():
         self.log.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
-            row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+            row_names = np.arange(1, self.N_MO + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
@@ -2249,12 +2249,12 @@ class ground_state_solver():
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
         raw_Z_sample = [
-            np.zeros((N, N_subsample, self.mol.nao)),
-            np.zeros((N, N_subsample, self.mol.nao))
+            np.zeros((N, N_subsample, self.N_MO)),
+            np.zeros((N, N_subsample, self.N_MO))
             ]
         for n in range(N):
             for n_sub in range(N_subsample):
-                for i in range(self.mol.nao):
+                for i in range(self.N_MO):
                     raw_Z_sample[0][n][n_sub][i] = rand_X[n * N_subsample + n_sub][spat_to_spin_idx("a", i)]
                     raw_Z_sample[1][n][n_sub][i] = raw_Z_sample[0][n][n_sub][i] #rand_X[n * N_subsample + n_sub][spat_to_spin_idx("b", i)] #
 
@@ -2270,8 +2270,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = CS_Qubit(self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = CS_Qubit(self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                rand_z_alpha = CS_Qubit(self.N_MO, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -2365,11 +2365,11 @@ class ground_state_solver():
 
         # We find the means and the covariances
         spin_idx_dict = {"a" : 0, "b" : 1}
-        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
-        means = np.zeros( 2 * self.mol.nao )
-        sq_means = np.zeros( 2 * self.mol.nao )
-        variances = np.zeros( 2 * self.mol.nao )
-        cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.N_MO + i
+        means = np.zeros( 2 * self.N_MO )
+        sq_means = np.zeros( 2 * self.N_MO )
+        variances = np.zeros( 2 * self.N_MO )
+        cov = np.zeros( (2 * self.N_MO, 2 * self.N_MO) )
 
 
 
@@ -2387,12 +2387,12 @@ class ground_state_solver():
         variances[spat_to_spin_idx("a", 0)] = 1.0
         for i in range(1, self.S_alpha):
             variances[spat_to_spin_idx("a", i)] = (1 - self.LE_sol["red"][spat_to_spin_idx("a", 0)][spat_to_spin_idx("a", 0)]) / (1 - self.LE_sol["red"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)])
-        for i in range(self.S_alpha, self.mol.nao):
+        for i in range(self.S_alpha, self.N_MO):
             variances[spat_to_spin_idx("a", i)] = self.LE_sol["red"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] / self.S_alpha
         variances[spat_to_spin_idx("b", 0)] = 1.0
         for i in range(1, self.S_beta):
             variances[spat_to_spin_idx("b", i)] = (1 - self.LE_sol["red"][spat_to_spin_idx("b", 0)][spat_to_spin_idx("b", 0)]) / (1 - self.LE_sol["red"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)])
-        for i in range(self.S_beta, self.mol.nao):
+        for i in range(self.S_beta, self.N_MO):
             variances[spat_to_spin_idx("b", i)] = self.LE_sol["red"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)] / self.S_beta
         cov = np.diag(variances)
 
@@ -2400,8 +2400,8 @@ class ground_state_solver():
 
         # initialise covariances
         # alpha-alpha
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 if i < self.S_alpha and j < self.S_alpha:
                     # agnostic
                     continue
@@ -2414,8 +2414,8 @@ class ground_state_solver():
                     cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = cov_alpha * cur_cov
                     cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
         # beta-beta
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 if i < self.S_beta and j < self.S_beta:
                     # agnostic
                     continue
@@ -2435,7 +2435,7 @@ class ground_state_solver():
         means = np.sqrt(np.array(np.sqrt(variances))) # mu = sigma
 
         diagnostic_table = []
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             diagnostic_table.append([
                 np.round(means[spat_to_spin_idx("a", i)], dec_point),
                 np.round(np.sqrt(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]), dec_point),
@@ -2448,27 +2448,27 @@ class ground_state_solver():
         self.log.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
-            row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+            row_names = np.arange(1, self.N_MO + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        self.log.print_matrix(cov[:self.N_MO,:self.N_MO], "covariance matrix", dec_points = 5)
 
         # -------------- making sure covariances dont overshadow the variances ----------------
 
 
         #self.log.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
-        #for i in range(2 * self.mol.nao):
+        #for i in range(2 * self.N_MO):
         #    cov[i][i] = np.sum(np.abs(cov[i]))
         self.log.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...")
-        for i in range(2 * self.mol.nao):
+        for i in range(2 * self.N_MO):
             if np.sum(np.abs(cov[i])) - cov[i][i] == 0.0:
                 # No off-diagonal terms, we protect against div by zero
                 continue
             row_coef = (cov[i][i] * cov_proportion) / (np.sum(np.abs(cov[i])) - cov[i][i])
             if row_coef < 1.0:
                 # negative leeway
-                for j in range(2 * self.mol.nao):
+                for j in range(2 * self.N_MO):
                     if i == j:
                         continue
                     cov[i][j] *= row_coef
@@ -2479,12 +2479,12 @@ class ground_state_solver():
         # spin symmetry
 
         # but let's encode the goofy thing
-        #for i in range(self.mol.nao):
+        #for i in range(self.N_MO):
         #    cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", i)] = np.sqrt(variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("b", i)]) * (1 - cov_proportion)
         #    cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", i)]
 
         diagnostic_table = []
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             diagnostic_table.append([
                 np.round(means[spat_to_spin_idx("a", i)], dec_point),
                 np.round(np.sqrt(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]), dec_point),
@@ -2497,7 +2497,7 @@ class ground_state_solver():
         self.log.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
-            row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+            row_names = np.arange(1, self.N_MO + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
@@ -2510,18 +2510,18 @@ class ground_state_solver():
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
 
         # We now randomly sign the parameters
-        sign_mask = np.random.randint(0, 2, (N * N_subsample, self.mol.nao * 2)) * 2 - 1
+        sign_mask = np.random.randint(0, 2, (N * N_subsample, self.N_MO * 2)) * 2 - 1
         sign_mask[:,:self.S_alpha] = np.ones((N * N_subsample, self.S_alpha))
 
         rand_X = rand_X * sign_mask
 
         raw_Z_sample = [
-            np.zeros((N, N_subsample, self.mol.nao)),
-            np.zeros((N, N_subsample, self.mol.nao))
+            np.zeros((N, N_subsample, self.N_MO)),
+            np.zeros((N, N_subsample, self.N_MO))
             ]
         for n in range(N):
             for n_sub in range(N_subsample):
-                for i in range(self.mol.nao):
+                for i in range(self.N_MO):
                     raw_Z_sample[0][n][n_sub][i] = rand_X[n * N_subsample + n_sub][spat_to_spin_idx("a", i)]
                     raw_Z_sample[1][n][n_sub][i] = raw_Z_sample[0][n][n_sub][i] #rand_X[n * N_subsample + n_sub][spat_to_spin_idx("b", i)] #
 
@@ -2537,8 +2537,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = CS_Qubit(self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = CS_Qubit(self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                rand_z_alpha = CS_Qubit(self.N_MO, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -2624,11 +2624,11 @@ class ground_state_solver():
 
         # We find the means and the covariances
         spin_idx_dict = {"a" : 0, "b" : 1}
-        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
-        means = np.zeros( 2 * self.mol.nao )
-        sq_means = np.zeros( 2 * self.mol.nao )
-        variances = np.zeros( 2 * self.mol.nao )
-        cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.N_MO + i
+        means = np.zeros( 2 * self.N_MO )
+        sq_means = np.zeros( 2 * self.N_MO )
+        variances = np.zeros( 2 * self.N_MO )
+        cov = np.zeros( (2 * self.N_MO, 2 * self.N_MO) )
 
 
 
@@ -2646,12 +2646,12 @@ class ground_state_solver():
         variances[spat_to_spin_idx("a", 0)] = 1.0
         for i in range(1, self.S_alpha):
             variances[spat_to_spin_idx("a", i)] = (1 - self.LE_sol["SOPM"][spat_to_spin_idx("a", 0)][spat_to_spin_idx("a", 0)]) / (1 - self.LE_sol["SOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)])
-        for i in range(self.S_alpha, self.mol.nao):
+        for i in range(self.S_alpha, self.N_MO):
             variances[spat_to_spin_idx("a", i)] = self.LE_sol["SOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] / self.S_alpha
         variances[spat_to_spin_idx("b", 0)] = 1.0
         for i in range(1, self.S_beta):
             variances[spat_to_spin_idx("b", i)] = (1 - self.LE_sol["SOPM"][spat_to_spin_idx("b", 0)][spat_to_spin_idx("b", 0)]) / (1 - self.LE_sol["SOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)])
-        for i in range(self.S_beta, self.mol.nao):
+        for i in range(self.S_beta, self.N_MO):
             variances[spat_to_spin_idx("b", i)] = self.LE_sol["SOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)] / self.S_beta
         cov = np.diag(variances)
 
@@ -2664,14 +2664,14 @@ class ground_state_solver():
         # So cov_ij = SOPM_ij * sqrt(var_i * var_j)
 
         # alpha-alpha
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 cur_cov = self.LE_sol["SOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] * np.sqrt(variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("a", j)])
                 cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = cov_alpha * cur_cov
                 cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
         # beta-beta
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 cur_cov = self.LE_sol["SOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] * np.sqrt(variances[spat_to_spin_idx("b", i)] * variances[spat_to_spin_idx("b", j)])
                 cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] = cov_alpha * cur_cov
                 cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("b", i)] = cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] # conjugate?
@@ -2680,7 +2680,7 @@ class ground_state_solver():
         # We remain agnostic! Because even tho this should work perfectly, I'm not sure how the gershgorin stuff will work
 
         diagnostic_table = []
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             diagnostic_table.append([
                 np.round(means[spat_to_spin_idx("a", i)], dec_point),
                 np.round(np.sqrt(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]), dec_point),
@@ -2693,11 +2693,11 @@ class ground_state_solver():
         self.log.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
-            row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+            row_names = np.arange(1, self.N_MO + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        self.log.print_matrix(cov[:self.N_MO,:self.N_MO], "covariance matrix", dec_points = 5)
 
         # -------------- making sure covariances dont overshadow the variances ----------------
 
@@ -2710,12 +2710,12 @@ class ground_state_solver():
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
 
         raw_Z_sample = [
-            np.zeros((N, N_subsample, self.mol.nao)),
-            np.zeros((N, N_subsample, self.mol.nao))
+            np.zeros((N, N_subsample, self.N_MO)),
+            np.zeros((N, N_subsample, self.N_MO))
             ]
         for n in range(N):
             for n_sub in range(N_subsample):
-                for i in range(self.mol.nao):
+                for i in range(self.N_MO):
                     raw_Z_sample[0][n][n_sub][i] = rand_X[n * N_subsample + n_sub][spat_to_spin_idx("a", i)]
                     raw_Z_sample[1][n][n_sub][i] = raw_Z_sample[0][n][n_sub][i] #rand_X[n * N_subsample + n_sub][spat_to_spin_idx("b", i)] #
 
@@ -2731,8 +2731,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = CS_Qubit(self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = CS_Qubit(self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                rand_z_alpha = CS_Qubit(self.N_MO, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -2851,11 +2851,11 @@ class ground_state_solver():
 
         # We find the means and the covariances
         spin_idx_dict = {"a" : 0, "b" : 1}
-        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
-        means = np.zeros( 2 * self.mol.nao )
-        sq_means = np.zeros( 2 * self.mol.nao )
-        variances = np.zeros( 2 * self.mol.nao )
-        cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.N_MO + i
+        means = np.zeros( 2 * self.N_MO )
+        sq_means = np.zeros( 2 * self.N_MO )
+        variances = np.zeros( 2 * self.N_MO )
+        cov = np.zeros( (2 * self.N_MO, 2 * self.N_MO) )
 
 
 
@@ -2878,14 +2878,14 @@ class ground_state_solver():
         # So cov_ij = SOPM_ij * sqrt(var_i * var_j)
 
         # alpha-alpha
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 cur_cov = alpha * np.sqrt(self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] * variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("a", j)])
                 cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = cur_cov
                 cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
         # beta-beta
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 cur_cov = alpha * np.sqrt(self.LE_sol["RSOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] * variances[spat_to_spin_idx("b", i)] * variances[spat_to_spin_idx("b", j)])
                 cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] = cur_cov
                 cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("b", i)] = cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] # conjugate?
@@ -2893,15 +2893,15 @@ class ground_state_solver():
         # alpha-beta
         # We remain agnostic! Because even tho this should work perfectly, I'm not sure how the gershgorin stuff will work
 
-        for i in range(self.mol.nao):
-            for j in range(self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(self.N_MO):
                 cur_cov = alpha * np.sqrt(self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("b", j)] * variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("b", j)])
                 cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", j)] = cur_cov
                 cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", j)] # conjugate?
 
         if sym == "full":
             diagnostic_table = []
-            for i in range(self.mol.nao):
+            for i in range(self.N_MO):
                 diagnostic_table.append([
                     np.round(means[spat_to_spin_idx("a", i)], dec_point),
                     np.round(np.sqrt(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]), dec_point),
@@ -2914,15 +2914,15 @@ class ground_state_solver():
             self.log.print_table(
                 table_name = "LE Zombie diag.",
                 column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
-                row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+                row_names = np.arange(1, self.N_MO + 1, 1, dtype = int),
                 list_of_rows = diagnostic_table
                 )
 
-            self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+            self.log.print_matrix(cov[:self.N_MO,:self.N_MO], "covariance matrix", dec_points = 5)
         else:
             diagnostic_table = []
             for s in ["a", "b"]:
-                for i in range(self.mol.nao):
+                for i in range(self.N_MO):
                     diagnostic_table.append([
                         np.round(means[spat_to_spin_idx(s, i)], dec_point),
                         np.round(np.sqrt(cov[spat_to_spin_idx(s, i)][spat_to_spin_idx(s, i)]), dec_point),
@@ -2935,7 +2935,7 @@ class ground_state_solver():
             self.log.print_table(
                 table_name = "LE Zombie diag.",
                 column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
-                row_names = np.arange(1, 2 * self.mol.nao + 1, 1, dtype = int),
+                row_names = np.arange(1, 2 * self.N_MO + 1, 1, dtype = int),
                 list_of_rows = diagnostic_table
                 )
 
@@ -2952,9 +2952,9 @@ class ground_state_solver():
         # Some with cov...
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * (N_subsample - N_no_cov))
         # ...and some without
-        rand_X_no_cov = np.random.randn(N * N_no_cov, 2 * self.mol.nao) * np.sqrt(variances) + means
+        rand_X_no_cov = np.random.randn(N * N_no_cov, 2 * self.N_MO) * np.sqrt(variances) + means
 
-        raw_Z_sample = np.zeros((2, N, N_subsample, self.mol.nao), dtype = complex)
+        raw_Z_sample = np.zeros((2, N, N_subsample, self.N_MO), dtype = complex)
 
 
         self.log.enter("Treating phase randomisation and spin symmetrisation of sample...")
@@ -2965,15 +2965,15 @@ class ground_state_solver():
             for n in range(N):
                 # First, the cov elements...
                 for n_sub in range(N_subsample - N_no_cov):
-                    for i in range(self.mol.nao):
+                    for i in range(self.N_MO):
                         raw_Z_sample[0][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("a", i)]
                 # ...then the no cov elements.
                 for n_sub in range(N_no_cov):
-                    for i in range(self.mol.nao):
+                    for i in range(self.N_MO):
                         raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
 
             self.log.write("Randomising parameter phases...")
-            spin_symmetrical_randsign_mask = functions.randsign_mask((N, N_subsample, self.mol.nao), randomise_signs)
+            spin_symmetrical_randsign_mask = functions.randsign_mask((N, N_subsample, self.N_MO), randomise_signs)
             raw_Z_sample[0] = raw_Z_sample[0] * spin_symmetrical_randsign_mask
 
             self.log.write("Setting |Z_beta> = |Z_alpha> for each basis state...")
@@ -2985,11 +2985,11 @@ class ground_state_solver():
             for n in range(N):
                 # First, the cov elements...
                 for n_sub in range(N_subsample - N_no_cov):
-                    for i in range(self.mol.nao):
+                    for i in range(self.N_MO):
                         raw_Z_sample[0][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("a", i)]
                 # ...then the no cov elements.
                 for n_sub in range(N_no_cov):
-                    for i in range(self.mol.nao):
+                    for i in range(self.N_MO):
                         raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
 
             raw_Z_sample[1] = raw_Z_sample[0]
@@ -3004,12 +3004,12 @@ class ground_state_solver():
             for n in range(N):
                 # First, the cov elements...
                 for n_sub in range(N_subsample - N_no_cov):
-                    for i in range(self.mol.nao):
+                    for i in range(self.N_MO):
                         raw_Z_sample[0][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("a", i)]
                         raw_Z_sample[1][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("b", i)]
                 # ...then the no cov elements.
                 for n_sub in range(N_no_cov):
-                    for i in range(self.mol.nao):
+                    for i in range(self.N_MO):
                         raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
                         raw_Z_sample[1][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("b", i)]
 
@@ -3036,8 +3036,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = CS_Qubit(self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = CS_Qubit(self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                rand_z_alpha = CS_Qubit(self.N_MO, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True, condition = matrix_condition, reject_high_overlap = True)
@@ -3065,19 +3065,19 @@ class ground_state_solver():
             cur_err_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
             cur_rand_X = functions.sample_with_autocorrelation_safe(means, cov, N_subsample - N_no_cov)
             # ...and some without
-            cur_rand_X_no_cov = np.random.randn(N_no_cov, 2 * self.mol.nao) * np.sqrt(variances) + means
+            cur_rand_X_no_cov = np.random.randn(N_no_cov, 2 * self.N_MO) * np.sqrt(variances) + means
 
             #if randomise_signs:
             cur_rand_X = cur_rand_X * functions.randsign_mask(cur_rand_X.shape, randomise_signs)
             cur_rand_X_no_cov = cur_rand_X_no_cov * functions.randsign_mask(cur_rand_X_no_cov.shape, randomise_signs)
 
             cur_raw_Z_sample = [
-                np.zeros((N_subsample, self.mol.nao), dtype = complex),
-                np.zeros((N_subsample, self.mol.nao), dtype = complex)
+                np.zeros((N_subsample, self.N_MO), dtype = complex),
+                np.zeros((N_subsample, self.N_MO), dtype = complex)
                 ]
 
             for n_sub in range(N_subsample - N_no_cov):
-                for i in range(self.mol.nao):
+                for i in range(self.N_MO):
                     cur_raw_Z_sample[0][n_sub][i] = cur_rand_X[n_sub][spat_to_spin_idx("a", i)]
                     if self.HF_method == "RHF":
                         cur_raw_Z_sample[1][n_sub][i] = cur_raw_Z_sample[0][n_sub][i]
@@ -3085,7 +3085,7 @@ class ground_state_solver():
                         cur_raw_Z_sample[1][n_sub][i] = cur_rand_X[n_sub][spat_to_spin_idx("b", i)]
             # ...then the no cov elements.
             for n_sub in range(N_no_cov):
-                for i in range(self.mol.nao):
+                for i in range(self.N_MO):
                     cur_raw_Z_sample[0][N_subsample - N_no_cov + n_sub][i] = cur_rand_X_no_cov[n_sub][spat_to_spin_idx("a", i)]
                     if self.HF_method == "RHF":
                         cur_raw_Z_sample[1][N_subsample - N_no_cov + n_sub][i] = cur_raw_Z_sample[0][N_subsample - N_no_cov + n_sub][i]
@@ -3095,8 +3095,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = CS_Qubit(self.mol.nao, self.S_alpha, cur_raw_Z_sample[0][n_sub])
-                rand_z_beta = CS_Qubit(self.mol.nao, self.S_beta, cur_raw_Z_sample[1][n_sub])
+                rand_z_alpha = CS_Qubit(self.N_MO, self.S_alpha, cur_raw_Z_sample[0][n_sub])
+                rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, cur_raw_Z_sample[1][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_err_sample.add_best_of_subsample(cur_subsample, condition = matrix_condition, reject_high_overlap = True)
@@ -3191,11 +3191,11 @@ class ground_state_solver():
 
         # We find the means and the covariances
         spin_idx_dict = {"a" : 0, "b" : 1}
-        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
-        means = np.zeros( 2 * self.mol.nao )
-        sq_means = np.zeros( 2 * self.mol.nao )
-        variances = np.zeros( 2 * self.mol.nao )
-        cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.N_MO + i
+        means = np.zeros( 2 * self.N_MO )
+        sq_means = np.zeros( 2 * self.N_MO )
+        variances = np.zeros( 2 * self.N_MO )
+        cov = np.zeros( (2 * self.N_MO, 2 * self.N_MO) )
 
 
 
@@ -3212,11 +3212,11 @@ class ground_state_solver():
 
         for i in range(self.S_alpha):
             variances[spat_to_spin_idx("a", i)] = self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]
-        for i in range(self.S_alpha, self.mol.nao):
+        for i in range(self.S_alpha, self.N_MO):
             variances[spat_to_spin_idx("a", i)] = self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]
         for i in range(self.S_beta):
             variances[spat_to_spin_idx("b", i)] = self.LE_sol["RSOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)]
-        for i in range(self.S_beta, self.mol.nao):
+        for i in range(self.S_beta, self.N_MO):
             variances[spat_to_spin_idx("b", i)] = self.LE_sol["RSOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)]
         cov = np.diag(variances)
 
@@ -3229,14 +3229,14 @@ class ground_state_solver():
         # So cov_ij = SOPM_ij * sqrt(var_i * var_j)
 
         # alpha-alpha
-        """for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        """for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 cur_cov = self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] * np.sqrt(variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("a", j)])
                 cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = cov_alpha * cur_cov
                 cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
         # beta-beta
-        for i in range(self.mol.nao):
-            for j in range(i + 1, self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
                 cur_cov = self.LE_sol["RSOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] * np.sqrt(variances[spat_to_spin_idx("b", i)] * variances[spat_to_spin_idx("b", j)])
                 cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] = cov_alpha * cur_cov
                 cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("b", i)] = cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] # conjugate?
@@ -3245,7 +3245,7 @@ class ground_state_solver():
         # We remain agnostic! Because even tho this should work perfectly, I'm not sure how the gershgorin stuff will work
         """
         diagnostic_table = []
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             diagnostic_table.append([
                 np.round(means[spat_to_spin_idx("a", i)], dec_point),
                 np.round(np.sqrt(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]), dec_point),
@@ -3258,11 +3258,11 @@ class ground_state_solver():
         self.log.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
-            row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
+            row_names = np.arange(1, self.N_MO + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        self.log.print_matrix(cov[:self.N_MO,:self.N_MO], "covariance matrix", dec_points = 5)
 
         # -------------- making sure covariances dont overshadow the variances ----------------
 
@@ -3275,12 +3275,12 @@ class ground_state_solver():
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
 
         raw_Z_sample = [
-            np.zeros((N, N_subsample, self.mol.nao)),
-            np.zeros((N, N_subsample, self.mol.nao))
+            np.zeros((N, N_subsample, self.N_MO)),
+            np.zeros((N, N_subsample, self.N_MO))
             ]
         for n in range(N):
             for n_sub in range(N_subsample):
-                for i in range(self.mol.nao):
+                for i in range(self.N_MO):
                     raw_Z_sample[0][n][n_sub][i] = rand_X[n * N_subsample + n_sub][spat_to_spin_idx("a", i)]
                     raw_Z_sample[1][n][n_sub][i] = raw_Z_sample[0][n][n_sub][i] #rand_X[n * N_subsample + n_sub][spat_to_spin_idx("b", i)] #
 
@@ -3296,8 +3296,8 @@ class ground_state_solver():
             cur_subsample = []
             for n_sub in range(N_subsample):
 
-                rand_z_alpha = CS_Qubit(self.mol.nao, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = CS_Qubit(self.mol.nao, self.S_beta, raw_Z_sample[1][n][n_sub])
+                rand_z_alpha = CS_Qubit(self.N_MO, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
             cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
@@ -3374,8 +3374,8 @@ class ground_state_solver():
 
         for n in range(N):
             # We add the next basis state
-            cur_z_alpha = CS_Qubit(self.mol.nao, self.S_alpha, z_tensor[n][0])
-            cur_z_beta = CS_Qubit(self.mol.nao, self.S_beta, z_tensor[n][1])
+            cur_z_alpha = CS_Qubit(self.N_MO, self.S_alpha, z_tensor[n][0])
+            cur_z_beta = CS_Qubit(self.N_MO, self.S_beta, z_tensor[n][1])
             cur_sample.append([cur_z_alpha, cur_z_beta])
 
             # We calculate its self energy and overlaps with previously added states
@@ -3531,7 +3531,8 @@ class ground_state_solver():
 
         res = {
             "CI" : self.ci_energy,
-            "HF" : self.reference_state_energy
+            "HF" : self.reference_state_energy,
+            "LE" : self.LE_sol["E"]
             }
 
         for dataset_label in dataset_label_list:
@@ -3608,12 +3609,13 @@ class ground_state_solver():
     # ----------------------------- User methods ------------------------------
     ###########################################################################
 
-    def initialise_molecule(self, mol, HF_method = "default"):
+    def initialise_molecule(self, mol, HF_method = "default", N_MO = None):
         # mol is an instance of pyscf.gto.Mole
         # HF_method is a magic word which determines how we calculate MOs:
         #   -"RHF": Restricted Hartree-Fock
         #   -"UHF": Unrestricted Hartree-Fock
         #   -"default": RHF if singlet mol, UHF otherwise
+        # N_MO specifies the number of MOs. If None, no trimming occurs.
 
         self.log.enter("Initialising molecule...", 0)
 
@@ -3626,12 +3628,29 @@ class ground_state_solver():
         # TODO move constructing molecule here so we can store just the parameters!
 
         self.mol = mol
-        self.M = self.mol.nao * 2
         self.S = self.mol.tot_electrons()
 
         nalpha, nbeta = self.mol.nelec
         self.S_alpha = nalpha
         self.S_beta = nbeta
+
+        # We check if the specified number of MOs is possible for this system
+        if N_MO is None:
+            self.N_MO = self.mol.nao
+        else:
+            if N_MO > self.mol.nao:
+                self.log.warning(f"Number of MOs provided ({N_MO}) larger than number of atomic orbitals ({self.mol.nao}). Maximum number chosen...")
+                self.N_MO = self.mol.nao
+            else:
+                self.N_MO = N_MO
+
+        total_slater_dets = math.comb(self.N_MO, self.S_alpha) * math.comb(self.N_MO, self.S_beta)
+        total_SACs = int((self.mol.spin + 1) / (self.N_MO + 1) * math.comb(self.N_MO + 1, int((self.S - self.mol.spin) / 2)) * math.comb(self.N_MO + 1, int((self.S + self.mol.spin) / 2) + 1))
+        # Both must be positive (non-zero)
+        if total_slater_dets <= 0:
+            self.log.error(f"The number of MOs is too low; no Slater determinants can be constructed. Minimum value: {max(self.S_alpha, self.S_beta)}")
+        if total_SACs <= 0:
+            self.log.error(f"The number of MOs is too low; no spin-adapted configurations of spin {self.mol.spin} can be constructed.")
 
         # We create helpful dictionaries to describe the molecule
         self.element_to_basis = [] # [element index] = [type of element, AO index start, AO index end (non-inclusive)]
@@ -3640,6 +3659,10 @@ class ground_state_solver():
             self.element_to_basis.append([self.mol.elements[i], int(cur_aoslice[i][2]), int(cur_aoslice[i][3])])
 
         self.log.write(f"There are {self.mol.nao} atomic orbitals, each able to hold 2 electrons of opposing spin.", 3)
+        if N_MO is None:
+            self.log.write(f"The number of spatial molecular orbitals per spin-subspace is untrimmed and equal to the number of atomic orbitals.", 3)
+        else:
+            self.log.write(f"The number of spatial molecular orbitals per spin-subspace is set to {self.N_MO}.", 3)
         self.log.write(f"The molecule is occupied by {self.mol.tot_electrons()} electrons in total: {self.S_alpha} with spin alpha, {self.S_beta} with spin beta.", 3)
         self.log.write(f"The molecule consists of the following atoms: {self.mol.elements}", 3)
         self.log.write(f"The atomic orbitals are ordered as follows: {self.mol.ao_labels()}", 3)
@@ -3649,8 +3672,8 @@ class ground_state_solver():
         assert (self.S + self.mol.spin) % 2 == 0
         assert (self.S - self.mol.spin) % 2 == 0
         self.log.print_itemize({
-            "Total number of Slater determinants" : math.comb(self.mol.nao, self.S_alpha) * math.comb(self.mol.nao, self.S_beta),
-            "Total number of S_z-preserving spin-adapted configurations" : int((self.mol.spin + 1) / (self.mol.nao + 1) * math.comb(self.mol.nao + 1, int((self.S - self.mol.spin) / 2)) * math.comb(self.mol.nao + 1, int((self.S + self.mol.spin) / 2) + 1))
+            "Total number of Slater determinants" : total_slater_dets,
+            "Total number of S_z-preserving spin-adapted configurations" : total_SACs
             })
 
         self.log.write("Calculating 1e integrals...", 1)
@@ -3706,6 +3729,9 @@ class ground_state_solver():
             self.mean_field = scf.RHF(self.mol).run(verbose = 0)
 
             self.MO_coefs["a"] = self.mean_field.mo_coeff
+            # We trim the number of MOs
+            self.MO_coefs["a"] = self.MO_coefs["a"][:, :self.N_MO]
+
             self.MO_coefs["b"] = self.MO_coefs["a"]
             self.reference_state_energy = self.mean_field.e_tot
             self.log.write(f"Done! Reference state energy is {self.reference_state_energy:0.5f}", 1)
@@ -3741,9 +3767,14 @@ class ground_state_solver():
             self.MO_coefs["a"] = self.mean_field.mo_coeff[0]
             self.MO_coefs["b"] = self.mean_field.mo_coeff[1]
 
+
             assert self.MO_coefs["a"].shape[1] == self.MO_coefs["b"].shape[1]
             # This is not required but if we remove the constraint we need to
             # firstly restore symmetry, making the mixed H_two["ab"] non-square
+
+            # We trim the number of MOs
+            self.MO_coefs["a"] = self.MO_coefs["a"][:, :self.N_MO]
+            self.MO_coefs["b"] = self.MO_coefs["b"][:, :self.N_MO]
 
             self.reference_state_energy = self.mean_field.e_tot
             self.log.write(f"Done! Reference state energy is {self.reference_state_energy:0.5f}", 1)
@@ -3767,9 +3798,6 @@ class ground_state_solver():
             occ_orbs_alpha = [i for i, o in enumerate(self.mean_field.mo_occ[0]) if o > 0]
             occ_orbs_beta = [i for i, o in enumerate(self.mean_field.mo_occ[1]) if o > 0]
 
-        # TODO note that by using RHF, we assume N_alpha = N_beta. We can generalise the process by using UHF,
-        # but this would mean using separate MO coeffs for alpha and beta subspaces
-
         self.log.exit()
 
         self.log.enter("Reference state analysis", 4)
@@ -3779,8 +3807,8 @@ class ground_state_solver():
 
         self.log.write("Testing each CS type Hamiltonian overlap evaluation against the reference state...")
         for CS_type in self.coherent_state_types.keys():
-            null_state_alpha = self.coherent_state_types[CS_type].null_state(self.mol.nao, self.S_alpha)
-            null_state_beta = self.coherent_state_types[CS_type].null_state(self.mol.nao, self.S_beta)
+            null_state_alpha = self.coherent_state_types[CS_type].null_state(self.N_MO, self.S_alpha)
+            null_state_beta = self.coherent_state_types[CS_type].null_state(self.N_MO, self.S_beta)
             null_state = [null_state_alpha, null_state_beta]
             null_state_direct_self_energy = self.H_overlap(null_state, null_state).real
             if np.round(null_state_direct_self_energy, 5) == np.round(self.reference_state_energy, 5):
@@ -3790,15 +3818,17 @@ class ground_state_solver():
             self.log.write(f"  -For {CS_type}: E_ref = {null_state_direct_self_energy:0.5f}, which {nse_comment} with the true value", 4)
         self.log.exit() # exits reference state analysis
 
-        self.user_actions += f"initialise_molecule [M = {self.M}, S = {self.S}]\n"
+        self.user_actions += f"initialise_molecule [HF_method = \"{HF_method}\", N_MO = {N_MO}]\n"
         mol_structure_bulk = {
             "atom" : self.mol.atom,
             "basis" : self.mol.basis,
             "spin" : self.mol.spin
             }
         mode_structure_bulk = {
-            "M" : self.M,
-            "S" : self.S,
+            "N_MO" : self.N_MO,
+            "S_alpha" : self.S_alpha,
+            "S_beta" : self.S_beta,
+            "HF_method" : self.HF_method,
             "MO_coefs" : self.MO_coefs,
             "MO_H_one" : self.MO_H_one,
             "MO_H_two" : self.MO_H_two
@@ -3834,14 +3864,12 @@ class ground_state_solver():
         # with tuples as keys (tuples represent occupancy strings)
 
         self.ci_sol = {}
-        norb = cisolver.norb
-        n_alpha, n_beta = cisolver.nelec
 
         self.log.write("Regularising solution as a dict of tuples...", 3)
         for a in range(raw_ci_sol.shape[0]):
             for b in range(raw_ci_sol.shape[1]):
-                alpha_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(norb, n_alpha, a)))
-                beta_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(norb, n_beta, b)))
+                alpha_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(self.N_MO, self.S_alpha, a)))
+                beta_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(self.N_MO, self.S_beta, b)))
                 key = (alpha_occ, beta_occ)
                 self.ci_sol[key] = float(raw_ci_sol[a, b])
 
@@ -3859,8 +3887,8 @@ class ground_state_solver():
         found_states = 0
         while(True):
             cur_state = [
-                ground_state_solver.coherent_state_types[state_type].random_state(self.M, self.S, sampling_method),
-                ground_state_solver.coherent_state_types[state_type].random_state(self.M, self.S, sampling_method)
+                ground_state_solver.coherent_state_types[state_type].random_state(self.N_MO, self.S, sampling_method),
+                ground_state_solver.coherent_state_types[state_type].random_state(self.N_MO, self.S, sampling_method)
                 ]
             if inclusion(cur_state):
                 print("Success!")
@@ -3928,13 +3956,13 @@ class ground_state_solver():
         beta_overlap = pair_a[1].norm_overlap(pair_b[1])
 
         # To speed up cross-spin two-electron matrix elements, we prepare a matrix of all first-order sequence overlaps
-        W_alpha = np.zeros((self.mol.nao, self.mol.nao), dtype=complex) # [i][j] = < alpha | f\hc_i f_j | alpha >
-        W_beta = np.zeros((self.mol.nao, self.mol.nao), dtype=complex) # [i][j] = < beta | f\hc_i f_j | beta >
+        W_alpha = np.zeros((self.N_MO, self.N_MO), dtype=complex) # [i][j] = < alpha | f\hc_i f_j | alpha >
+        W_beta = np.zeros((self.N_MO, self.N_MO), dtype=complex) # [i][j] = < beta | f\hc_i f_j | beta >
 
         H_one_term = 0.0
         # This is a sum over all mode pairs
-        for p in range(self.mol.nao):
-            for q in range(self.mol.nao):
+        for p in range(self.N_MO):
+            for q in range(self.N_MO):
 
                 W_alpha[p][q] = pair_a[0].norm_overlap(pair_b[0], [p], [q])
                 W_beta[p][q]  = pair_a[1].norm_overlap(pair_b[1], [p], [q])
@@ -3947,8 +3975,8 @@ class ground_state_solver():
         H_two_term = 0.0
 
         # equal spin
-        c_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
-        a_pairs = functions.subset_indices(np.arange(self.mol.nao), 2)
+        c_pairs = functions.subset_indices(np.arange(self.N_MO), 2)
+        a_pairs = functions.subset_indices(np.arange(self.N_MO), 2)
         upup = 0.0
         downdown = 0.0
         mixed = 0.0
@@ -3975,10 +4003,10 @@ class ground_state_solver():
                 downdown += prefactor_same_spin_beta * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
 
         # opposite spin
-        for i in range(self.mol.nao):
-            for j in range(self.mol.nao):
-                for k in range(self.mol.nao):
-                    for l in range(self.mol.nao):
+        for i in range(self.N_MO):
+            for j in range(self.N_MO):
+                for k in range(self.N_MO):
+                    for l in range(self.N_MO):
                         #prefactor = 0.5 * self.mode_exchange_energy([i, j], [k, l])
 
                         prefactor_alpha_beta = 0.5 * self.mode_exchange_energy([i, j], [k, l], "ab")
@@ -4052,12 +4080,12 @@ class ground_state_solver():
         occ_a, occ_b = occ_tuple
         list_a = list(occ_a)
         list_b = list(occ_b)
-        return([ list_a + [0] * (self.mol.nao - len(list_a)), list_b + [0] * (self.mol.nao - len(list_b)) ])
+        return([ list_a + [0] * (self.N_MO - len(list_a)), list_b + [0] * (self.N_MO - len(list_b)) ])
 
 
     def occ_idx_to_occ_list(self, idx_alpha, idx_beta):
-        occ_alpha = fci.cistring.addr2str(self.mol.nao, self.S_alpha, idx_alpha)
-        occ_beta = fci.cistring.addr2str(self.mol.nao, self.S_beta, idx_beta)
+        occ_alpha = fci.cistring.addr2str(self.N_MO, self.S_alpha, idx_alpha)
+        occ_beta = fci.cistring.addr2str(self.N_MO, self.S_beta, idx_beta)
         # These are just integers corresponding to the binary value
         occ_alpha_bin = "{0:b}".format(occ_alpha)
         occ_beta_bin = "{0:b}".format(occ_beta)
@@ -4065,11 +4093,11 @@ class ground_state_solver():
         alpha_list = []
         for i in range(len(occ_alpha_bin) - 1, -1, -1):
             alpha_list.append(int(occ_alpha_bin[i]))
-        alpha_list += [0] * (self.mol.nao - len(alpha_list))
+        alpha_list += [0] * (self.N_MO - len(alpha_list))
         beta_list = []
         for i in range(len(occ_beta_bin) - 1, -1, -1):
             beta_list.append(int(occ_beta_bin[i]))
-        beta_list += [0] * (self.mol.nao - len(beta_list))
+        beta_list += [0] * (self.N_MO - len(beta_list))
         return(alpha_list, beta_list)
 
     def get_prom_label(self, bitlist, trim_M = None, hr = False):
@@ -4081,10 +4109,10 @@ class ground_state_solver():
         if hr:
             hr_cor = 1
 
-        act_M = self.mol.nao
+        act_M = self.N_MO
         if trim_M is not None:
             if trim_M > cur_S: # We need at least one empty shell
-                act_M = min(trim_M, self.mol.nao)
+                act_M = min(trim_M, self.N_MO)
 
         res = [[], []]
         for i in range(cur_S):
@@ -4133,7 +4161,7 @@ class ground_state_solver():
 
     def get_ref_state(self):
         # Returns a list of lists, useful for further modification
-        return([[1] * self.S_alpha + [0] * (self.mol.nao - self.S_alpha), [1] * self.S_beta + [0] * (self.mol.nao - self.S_beta)])
+        return([[1] * self.S_alpha + [0] * (self.N_MO - self.S_alpha), [1] * self.S_beta + [0] * (self.N_MO - self.S_beta)])
 
     # -------------------------------------------------------------------------
     # ------------------ Accessing the full CI ground state -------------------
@@ -4166,9 +4194,9 @@ class ground_state_solver():
 
         # if trim_M is not None, we trim to the bottom trim_M MOs.
         # cistring "inserts leading zeros" to bitstrings :)
-        act_M = self.mol.nao
+        act_M = self.N_MO
         if trim_M is not None:
-            act_M = min(trim_M, self.mol.nao)
+            act_M = min(trim_M, self.N_MO)
 
         cur_state = [1] * self.S_alpha + [0] * (act_M - self.S_alpha)
         res = 0
@@ -4187,10 +4215,10 @@ class ground_state_solver():
         self.user_actions += f"get_top_closed_shells [N_cs = {N_cs}, trim_M = {trim_M}]\n"
         # Returns a list of top N_cs closed-shells and their squared norms
 
-        act_M = self.mol.nao
+        act_M = self.N_MO
         if trim_M is not None:
             if trim_M > self.S_alpha: # We need at least one empty shell
-                act_M = min(trim_M, self.mol.nao)
+                act_M = min(trim_M, self.N_MO)
 
         res = [] #[i] = [n_sq, bitlist]; ordered by n_sq desc.
         for i in range(N_cs):
@@ -4226,9 +4254,9 @@ class ground_state_solver():
         #   CSF singlet = (L_A x L_B + L_B x L_A) / sqrt(2)
         self.user_actions += f"single_excitation_singlets_projection [trim_M = {trim_M}]\n"
 
-        act_M = self.mol.nao
+        act_M = self.N_MO
         if trim_M is not None:
-            act_M = min(trim_M, self.mol.nao)
+            act_M = min(trim_M, self.N_MO)
 
         res = 0.0
         number_of_states = 0
@@ -4266,10 +4294,10 @@ class ground_state_solver():
         # Returns a (M - S, S) ndarray
         self.user_actions += f"single_excitation_closed_shell_heatmap [trim_M = {trim_M}]\n"
 
-        act_M = self.mol.nao
+        act_M = self.N_MO
         if trim_M is not None:
             if trim_M > self.S_alpha: # We need at least one empty shell
-                act_M = min(trim_M, self.mol.nao)
+                act_M = min(trim_M, self.N_MO)
 
         res = np.zeros((act_M - self.S_alpha, self.S_alpha))
 
@@ -4298,7 +4326,7 @@ class ground_state_solver():
         self.log.enter(f"Obtaining all states with one excitation on both spin subspaces...", 8)
 
         # First, check if there are any such states
-        if min(self.S_alpha, self.mol.nao - self.S_alpha) < 1 or min(self.S_beta, self.mol.nao - self.S_beta) < 1:
+        if min(self.S_alpha, self.N_MO - self.S_alpha) < 1 or min(self.S_beta, self.N_MO - self.S_beta) < 1:
             self.log.write("No excitation allowed on one of the spin subspaces.", 9)
             self.log.exit()
             return([])
@@ -4306,9 +4334,9 @@ class ground_state_solver():
         res = []
 
         for i in range(self.S_alpha):
-            for j in range(self.mol.nao - self.S_alpha):
+            for j in range(self.N_MO - self.S_alpha):
                 for k in range(self.S_beta):
-                    for l in range(self.mol.nao - self.S_beta):
+                    for l in range(self.N_MO - self.S_beta):
                         # Note that we omit the trailing zeros to agree with the ci_sol convention
                         res.append((
                                 (1,) * i + (0,) + (1,) * (self.S_alpha - 1 - i) + (0,) * j + (1,),
@@ -4328,15 +4356,15 @@ class ground_state_solver():
         self.log.enter(f"Obtaining all states with {N_exc_a} excitations on spin-alpha and {N_exc_b} excitations on spin-beta...", 4)
 
         # First, check if there are any such states
-        if min(self.S_alpha, self.mol.nao - self.S_alpha) < N_exc_a or min(self.S_beta, self.mol.nao - self.S_beta) < N_exc_b:
+        if min(self.S_alpha, self.N_MO - self.S_alpha) < N_exc_a or min(self.S_beta, self.N_MO - self.S_beta) < N_exc_b:
             self.log.write("Number of excitations is too large. No such states exist.", 5)
             self.log.exit()
             return([])
 
         a_from = functions.subset_indices(np.arange(self.S_alpha), N_exc_a)
-        a_to = functions.subset_indices(np.arange(self.S_alpha, self.mol.nao), N_exc_a)
+        a_to = functions.subset_indices(np.arange(self.S_alpha, self.N_MO), N_exc_a)
         b_from = functions.subset_indices(np.arange(self.S_beta), N_exc_b)
-        b_to = functions.subset_indices(np.arange(self.S_beta, self.mol.nao), N_exc_b)
+        b_to = functions.subset_indices(np.arange(self.S_beta, self.N_MO), N_exc_b)
 
         res = []
 
@@ -4371,8 +4399,8 @@ class ground_state_solver():
         if N_top is None:
             self.log.enter(f"Obtaining all states with one excitation in total...", 4)
         else:
-            N_top_a = min(N_top, self.S_alpha * (self.mol.nao - self.S_alpha))
-            N_top_b = min(N_top, self.S_beta * (self.mol.nao - self.S_beta))
+            N_top_a = min(N_top, self.S_alpha * (self.N_MO - self.S_alpha))
+            N_top_b = min(N_top, self.S_beta * (self.N_MO - self.S_beta))
             self.log.enter(f"Obtaining top ({N_top_a}, {N_top_b}) states with one excitation in spin (alpha, beta) as measured by overlap in true ground state...", 4)
 
         if "full_CI_sol" not in self.checklist:
@@ -4394,7 +4422,7 @@ class ground_state_solver():
         base_state_beta = (1,) * self.S_beta
 
         for i in range(self.S_alpha):
-            for j in range(self.mol.nao - self.S_alpha):
+            for j in range(self.N_MO - self.S_alpha):
                 # Note that we omit the trailing zeros to agree with the ci_sol convention
                 cur_state_alpha = (1,) * i + (0,) + (1,) * (self.S_alpha - 1 - i) + (0,) * j + (1,)
                 cur_c = self.ground_state_component(cur_state_alpha, base_state_beta)
@@ -4416,7 +4444,7 @@ class ground_state_solver():
                     # Not discriminating
                     res[0].append(cur_state_beta)
         for k in range(self.S_beta):
-            for l in range(self.mol.nao - self.S_beta):
+            for l in range(self.N_MO - self.S_beta):
                 # Note that we omit the trailing zeros to agree with the ci_sol convention
                 cur_state_beta = (1,) * k + (0,) + (1,) * (self.S_beta - 1 - k) + (0,) * l + (1,)
                 cur_c = self.ground_state_component(base_state_alpha, cur_state_beta)
@@ -4441,7 +4469,7 @@ class ground_state_solver():
 
         self.log.write(f"Obtained ({len(res[0])}, {len(res[1])}) such states.", 5)
         self.log.exit()
-        return(res, (self.S_alpha * (self.mol.nao - self.S_alpha), self.S_beta * (self.mol.nao - self.S_beta)), (total_norm_squared_projection_a, total_norm_squared_projection_b))
+        return(res, (self.S_alpha * (self.N_MO - self.S_alpha), self.S_beta * (self.N_MO - self.S_beta)), (total_norm_squared_projection_a, total_norm_squared_projection_b))
 
     def get_top_simultaneously_excited_states(self, N_top = 10):
         # returns
@@ -4454,7 +4482,7 @@ class ground_state_solver():
         if N_top is None:
             self.log.enter(f"Obtaining all states with one excitation on both spin subspaces...", 4)
         else:
-            N_top = min(N_top, self.S_alpha * (self.mol.nao - self.S_alpha) * self.S_beta * (self.mol.nao - self.S_beta))
+            N_top = min(N_top, self.S_alpha * (self.N_MO - self.S_alpha) * self.S_beta * (self.N_MO - self.S_beta))
             self.log.enter(f"Obtaining top {N_top} states with one excitation on both spin subspaces as measured by overlap in true ground state...", 4)
 
         if "full_CI_sol" not in self.checklist:
@@ -4470,9 +4498,9 @@ class ground_state_solver():
         total_norm_squared_projection = 0.0
 
         for i in range(self.S_alpha):
-            for j in range(self.mol.nao - self.S_alpha):
+            for j in range(self.N_MO - self.S_alpha):
                 for k in range(self.S_beta):
-                    for l in range(self.mol.nao - self.S_beta):
+                    for l in range(self.N_MO - self.S_beta):
                         # Note that we omit the trailing zeros to agree with the ci_sol convention
                         cur_state_alpha = (1,) * i + (0,) + (1,) * (self.S_alpha - 1 - i) + (0,) * j + (1,)
                         cur_state_beta = (1,) * k + (0,) + (1,) * (self.S_beta - 1 - k) + (0,) * l + (1,)
@@ -4498,7 +4526,7 @@ class ground_state_solver():
 
         self.log.write(f"Obtained {len(res)} such states.", 5)
         self.log.exit()
-        return(res, self.S_alpha * (self.mol.nao - self.S_alpha) * self.S_beta * (self.mol.nao - self.S_beta), total_norm_squared_projection)
+        return(res, self.S_alpha * (self.N_MO - self.S_alpha) * self.S_beta * (self.N_MO - self.S_beta), total_norm_squared_projection)
 
 
 
@@ -4542,10 +4570,10 @@ class ground_state_solver():
         # of guiding the CS sampling process.
 
         # Parameter regularisation
-        act_M = self.mol.nao
+        act_M = self.N_MO
         if "trim_M" in kwargs:
             if kwargs["trim_M"] > self.S_alpha: # We need at least one empty shell
-                act_M = min(kwargs["trim_M"], self.mol.nao)
+                act_M = min(kwargs["trim_M"], self.N_MO)
 
         self.LE_description["scope"] = [(0, 0), (1, 1)]
         self.LE_description["params"] = {"trim_M" : act_M}
@@ -4671,12 +4699,12 @@ class ground_state_solver():
             ref_state_b = (1,) * self.S_beta
             basis = [(ref_state_a, ref_state_b)]
 
-            for j in range(self.mol.nao - self.S_alpha):
+            for j in range(self.N_MO - self.S_alpha):
                 for i in range(self.S_alpha):
                     # Note that we omit the trailing zeros to agree with the ci_sol convention
                     basis.append(( (1,) * i + (0,) + (1,) * (self.S_alpha - 1 - i) + (0,) * j + (1,),  ref_state_b))
 
-            for l in range(self.mol.nao - self.S_beta):
+            for l in range(self.N_MO - self.S_beta):
                 for k in range(self.S_beta):
                     # Note that we omit the trailing zeros to agree with the ci_sol convention
                     basis.append((ref_state_a, (1,) * k + (0,) + (1,) * (self.S_beta - 1 - k) + (0,) * l + (1,)))
@@ -4685,8 +4713,8 @@ class ground_state_solver():
 
             for i in range(self.S_alpha):
                 for j in range(i + 1, self.S_alpha):
-                    for k in range(self.mol.nao - self.S_alpha):
-                        for l in range(k + 1, self.mol.nao - self.S_alpha):
+                    for k in range(self.N_MO - self.S_alpha):
+                        for l in range(k + 1, self.N_MO - self.S_alpha):
                             a_occ = [1] * self.S_alpha + [0] * (l + 1)
                             a_occ[i] = 0
                             a_occ[j] = 0
@@ -4695,8 +4723,8 @@ class ground_state_solver():
                             basis.append((tuple(a_occ), ref_state_b))
             for i in range(self.S_beta):
                 for j in range(i + 1, self.S_beta):
-                    for k in range(self.mol.nao - self.S_beta):
-                        for l in range(k + 1, self.mol.nao - self.S_beta):
+                    for k in range(self.N_MO - self.S_beta):
+                        for l in range(k + 1, self.N_MO - self.S_beta):
                             b_occ = [1] * self.S_beta + [0] * (l + 1)
                             b_occ[i] = 0
                             b_occ[j] = 0
@@ -4745,35 +4773,35 @@ class ground_state_solver():
             res_sol = {(((), ()), ((), ())) : ground_state_vector[0]}
 
             basis_i = 1
-            for a in range(self.mol.nao - self.S_alpha):
+            for a in range(self.N_MO - self.S_alpha):
                 for b in range(self.S_alpha):
                     res_sol[ (((b,), (a,)), ((), ())) ] = ground_state_vector[basis_i]
                     basis_i += 1
-            for a in range(self.mol.nao - self.S_beta):
+            for a in range(self.N_MO - self.S_beta):
                 for b in range(self.S_beta):
                     res_sol[ (((), ()), ((b,), (a,))) ] = ground_state_vector[basis_i]
                     basis_i += 1
 
             # order must match the generator
             for i in range(self.S_alpha):
-                for j in range(self.mol.nao - self.S_alpha):
+                for j in range(self.N_MO - self.S_alpha):
                     for k in range(self.S_beta):
-                        for l in range(self.mol.nao - self.S_beta):
+                        for l in range(self.N_MO - self.S_beta):
                             res_sol[ (((i,), (j,)), ((k,), (l,))) ] = ground_state_vector[basis_i]
                             basis_i += 1
 
             # alpha alpha
             for i in range(self.S_alpha):
                 for j in range(i + 1, self.S_alpha):
-                    for k in range(self.mol.nao - self.S_alpha):
-                        for l in range(k + 1, self.mol.nao - self.S_alpha):
+                    for k in range(self.N_MO - self.S_alpha):
+                        for l in range(k + 1, self.N_MO - self.S_alpha):
                             res_sol[ (((i, j), (k, l)), ((), ())) ] = ground_state_vector[basis_i]
                             basis_i += 1
             # beta beta
             for i in range(self.S_beta):
                 for j in range(i + 1, self.S_beta):
-                    for k in range(self.mol.nao - self.S_beta):
-                        for l in range(k + 1, self.mol.nao - self.S_beta):
+                    for k in range(self.N_MO - self.S_beta):
+                        for l in range(k + 1, self.N_MO - self.S_beta):
                             res_sol[ (((), ()), ((i, j), (k, l))) ] = ground_state_vector[basis_i]
                             basis_i += 1
 
@@ -4786,7 +4814,11 @@ class ground_state_solver():
         elif diag_alg == "SCF":
             self.log.enter("SCF on CISD basis...", 3)
 
-            cisd_solver = self.mean_field.CISD().run()
+            if self.HF_method == "RHF":
+                cisd_solver = self.mean_field.CISD(mo_coeff = self.MO_coefs["a"], mo_occ=self.mean_field.mo_occ[:self.N_MO]).run()
+            elif self.HF_method == "UHF":
+                mo_occ_alpha, mo_occ_beta = self.mean_field.mo_occ
+                cisd_solver = self.mean_field.CISD(mo_coeff = (self.MO_coefs["a"], self.MO_coefs["b"]), mo_occ=(mo_occ_alpha[:self.N_MO], mo_occ_beta[:self.N_MO])).run()
 
             if not cisd_solver.converged:
                 self.log.write("ERROR: SCF solver failed to converge. Aborting...")
@@ -4826,21 +4858,21 @@ class ground_state_solver():
 
                 res_sol = {(((), ()), ((), ())) : c0}
 
-                for a in range(self.mol.nao - self.S_alpha):
+                for a in range(self.N_MO - self.S_alpha):
                     for b in range(self.S_alpha):
                         res_sol[ (((b,), (a,)), ((), ())) ] = c1_a[b][a]
-                for a in range(self.mol.nao - self.S_beta):
+                for a in range(self.N_MO - self.S_beta):
                     for b in range(self.S_beta):
                         res_sol[ (((), ()), ((b,), (a,))) ] = c1_b[b][a]
 
-                for i in range(self.mol.nao - self.S_alpha):
+                for i in range(self.N_MO - self.S_alpha):
                     for j in range(self.S_alpha):
-                        for k in range(self.mol.nao - self.S_beta):
+                        for k in range(self.N_MO - self.S_beta):
                             for l in range(self.S_beta):
                                 res_sol[ (((j,), (i,)), ((l,), (k,))) ] = c2_ab[j][l][i][k]
 
             elif self.HF_method == "RHF":
-                fci_coefs = ci.cisd.to_fcivec(cisd_solver.ci, self.mol.nao, (self.S_alpha, self.S_beta))
+                fci_coefs = ci.cisd.to_fcivec(cisd_solver.ci, self.N_MO, (self.S_alpha, self.S_beta))
                 #fci_coefs = ci.cisd.to_fcivec(cisd_solver.ci, cisd_solver.norb, cisd_solver.nelec)
                 #fci_coefs = cc.cc2ci.fci_coefs(cisd_solver)
                 # fci_coefs is the same kind of object as the output of a full FCI calculation
@@ -4850,28 +4882,28 @@ class ground_state_solver():
                 self.log.write("Regularising solution as a dict of tuples...", 3)
                 # We omit entries which are not singlet or doublet excitations, since they are by definition zero in the CISD sol
                 HF_occ = "1" * self.S_alpha
-                res_sol[(((), ()), ((), ()))] = float(fci_coefs[fci.cistring.str2addr(self.mol.nao, self.S_alpha, HF_occ), fci.cistring.str2addr(self.mol.nao, self.S_beta, HF_occ)])
+                res_sol[(((), ()), ((), ()))] = float(fci_coefs[fci.cistring.str2addr(self.N_MO, self.S_alpha, HF_occ), fci.cistring.str2addr(self.N_MO, self.S_beta, HF_occ)])
 
                 # singlets
                 for i in range(self.S_alpha):
-                    for j in range(self.mol.nao - self.S_alpha):
+                    for j in range(self.N_MO - self.S_alpha):
                         promoted_occ = self.occ_list_to_occ_string([1] * i + [0] + [1] * (self.S_alpha - 1 - i) + [0] * j + [1])
-                        res_sol[(((i,), (j,)), ((), ()))] = float(fci_coefs[fci.cistring.str2addr(self.mol.nao, self.S_alpha, promoted_occ), fci.cistring.str2addr(self.mol.nao, self.S_beta, HF_occ)])
-                        res_sol[(((), ()), ((i,), (j,)))] = float(fci_coefs[fci.cistring.str2addr(self.mol.nao, self.S_alpha, HF_occ), fci.cistring.str2addr(self.mol.nao, self.S_beta, promoted_occ)])
+                        res_sol[(((i,), (j,)), ((), ()))] = float(fci_coefs[fci.cistring.str2addr(self.N_MO, self.S_alpha, promoted_occ), fci.cistring.str2addr(self.N_MO, self.S_beta, HF_occ)])
+                        res_sol[(((), ()), ((i,), (j,)))] = float(fci_coefs[fci.cistring.str2addr(self.N_MO, self.S_alpha, HF_occ), fci.cistring.str2addr(self.N_MO, self.S_beta, promoted_occ)])
 
                 # doublets
                 for i in range(self.S_alpha):
-                    for j in range(self.mol.nao - self.S_alpha):
+                    for j in range(self.N_MO - self.S_alpha):
                         for k in range(self.S_beta):
-                            for l in range(self.mol.nao - self.S_beta):
+                            for l in range(self.N_MO - self.S_beta):
                                 alpha_occ = self.occ_list_to_occ_string([1] * i + [0] + [1] * (self.S_alpha - 1 - i) + [0] * j + [1])
                                 beta_occ = self.occ_list_to_occ_string([1] * k + [0] + [1] * (self.S_alpha - 1 - k) + [0] * l + [1])
-                                res_sol[(((i,), (j,)), ((k,), (l,)))] = float(fci_coefs[fci.cistring.str2addr(self.mol.nao, self.S_alpha, alpha_occ), fci.cistring.str2addr(self.mol.nao, self.S_beta, beta_occ)])
+                                res_sol[(((i,), (j,)), ((k,), (l,)))] = float(fci_coefs[fci.cistring.str2addr(self.N_MO, self.S_alpha, alpha_occ), fci.cistring.str2addr(self.N_MO, self.S_beta, beta_occ)])
 
                 """for a in range(fci_coefs.shape[0]):
                     for b in range(fci_coefs.shape[1]):
-                        alpha_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(self.mol.nao, self.S_alpha, a)))
-                        beta_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(self.mol.nao, self.S_beta, b)))
+                        alpha_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(self.N_MO, self.S_alpha, a)))
+                        beta_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(self.N_MO, self.S_beta, b)))
 
                         # We omit entries which are not singlet or doublet excitations, since they are by definition zero in the CISD sol
                         #if
@@ -4880,8 +4912,8 @@ class ground_state_solver():
                         res_sol[key] = float(fci_coefs[a, b])"""
 
 
-                """t1addrs, t1signs = ci.cisd.tn_addrs_signs(self.mol.nao, self.S_alpha, 1)
-                t2addrs, t2signs = ci.cisd.tn_addrs_signs(self.mol.nao, self.S_alpha, 2)
+                """t1addrs, t1signs = ci.cisd.tn_addrs_signs(self.N_MO, self.S_alpha, 1)
+                t2addrs, t2signs = ci.cisd.tn_addrs_signs(self.N_MO, self.S_alpha, 2)
 
                 # singlets
 
@@ -4898,7 +4930,7 @@ class ground_state_solver():
 
                 idx = 0
                 for b in range(self.S_alpha):
-                    for a in range(self.mol.nao - self.S_alpha):
+                    for a in range(self.N_MO - self.S_alpha):
                         # | b -> a >
                         #promoted_occ = self.occ_list_to_occ_string([1] * b + [0] + [1] * (self.S_alpha - 1 - b) + [0] * a + [1])
                         res_sol[ (((b,), (a,)), ((), ())) ] = cis_a[idx]
@@ -4908,10 +4940,10 @@ class ground_state_solver():
                 idx_a = 0
 
                 for i in range(self.S_alpha):
-                    for j in range(self.mol.nao - self.S_alpha):
+                    for j in range(self.N_MO - self.S_alpha):
                         idx_b = 0
                         for k in range(self.S_beta):
-                            for l in range(self.mol.nao - self.S_beta):
+                            for l in range(self.N_MO - self.S_beta):
                                 # | i - > j, k -> l >
                                 #alpha_occ = self.occ_list_to_occ_string([1] * i + [0] + [1] * (self.S_alpha - 1 - i) + [0] * j + [1])
                                 #beta_occ = self.occ_list_to_occ_string([1] * k + [0] + [1] * (self.S_alpha - 1 - k) + [0] * l + [1])
@@ -4934,7 +4966,7 @@ class ground_state_solver():
 
                 res_sol = {(((), ()), ((), ())) : c0}
 
-                for a in range(self.mol.nao - self.S_alpha):
+                for a in range(self.N_MO - self.S_alpha):
                     for b in range(self.S_alpha):
                         # | b -> a >
                         amp = c1[b][a] / np.sqrt(2)
@@ -4943,8 +4975,8 @@ class ground_state_solver():
 
                 for i in range(self.S_alpha):
                     for j in range(self.S_beta):
-                        for k in range(self.mol.nao - self.S_alpha):
-                            for l in range(self.mol.nao - self.S_beta):
+                        for k in range(self.N_MO - self.S_alpha):
+                            for l in range(self.N_MO - self.S_beta):
                                 # | ij -> kl >
                                 res_sol[ (((i,), (k,)), ((j,), (l,))) ] = c2[i][j][k][l]"""
 
@@ -5018,16 +5050,16 @@ class ground_state_solver():
 
             res_sol = {(((), ()), ((), ())) : c0}
 
-            for a in range(self.mol.nao - self.S_alpha):
+            for a in range(self.N_MO - self.S_alpha):
                 for b in range(self.S_alpha):
                     res_sol[ (((b,), (a,)), ((), ())) ] = c1_a[b][a]
-            for a in range(self.mol.nao - self.S_beta):
+            for a in range(self.N_MO - self.S_beta):
                 for b in range(self.S_beta):
                     res_sol[ (((), ()), ((b,), (a,))) ] = c1_b[b][a]
 
-            for i in range(self.mol.nao - self.S_alpha):
+            for i in range(self.N_MO - self.S_alpha):
                 for j in range(self.S_alpha):
-                    for k in range(self.mol.nao - self.S_beta):
+                    for k in range(self.N_MO - self.S_beta):
                         for l in range(self.S_beta):
                             res_sol[ (((j,), (i,)), ((l,), (k,))) ] = c2_ab[j][l][i][k]
 
@@ -5046,7 +5078,7 @@ class ground_state_solver():
 
             res_sol = {(((), ()), ((), ())) : c0}
 
-            for a in range(self.mol.nao - self.S_alpha):
+            for a in range(self.N_MO - self.S_alpha):
                 for b in range(self.S_alpha):
                     # | b -> a >
                     amp = c1[b][a] / np.sqrt(2)
@@ -5055,8 +5087,8 @@ class ground_state_solver():
 
             for i in range(self.S_alpha):
                 for j in range(self.S_beta):
-                    for k in range(self.mol.nao - self.S_alpha):
-                        for l in range(self.mol.nao - self.S_beta):
+                    for k in range(self.N_MO - self.S_alpha):
+                        for l in range(self.N_MO - self.S_beta):
                             # | ij -> kl >
                             res_sol[ (((i,), (k,)), ((j,), (l,))) ] = c2[i][j][k][l]
 
@@ -5097,13 +5129,13 @@ class ground_state_solver():
 
         # singlets
         if (1, 0) in self.LE_description["scope"]:
-            for a in range(self.mol.nao - self.S_alpha):
+            for a in range(self.N_MO - self.S_alpha):
                 for b in range(self.S_alpha):
                     cur_z = self.LE_sol["sol"][ (((b,), (a,)), ((), ())) ]
                     LE_norm += cur_z * cur_z
                     LE_reduced_norm += cur_z * cur_z
         if (0, 1) in self.LE_description["scope"]:
-            for a in range(self.mol.nao - self.S_beta):
+            for a in range(self.N_MO - self.S_beta):
                 for b in range(self.S_beta):
                     cur_z = self.LE_sol["sol"][ (((), ()), ((b,), (a,))) ]
                     LE_norm += cur_z * cur_z
@@ -5111,9 +5143,9 @@ class ground_state_solver():
 
         if (1, 1) in self.LE_description["scope"]:
             # doublets
-            for i in range(self.mol.nao - self.S_alpha):
+            for i in range(self.N_MO - self.S_alpha):
                 for j in range(self.S_alpha):
-                    for k in range(self.mol.nao - self.S_beta):
+                    for k in range(self.N_MO - self.S_beta):
                         for l in range(self.S_beta):
                             cur_z = self.LE_sol["sol"][ (((j,), (i,)), ((l,), (k,))) ]
                             LE_norm += cur_z * cur_z
@@ -5128,26 +5160,26 @@ class ground_state_solver():
 
 
         spin_idx_dict = {"a" : 0, "b" : 1}
-        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.N_MO + i
 
         """
-        self.log.enter("Calculating reduction matrix", 1, True, tau_space = np.linspace(0, 4 * self.mol.nao * self.mol.nao, 1000 + 1))
+        self.log.enter("Calculating reduction matrix", 1, True, tau_space = np.linspace(0, 4 * self.N_MO * self.N_MO, 1000 + 1))
 
-        self.LE_sol["red"] = np.zeros((2 * self.mol.nao, 2 * self.mol.nao))
+        self.LE_sol["red"] = np.zeros((2 * self.N_MO, 2 * self.N_MO))
 
 
         for left_sigma in ["a", "b"]:
-            for left_i in range(self.mol.nao):
+            for left_i in range(self.N_MO):
                 for right_sigma in ["a", "b"]:
-                    for right_i in range(self.mol.nao):
-                        self.log.update_semaphor_event(2 * self.mol.nao * spat_to_spin_idx(left_sigma, left_i) + spat_to_spin_idx(right_sigma, right_i))
+                    for right_i in range(self.N_MO):
+                        self.log.update_semaphor_event(2 * self.N_MO * spat_to_spin_idx(left_sigma, left_i) + spat_to_spin_idx(right_sigma, right_i))
 
                         for left_prom, left_z in self.LE_sol["sol"].items():
                             left_prom_a, left_prom_b = left_prom
                             left_a_from, left_a_to = left_prom_a
                             left_b_from, left_b_to = left_prom_b
-                            left_a_occ = [1] * self.S_alpha + [0] * (self.mol.nao - self.S_alpha)
-                            left_b_occ = [1] * self.S_beta + [0] * (self.mol.nao - self.S_beta)
+                            left_a_occ = [1] * self.S_alpha + [0] * (self.N_MO - self.S_alpha)
+                            left_b_occ = [1] * self.S_beta + [0] * (self.N_MO - self.S_beta)
                             for left_a_from_i in left_a_from:
                                 left_a_occ[left_a_from_i] = 0
                             for left_a_to_i in left_a_to:
@@ -5174,8 +5206,8 @@ class ground_state_solver():
                                 right_prom_a, right_prom_b = right_prom
                                 right_a_from, right_a_to = right_prom_a
                                 right_b_from, right_b_to = right_prom_b
-                                right_a_occ = [1] * self.S_alpha + [0] * (self.mol.nao - self.S_alpha)
-                                right_b_occ = [1] * self.S_beta + [0] * (self.mol.nao - self.S_beta)
+                                right_a_occ = [1] * self.S_alpha + [0] * (self.N_MO - self.S_alpha)
+                                right_b_occ = [1] * self.S_beta + [0] * (self.N_MO - self.S_beta)
                                 for right_a_from_i in right_a_from:
                                     right_a_occ[right_a_from_i] = 0
                                 for right_a_to_i in right_a_to:
@@ -5206,21 +5238,21 @@ class ground_state_solver():
 
         self.log.exit("Calculation")
 
-        self.log.enter("Calculating closed-shell reduction matrix", 1, True, tau_space = np.linspace(0, self.mol.nao * self.mol.nao, 1000 + 1))
+        self.log.enter("Calculating closed-shell reduction matrix", 1, True, tau_space = np.linspace(0, self.N_MO * self.N_MO, 1000 + 1))
 
-        self.LE_sol["CSRM"] = np.zeros((self.mol.nao, self.mol.nao))
+        self.LE_sol["CSRM"] = np.zeros((self.N_MO, self.N_MO))
         # here, [i][j] corresponds to a simultaneous transition j -> i on both spin subspaces
 
-        for left_i in range(self.mol.nao):
-            for right_i in range(self.mol.nao):
-                self.log.update_semaphor_event(self.mol.nao * left_i + right_i)
+        for left_i in range(self.N_MO):
+            for right_i in range(self.N_MO):
+                self.log.update_semaphor_event(self.N_MO * left_i + right_i)
 
                 for left_prom, left_z in self.LE_sol["sol"].items():
                     left_prom_a, left_prom_b = left_prom
                     left_a_from, left_a_to = left_prom_a
                     left_b_from, left_b_to = left_prom_b
-                    left_a_occ = [1] * self.S_alpha + [0] * (self.mol.nao - self.S_alpha)
-                    left_b_occ = [1] * self.S_beta + [0] * (self.mol.nao - self.S_beta)
+                    left_a_occ = [1] * self.S_alpha + [0] * (self.N_MO - self.S_alpha)
+                    left_b_occ = [1] * self.S_beta + [0] * (self.N_MO - self.S_beta)
                     for left_a_from_i in left_a_from:
                         left_a_occ[left_a_from_i] = 0
                     for left_a_to_i in left_a_to:
@@ -5245,8 +5277,8 @@ class ground_state_solver():
                         right_prom_a, right_prom_b = right_prom
                         right_a_from, right_a_to = right_prom_a
                         right_b_from, right_b_to = right_prom_b
-                        right_a_occ = [1] * self.S_alpha + [0] * (self.mol.nao - self.S_alpha)
-                        right_b_occ = [1] * self.S_beta + [0] * (self.mol.nao - self.S_beta)
+                        right_a_occ = [1] * self.S_alpha + [0] * (self.N_MO - self.S_alpha)
+                        right_b_occ = [1] * self.S_beta + [0] * (self.N_MO - self.S_beta)
                         for right_a_from_i in right_a_from:
                             right_a_occ[right_a_from_i] = 0
                         for right_a_to_i in right_a_to:
@@ -5275,15 +5307,15 @@ class ground_state_solver():
 
         self.log.exit("Calculation")
 
-        self.log.enter("Calculating transition prevalence matrix", 1, True, tau_space = np.linspace(0, (self.mol.nao - self.S_alpha) * self.S_alpha + (self.mol.nao - self.S_beta) * self.S_beta, 1000 + 1))
+        self.log.enter("Calculating transition prevalence matrix", 1, True, tau_space = np.linspace(0, (self.N_MO - self.S_alpha) * self.S_alpha + (self.N_MO - self.S_beta) * self.S_beta, 1000 + 1))
 
 
-        self.LE_sol["TPM"] = np.zeros((2 * self.mol.nao, self.mol.nao)) # [spin * M + i, j]
+        self.LE_sol["TPM"] = np.zeros((2 * self.N_MO, self.N_MO)) # [spin * M + i, j]
 
         # spin a
         for prom_i in range(self.S_alpha):
-            for prom_j in range(self.mol.nao - self.S_alpha):
-                self.log.update_semaphor_event((self.mol.nao - self.S_alpha) * prom_i + prom_j)
+            for prom_j in range(self.N_MO - self.S_alpha):
+                self.log.update_semaphor_event((self.N_MO - self.S_alpha) * prom_i + prom_j)
                 # We need to select all coefs from sol which are characterised by i -> j on spin sigma
                 for state_prom, state_z in self.LE_sol["sol"].items():
                     state_prom_a, state_prom_b = state_prom
@@ -5292,8 +5324,8 @@ class ground_state_solver():
                         self.LE_sol["TPM"][spat_to_spin_idx("a", prom_j + self.S_alpha), prom_i] += state_z * state_z
         # spin b
         for prom_i in range(self.S_beta):
-            for prom_j in range(self.mol.nao - self.S_beta):
-                self.log.update_semaphor_event((self.mol.nao - self.S_alpha) * self.S_alpha + (self.mol.nao - self.S_beta) * prom_i + prom_j)
+            for prom_j in range(self.N_MO - self.S_beta):
+                self.log.update_semaphor_event((self.N_MO - self.S_alpha) * self.S_alpha + (self.N_MO - self.S_beta) * prom_i + prom_j)
                 # We need to select all coefs from sol which are characterised by i -> j on spin sigma
                 for state_prom, state_z in self.LE_sol["sol"].items():
                     state_prom_a, state_prom_b = state_prom
@@ -5306,22 +5338,22 @@ class ground_state_solver():
         self.log.exit("Calculation")
 
 
-        self.log.enter("Calculating spin-reduced reduction matrix", 1, True, tau_space = np.linspace(0, 2 * self.mol.nao * self.mol.nao, 1000 + 1))
+        self.log.enter("Calculating spin-reduced reduction matrix", 1, True, tau_space = np.linspace(0, 2 * self.N_MO * self.N_MO, 1000 + 1))
 
-        self.LE_sol["SRRM"] = np.zeros((2 * self.mol.nao, self.mol.nao))
+        self.LE_sol["SRRM"] = np.zeros((2 * self.N_MO, self.N_MO))
 
 
         for prom_sigma in ["a", "b"]:
-            for prom_i in range(self.mol.nao):
-                for prom_j in range(self.mol.nao):
-                    self.log.update_semaphor_event(self.mol.nao * spat_to_spin_idx(prom_sigma, prom_i) + prom_j)
+            for prom_i in range(self.N_MO):
+                for prom_j in range(self.N_MO):
+                    self.log.update_semaphor_event(self.N_MO * spat_to_spin_idx(prom_sigma, prom_i) + prom_j)
 
                     for left_prom, left_z in self.LE_sol["sol"].items():
                         left_prom_a, left_prom_b = left_prom
                         left_a_from, left_a_to = left_prom_a
                         left_b_from, left_b_to = left_prom_b
-                        left_a_occ = [1] * self.S_alpha + [0] * (self.mol.nao - self.S_alpha)
-                        left_b_occ = [1] * self.S_beta + [0] * (self.mol.nao - self.S_beta)
+                        left_a_occ = [1] * self.S_alpha + [0] * (self.N_MO - self.S_alpha)
+                        left_b_occ = [1] * self.S_beta + [0] * (self.N_MO - self.S_beta)
                         for left_a_from_i in left_a_from:
                             left_a_occ[left_a_from_i] = 0
                         for left_a_to_i in left_a_to:
@@ -5348,8 +5380,8 @@ class ground_state_solver():
                             right_prom_a, right_prom_b = right_prom
                             right_a_from, right_a_to = right_prom_a
                             right_b_from, right_b_to = right_prom_b
-                            right_a_occ = [1] * self.S_alpha + [0] * (self.mol.nao - self.S_alpha)
-                            right_b_occ = [1] * self.S_beta + [0] * (self.mol.nao - self.S_beta)
+                            right_a_occ = [1] * self.S_alpha + [0] * (self.N_MO - self.S_alpha)
+                            right_b_occ = [1] * self.S_beta + [0] * (self.N_MO - self.S_beta)
                             for right_a_from_i in right_a_from:
                                 right_a_occ[right_a_from_i] = 0
                             for right_a_to_i in right_a_to:
@@ -5386,21 +5418,21 @@ class ground_state_solver():
         self.log.exit("Calculation")
 
 
-        self.log.enter("Calculating simultanous occupancy proportion matrix", 1, True, tau_space = np.linspace(0, 4 * self.mol.nao * self.mol.nao, 1000 + 1))
+        self.log.enter("Calculating simultanous occupancy proportion matrix", 1, True, tau_space = np.linspace(0, 4 * self.N_MO * self.N_MO, 1000 + 1))
 
-        self.LE_sol["SOPM"] = np.zeros((2 * self.mol.nao, 2 * self.mol.nao))
+        self.LE_sol["SOPM"] = np.zeros((2 * self.N_MO, 2 * self.N_MO))
 
         for i_sigma in ["a", "b"]:
-            for i in range(self.mol.nao):
+            for i in range(self.N_MO):
                 for j_sigma in ["a", "b"]:
-                    for j in range(self.mol.nao):
-                        self.log.update_semaphor_event(2 * self.mol.nao * spat_to_spin_idx(i_sigma, i) + spat_to_spin_idx(j_sigma, j))
+                    for j in range(self.N_MO):
+                        self.log.update_semaphor_event(2 * self.N_MO * spat_to_spin_idx(i_sigma, i) + spat_to_spin_idx(j_sigma, j))
                         for cur_prom, cur_z in self.LE_sol["sol"].items():
                             cur_prom_a, cur_prom_b = cur_prom
                             cur_a_from, cur_a_to = cur_prom_a
                             cur_b_from, cur_b_to = cur_prom_b
-                            cur_a_occ = [1] * self.S_alpha + [0] * (self.mol.nao - self.S_alpha)
-                            cur_b_occ = [1] * self.S_beta + [0] * (self.mol.nao - self.S_beta)
+                            cur_a_occ = [1] * self.S_alpha + [0] * (self.N_MO - self.S_alpha)
+                            cur_b_occ = [1] * self.S_beta + [0] * (self.N_MO - self.S_beta)
                             for cur_a_from_i in cur_a_from:
                                 cur_a_occ[cur_a_from_i] = 0
                             for cur_a_to_i in cur_a_to:
@@ -5425,23 +5457,23 @@ class ground_state_solver():
 
         self.log.exit("Calculation")"""
 
-        self.log.enter("Calculating reduced simultanous occupancy proportion matrix", 1, True, tau_space = np.linspace(0, 4 * self.mol.nao * self.mol.nao, 1000 + 1))
+        self.log.enter("Calculating reduced simultanous occupancy proportion matrix", 1, True, tau_space = np.linspace(0, 4 * self.N_MO * self.N_MO, 1000 + 1))
 
-        self.LE_sol["RSOPM"] = np.zeros((2 * self.mol.nao, 2 * self.mol.nao))
+        self.LE_sol["RSOPM"] = np.zeros((2 * self.N_MO, 2 * self.N_MO))
 
         for i_sigma in ["a", "b"]:
-            for i in range(self.mol.nao):
+            for i in range(self.N_MO):
                 for j_sigma in ["a", "b"]:
-                    for j in range(self.mol.nao):
-                        self.log.update_semaphor_event(2 * self.mol.nao * spat_to_spin_idx(i_sigma, i) + spat_to_spin_idx(j_sigma, j))
+                    for j in range(self.N_MO):
+                        self.log.update_semaphor_event(2 * self.N_MO * spat_to_spin_idx(i_sigma, i) + spat_to_spin_idx(j_sigma, j))
                         for cur_prom, cur_z in self.LE_sol["sol"].items():
                             if cur_prom == (((), ()), ((), ())):
                                 continue
                             cur_prom_a, cur_prom_b = cur_prom
                             cur_a_from, cur_a_to = cur_prom_a
                             cur_b_from, cur_b_to = cur_prom_b
-                            cur_a_occ = [1] * self.S_alpha + [0] * (self.mol.nao - self.S_alpha)
-                            cur_b_occ = [1] * self.S_beta + [0] * (self.mol.nao - self.S_beta)
+                            cur_a_occ = [1] * self.S_alpha + [0] * (self.N_MO - self.S_alpha)
+                            cur_b_occ = [1] * self.S_beta + [0] * (self.N_MO - self.S_beta)
                             for cur_a_from_i in cur_a_from:
                                 cur_a_occ[cur_a_from_i] = 0
                             for cur_a_to_i in cur_a_to:
@@ -5482,8 +5514,8 @@ class ground_state_solver():
             return(esp(np.exp(c_y), self.S_alpha + self.S_beta))
 
         # Now, we construct the initial values
-        y_0 = np.zeros(2 * self.mol.nao)
-        for i in range(2 * self.mol.nao):
+        y_0 = np.zeros(2 * self.N_MO)
+        for i in range(2 * self.N_MO):
             y_0[i] = np.log(RSOPM_renorm[i][i])
         y_0_norm_sq = cur_scale(y_0)
         self.log.write(f"Norm squared of initial guess is {y_0_norm_sq}. Renormalising...")
@@ -5504,7 +5536,7 @@ class ground_state_solver():
         # --------------- Gradient descent to find the solution -----------------
         # Parameters
         eta = 0.1
-        max_err = 1e-6
+        max_err = 1e-4
         self.log.write("Parameters for the gradient descent:")
         self.log.write(f"  -eta (step size) = {eta}")
         self.log.write(f"  -epsilon (max allowed error) = {max_err}")
@@ -5517,9 +5549,9 @@ class ground_state_solver():
         #self.log.enter("Calculating z_i to match reduced mode occupancies", 1, True, tau_space = np.linspace(0, 1, 1000 + 1))
 
         # We calculate initial error
-        y_step = np.zeros(2 * self.mol.nao)
+        y_step = np.zeros(2 * self.N_MO)
         cur_norm_sq = cur_scale(cur_y)
-        for i in range(2 * self.mol.nao):
+        for i in range(2 * self.N_MO):
             y_step[i] = RSOPM_renorm[i][i] - np.exp(cur_y[i]) * esp(np.exp(cur_y), self.S_alpha + self.S_beta - 1, omit = [i]) / cur_norm_sq
 
         # We calculate the err size
@@ -5533,7 +5565,7 @@ class ground_state_solver():
         while(cur_err > max_err):
             # We calculate the step and execute it
             cur_norm_sq = cur_scale(cur_y)
-            for i in range(2 * self.mol.nao):
+            for i in range(2 * self.N_MO):
                 y_step[i] = RSOPM_renorm[i][i] - np.exp(cur_y[i]) * esp(np.exp(cur_y), self.S_alpha + self.S_beta - 1, omit = [i]) / cur_norm_sq
             cur_y += eta * y_step
 
@@ -5555,28 +5587,28 @@ class ground_state_solver():
         z_null_sq = np.exp(cur_y)
         self.LE_sol["RNCS"] = np.sqrt(z_null_sq)
         # The diagnostic
-        A_i_actual = np.zeros(2 * self.mol.nao)
+        A_i_actual = np.zeros(2 * self.N_MO)
         final_norm_sq = esp(z_null_sq, self.S_alpha + self.S_beta)
         self.log.write(f"Final norm squared = {final_norm_sq}")
-        for i in range(2 * self.mol.nao):
+        for i in range(2 * self.N_MO):
             A_i_actual[i] = z_null_sq[i] * esp(z_null_sq, self.S_alpha + self.S_beta - 1, omit = [i]) / final_norm_sq
 
         diagnostic_table = []
         diagnostic_row_names = []
-        for i in range(self.mol.nao):
+        for i in range(self.N_MO):
             diagnostic_table.append([
                 np.round(RSOPM_renorm[i][i], 6),
                 np.round(A_i_actual[i], 6),
                 np.round(100 * (1 - A_i_actual[i] / RSOPM_renorm[i][i]), 1)
                 ])
             diagnostic_row_names.append(f"{i + 1}(a)")
-        for i in range(self.mol.nao, 2 * self.mol.nao):
+        for i in range(self.N_MO, 2 * self.N_MO):
             diagnostic_table.append([
                 np.round(RSOPM_renorm[i][i], 6),
                 np.round(A_i_actual[i], 6),
                 np.round(100 * (1 - A_i_actual[i] / RSOPM_renorm[i][i]), 1)
                 ])
-            diagnostic_row_names.append(f"{i + 1 - self.mol.nao}(b)")
+            diagnostic_row_names.append(f"{i + 1 - self.N_MO}(b)")
 
         self.log.print_table(
             table_name = "<S_i> diagnostic>",
@@ -5809,7 +5841,7 @@ class ground_state_solver():
             # LE ground state
             plt.axhline(y = self.LE_sol["E"], label = "LE CI", color = functions.ref_energy_colors["LE CI"])
             # LE mean-value uncorrelated state
-            #LE_no_cor = [CS_Thouless(self.mol.nao, self.S_alpha, self.LE_sol["exp"]["a"]), CS_Thouless(self.mol.nao, self.S_beta, self.LE_sol["exp"]["b"])]
+            #LE_no_cor = [CS_Thouless(self.N_MO, self.S_alpha, self.LE_sol["exp"]["a"]), CS_Thouless(self.N_MO, self.S_beta, self.LE_sol["exp"]["b"])]
             #LE_no_cor_E = self.H_overlap(LE_no_cor, LE_no_cor).real
             #plt.axhline(y = LE_no_cor_E, label = "LE-mean CS", color = functions.ref_energy_colors["LE CI"], linestyle = "dashed")
 
@@ -5921,7 +5953,7 @@ class ground_state_solver():
             # LE ground state
             plt.axhline(y = self.LE_sol["E"], label = "LE CI", color = functions.ref_energy_colors["LE CI"])
             # LE mean-value uncorrelated state
-            #LE_no_cor = [CS_Thouless(self.mol.nao, self.S_alpha, self.LE_sol["exp"]["a"]), CS_Thouless(self.mol.nao, self.S_beta, self.LE_sol["exp"]["b"])]
+            #LE_no_cor = [CS_Thouless(self.N_MO, self.S_alpha, self.LE_sol["exp"]["a"]), CS_Thouless(self.N_MO, self.S_beta, self.LE_sol["exp"]["b"])]
             #LE_no_cor_E = self.H_overlap(LE_no_cor, LE_no_cor).real
             #plt.axhline(y = LE_no_cor_E, label = "LE-mean CS", color = functions.ref_energy_colors["LE CI"], linestyle = "dashed")
 
@@ -6002,7 +6034,7 @@ class ground_state_solver():
             # LE ground state
             plt.axhline(y = self.LE_sol["E"], label = "LE CI", color = functions.ref_energy_colors["LE CI"])
             # LE mean-value uncorrelated state
-            #LE_no_cor = [CS_Thouless(self.mol.nao, self.S_alpha, self.LE_sol["exp"]["a"]), CS_Thouless(self.mol.nao, self.S_beta, self.LE_sol["exp"]["b"])]
+            #LE_no_cor = [CS_Thouless(self.N_MO, self.S_alpha, self.LE_sol["exp"]["a"]), CS_Thouless(self.N_MO, self.S_beta, self.LE_sol["exp"]["b"])]
             #LE_no_cor_E = self.H_overlap(LE_no_cor, LE_no_cor).real
             #plt.axhline(y = LE_no_cor_E, label = "LE-mean CS", color = functions.ref_energy_colors["LE CI"], linestyle = "dashed")
 
@@ -6033,10 +6065,10 @@ class ground_state_solver():
 
         self.user_actions += f"plot_single_excitation_closed_shell_heatmap [trim_M = {trim_M}]\n"
 
-        act_M = self.mol.nao
+        act_M = self.N_MO
         if trim_M is not None:
             if trim_M > self.S_alpha: # We need at least one empty shell
-                act_M = min(trim_M, self.mol.nao)
+                act_M = min(trim_M, self.N_MO)
 
         one_exc_closed_shell_hm = self.single_excitation_closed_shell_heatmap(trim_M)
 
@@ -6073,10 +6105,10 @@ class ground_state_solver():
 
         self.user_actions += f"plot_SECS_restricted_heatmap [trim_M = {trim_M}]\n"
 
-        act_M = self.mol.nao
+        act_M = self.N_MO
         if trim_M is not None:
             if trim_M > self.S_alpha: # We need at least one empty shell
-                act_M = min(trim_M, self.mol.nao)
+                act_M = min(trim_M, self.N_MO)
 
         #self.find_LE_solution_SECS(trim_M)
         assert "LE_sol" in self.checklist
@@ -6123,9 +6155,9 @@ class ground_state_solver():
             ax = plt.gca()
 
         if spin == "a":
-            submatrix = np.array(self.LE_sol["red"][:self.mol.nao, :self.mol.nao])
+            submatrix = np.array(self.LE_sol["red"][:self.N_MO, :self.N_MO])
         elif spin == "b":
-            submatrix = np.array(self.LE_sol["red"][self.mol.nao:, self.mol.nao:])
+            submatrix = np.array(self.LE_sol["red"][self.N_MO:, self.N_MO:])
         if log_plot and signed:
             submatrix = - np.log(np.abs(submatrix) + 1e-20) * np.sign(submatrix + 1e-20)
             heatmap_v_min = -10
@@ -6257,9 +6289,9 @@ class ground_state_solver():
             ax = plt.gca()
 
         if spin == "a":
-            submatrix = np.array(self.LE_sol["TPM"][:self.mol.nao, :])
+            submatrix = np.array(self.LE_sol["TPM"][:self.N_MO, :])
         elif spin == "b":
-            submatrix = np.array(self.LE_sol["TPM"][self.mol.nao:, :])
+            submatrix = np.array(self.LE_sol["TPM"][self.N_MO:, :])
 
         if log_plot:
             submatrix = np.log(submatrix + 1e-20)
@@ -6316,9 +6348,9 @@ class ground_state_solver():
             ax = plt.gca()
 
         if spin == "a":
-            submatrix = np.array(self.LE_sol["SRRM"][:self.mol.nao, :])
+            submatrix = np.array(self.LE_sol["SRRM"][:self.N_MO, :])
         elif spin == "b":
-            submatrix = np.array(self.LE_sol["SRRM"][self.mol.nao:, :])
+            submatrix = np.array(self.LE_sol["SRRM"][self.N_MO:, :])
 
         if log_plot:
             submatrix = np.log(submatrix + 1e-20)
@@ -6375,9 +6407,9 @@ class ground_state_solver():
             ax = plt.gca()
 
         if spin == "a":
-            submatrix = np.array(self.LE_sol["SOPM"][:self.mol.nao, :self.mol.nao])
+            submatrix = np.array(self.LE_sol["SOPM"][:self.N_MO, :self.N_MO])
         elif spin == "b":
-            submatrix = np.array(self.LE_sol["SOPM"][self.mol.nao:, self.mol.nao:])
+            submatrix = np.array(self.LE_sol["SOPM"][self.N_MO:, self.N_MO:])
 
         if log_plot:
             submatrix = np.log(submatrix + 1e-20)
@@ -6434,9 +6466,9 @@ class ground_state_solver():
             ax = plt.gca()
 
         if spin == "a":
-            submatrix = np.array(self.LE_sol["RSOPM"][:self.mol.nao, :self.mol.nao])
+            submatrix = np.array(self.LE_sol["RSOPM"][:self.N_MO, :self.N_MO])
         elif spin == "b":
-            submatrix = np.array(self.LE_sol["RSOPM"][self.mol.nao:, self.mol.nao:])
+            submatrix = np.array(self.LE_sol["RSOPM"][self.N_MO:, self.N_MO:])
 
         if log_plot:
             submatrix = np.log(submatrix + 1e-20)

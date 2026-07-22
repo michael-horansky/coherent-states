@@ -165,6 +165,9 @@ class Journal():
         sample_journal.enter("Testing special object printing methods...")
         sample_journal.write("Special objects, such as item lists, tables, or matrices, can be printed with special formatting using these methods.")
 
+        sample_journal.warning("This is a sample warning.")
+        sample_journal.error("This is a sample error.")
+
         sample_journal.enter("Testing item list printing...")
         sample_journal.print_itemize({
             "print_itemize" : "Prints an itemized/enumerated list from a standard object. Supports nested lists.",
@@ -334,6 +337,16 @@ class Journal():
                     print(self.pre() + msg)
 
     # Special object printing methods
+
+    def warning(self, msg, v = -1):
+        fancy_msg = color.BRIGHT_YELLOW + color.BOLD + "WARNING" + color.END + ": " + str(msg)
+        plain_msg = "WARNING: " + str(msg)
+        self.write(fancy_msg, v, plain_msg = plain_msg)
+
+    def error(self, msg, v = -1):
+        fancy_msg = color.BRIGHT_RED + color.BOLD + "ERROR" + color.END + ": " + color.bg.RED + str(msg) + color.bg.DEFAULT
+        plain_msg = "ERROR: " + str(msg)
+        self.write(fancy_msg, v, plain_msg = plain_msg)
 
     def print_itemize(self, std_object):
         # std_object is an object with the following properties:

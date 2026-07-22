@@ -1,0 +1,4 @@
+initialised solver Li2_N_MO=5_dist=1.7
+initialise_molecule [HF_method = "RHF", N_MO = None]
+load_data
+save_data

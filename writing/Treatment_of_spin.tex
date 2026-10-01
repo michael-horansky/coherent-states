@@ -1,0 +1,242 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper,margin={1.0cm, 2.0cm}]{geometry}
+\usepackage{xargs}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{physics}
+\usepackage{graphicx}
+
+% signature
+\newcommand{\sgn}{\text{sgn}}
+% index sequence
+\newcommand{\seq}[1]{\langle #1\rangle}
+% span
+\newcommand{\spn}[1]{\mathrm{span}\left( #1\right)}
+% ascending sequence
+\newcommand{\asc}[1]{\upharpoonleft #1 \upharpoonright}
+% hermitian conjugate
+\newcommand{\hc}{^\dagger}
+% inverse
+\newcommand{\inv}{^{-1}}
+\newcommand{\Sym}{\text{Sym}}
+% normal ordering
+\newcommand{\normord}[1]{:\mathrel{\mspace{2mu}#1\mspace{2mu}}:}
+% Expectation value
+\newcommand{\exval}[1]{\mathbb{E}\left[ #1 \right]}
+% low-excitation projection
+\newcommand{\lep}{_{\text{LE}}}
+% diagonalisation of vector
+\newcommand{\diag}[1]{\text{diag}\left(#1\right)}
+
+\newcommand*\chem[1]{\ensuremath{\mathrm{#1}}}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+
+\begin{document}
+
+	\title{Computational treatment of second-quantised operators in separable Fock spaces}
+	\author{Michal Horanský}	
+	\maketitle
+	
+	\abstract{We investigate the properties of fermionic Fock spaces which permit a natural partitioning due to total particle numbers within each partitioned subspace being preserved separately. We focus on the specific example of the non-relativistic Hamiltonian in molecular electronic structure under the Born-Oppenheimer approximation. We introduce algorithmic treatment of second-quantised operators acting on such spaces: a) we describe a simple algorithm for normal-ordering arbitrary operators, and b) we optimise the evaluation of matrix elements of normal-ordered operators for arbitrary states.}
+	
+	%\newpage
+	
+	\tableofcontents
+	
+	\section{Properties of a separable Fock space}
+	
+	Consider a fermionic Fock space $\mathcal{H}$. It is spanned by an orthonormal basis which is the full occupancy basis
+	\begin{equation}
+	\mathcal{H} = \spn{\ket{n_1 \dots n_M}} \qq{where} n_i \in \{0, 1\}
+	\end{equation}
+	Let us introduce a further restriction:
+	\begin{equation}
+	\sum_{i=1}^{M_1}n_i = S_1 \qquad \sum_{i=1+M_1}^{M_2 + M_1}n_i = S_2 \qquad \dots \qquad \sum_{i=M - M_p}^{M}n_i = S_p
+	\end{equation}
+	where $p$ is the number of partitions and $S_i$ is the partial particle number on the $i$-th partition.
+	
+	Then the following decomposition of the Hilbert space is useful:
+	\begin{equation}
+	\mathcal{H} = \mathcal{H}_1 \otimes \dots \otimes \mathcal{H}_p \qq{where} \mathcal{H}_i = \spn{\ket{n^i_1 \dots n^i_{M_i}}} \qq{and} n^i_j \equiv n_k \qq{for} k = j + \sum_{l = 1}^{i - 1} M_l
+	\end{equation}
+	An operator which preserves all partial particle numbers is called a PPNP operator (\textit{partial-particle-number-preserving}). These must commute with the partial particle number operators defined as $\hat{S}_i=\sum_{j=1}^{M_i}\hat{f}_{k(i,j)}\hc \hat{f}_{k(i, j)}$, where $k(i,j)$ is constructed as above.
+	
+	Because fermionic Fock spaces have a so-called \textit{spin structure}, the action of creation and annihilation operators depends on the occupancy number of more modes than just the "affected" one. This action also depends on the particular order of modes $n_1 \dots n_M$. A major goal of this letter is to address the handling of this spin structure when considering a Fock space partitioned as above.
+	
+	\subsection{Spectral decomposition of PPNP operators}
+	
+	\subsubsection{General form of a monotone-ordered operator}
+	Let us now consider an arbitrary operator which preserves all partial particle numbers. An arbitrary operator $\hat{O}$ can be expressed using the fermionic creation and annihilation operators. This expression will, in its normal-ordered form, look like this:
+	\begin{equation} \label{eq: O general form}
+	\hat{O} = \sum_{m} c_m \hat{f}_{\phi_m(1)}\hc \dots \hat{f}_{\phi_m(x_m)}\hc \hat{f}_{\rho_m(1)} \dots \hat{f}_{\rho_m(x_m)}
+	\end{equation}
+	where $x_i$ is the order of the $i$-th term of the sum and $\phi^i(j),\rho^i(j)$ determine the mode index of the $j$-th creation/annihilation operator in the $i$-th term of the sum, respectively.
+	
+	Since the order of the creation/annihilation operators matters for fermions, the form of $\hat{O}$ is not uniquely specified by demanding normal ordering. For this reason, let us define \textit{monotone ordering}: each term of the sum is monotone-ordered iff it is normal ordered \textit{and} the index-labelling functions $\phi, \rho$ satisfy the following:
+	\begin{enumerate}
+	\item $\phi_m$ is a strictly increasing function: $\phi_m(x) > \phi_m(y) \equiv x > y$.
+	\item $\rho_m$ is a strictly decreasing function: $\rho_m(x) < \rho_m(y) \equiv x > y$.
+	\end{enumerate}
+	This uniquely specifies the form in Eq.~\eqref{eq: O general form}. Note that this requires $\phi, \rho$ to be injective: this must be satisfied, otherwise the whole term vanishes due to fermionic creation/annihilation operators being nilpotent with degree of nilpotency being 2.
+	
+	Since $[\hat{O}, \hat{S}_i]=0$ for all $i = 1\dots p$, we can express $\hat{O}$ as
+	\begin{equation} \label{eq: O separable form}
+	\hat{O} = \sum_{m} c_m \hat{O}_m^1 \otimes \dots \otimes \hat{O}_m^p
+	\end{equation}
+	where $\hat{O}^i_j$ acts only on $\mathcal{H}_i$. Since $\hat{O}^i_j$ preserves $\hat{S}_i$, its number of creation and annihilation operators must be equal. We shall express the general monotone-ordered form of this operator as follows:
+	\begin{equation}
+	\hat{O}^i_j = \hat{f}_{\phi^i_j(1)}\hc \dots \hat{f}_{\phi^i_j(x^i_j)}\hc \hat{f}_{\rho^i_j(1)} \dots \hat{f}_{\rho^i_j(x^i_j)}
+	\end{equation}
+	See Sec.~\ref{sec: decomposing O} for a proof of why the sum has the same form and the decomposition coefficients $c_m$ remain unchanged.
+	
+	\subsubsection{Jordan-Wigner string treatment}
+	
+	The action of the fermionic creation and annihilation operators on the full occupancy basis vectors is defined like so:
+	\begin{align}
+	\hat{f}_i\hc \ket{n_1 \dots n_i \dots n_M} &= (-1)^{\sum_{j=1}^{i-1} n_j} \sqrt{1 - n_i} \ket{n_1 \dots n_i + 1 \dots n_M}\\
+	\hat{f}_i \ket{n_1 \dots n_i \dots n_M} &= (-1)^{\sum_{j=1}^{i-1} n_j} \sqrt{n_i} \ket{n_1 \dots 1 - n_i \dots n_M}
+	\end{align}
+	The extra sign $(-1)^{\sum_{j=1}^{i-1} n_j}$ is the manifestation of the Fock space's aforementioned \textit{spin structure} (not to be confused with physical spin). The order of the modes is important, as is the order within a sequence of creation or annihilation operators. The sign can be physically interpreted as the byproduct of the anti-commutator relations $\{\hat{f}_i\hc, \hat{f}_j\hc\} = \{\hat{f}_i, \hat{f}_j\} = 0$, which require the sign of any sequence of creation or annihilation operators to flip under the exchange of two neighbouring operators:
+	\begin{equation}
+	\dots \hat{f}_i \hat{f}_j \dots = - \dots \hat{f}_j \hat{f}_i \dots
+	\end{equation}
+	The Jordan-Wigner string is equivalent to negative one raised to the total number of occupied modes with lower index than the one "affected" by the operator. For this reason, its treatment is trivial for PPNP operators. Because the total number of occupied modes within each mode partition is fixed, the action of a creation and annihilation operator on the $j$-th mode within the $i$-th partition is:
+	\begin{align}
+	\hat{f}_{i,j} \ket{n_1 \dots n_M} &= \hat{f}_{i,j} \ket{n^1_1 \dots n^1_{M_1}} \otimes \dots \otimes \ket{n^i_1 \dots n^i_j \dots n^i_{M_i}} \otimes \dots \otimes \ket{n^p_1 \dots n^p_{M_p}}\nonumber\\
+	&= (-1)^{\sum_{k = 1}^{i - 1} S_k} \ket{n^1_1 \dots n^1_{M_1}} \otimes \dots \otimes \hat{f}_{j} \ket{n^i_1 \dots n^i_j \dots n^i_{M_i}} \otimes \dots \otimes \ket{n^p_1 \dots n^p_{M_p}}
+	\end{align}
+	where $\hat{f}_{j} \ket{n^i_1 \dots n^i_j \dots n^i_{M_i}}$ describes the action of a "naive" operator which is only constructed on the $i$-th mode partition and its action does not depend on mode outside of this partition. The same exact expression holds when exchanging the annihilation operators for creation operators.
+	
+	Now: because $\hat{O}^i_j$ is a PPNP operator, the number of creation and annihilation operators in its expansion is even and equal to $2x^i_j$. This means the total sign prefactor will cancel out, yielding the following useful results:
+	
+	\begin{equation}
+	\hat{O} \ket{n_1 \dots n_M} = \sum_m c_m \bigotimes_{i = 1}^p \hat{O}^i_m \ket{n^i_1 \dots n^i_{M_i}}
+	\end{equation}
+	where each term $\hat{O}^i_m \ket{n^i_1 \dots n^i_{M_i}}$ is also understood to be evaluated "naively", with no regard for $\mathcal{H}_{j\neq i}$.
+	
+	The matrix elements of $\hat{O}$ obey a similar principle. Note that since these expressions hold for the separated occupancy basis states, they necessarily hold for any state which can be separated like so:
+	\begin{equation}
+	\ket{\Psi} = \ket{\Psi_1}_{\mathcal{H}_1} \otimes \dots \otimes \ket{\Psi_p}_{\mathcal{H}_p}
+	\end{equation}
+	To illustrate this, we quote the matrix element of $\hat{O}$ for two such states:
+	\begin{equation}
+	\mel{\Psi}{\hat{O}}{\Phi} = \sum_m c_m \prod_{i = 1}^p \mel{\Psi_i}{\hat{O}^i_m}{\Phi_i}
+	\end{equation}
+	This illustrates the method one would take when computationally evaluating this matrix element: when encountering high-order terms in the decomposition of $\hat{O}$ which further decompose into lower-order terms over multiple mode partitions, one may check and find that one has already evaluated the lower-order matrix elements, saving computation time.
+	
+	\subsubsection{Obtaining the decomposable form of $\hat{O}$} \label{sec: decomposing O}
+	
+	Let us now consider the algorithm which rewrites $\hat{O}$ from the normal-ordered form in Eq.~\eqref{eq: O general form} into the separable form in Eq.~\eqref{eq: O separable form}. We want to show that the sum has ultimately the same form in both expressions, and that the coefficients $c_m$ remain unchanged.
+	
+	Firstly, we have $\{\hat{f}_i\hc, \hat{f}_j\} =\delta_{ij}$. This anti-commutator vanishes when $i, j$ belong to different mode partitions, as they can never be equal. Since we respect normal-ordering within the substring for each particular partition, the only alteration to the normal-ordered form will be potential sign flip for each term in the sum. This sign flip is equal to the number of neighbour swaps we need to perform to obtain the new ordering.
+	
+	There are $x^i_j$ creation (and annihilation) operators within the $i$-th partition in the $j$-th term in the sum. We need to preserve the order of both the creation and the annihilation operator substring within each mode partition due to them already being monotone-ordered. Hence we only need to consider swapping the order between these substrings. We have
+	\begin{equation}
+	\hat{\sigma}_1 \hat{\sigma}_2 = (-1)^{|\sigma|_1 |\sigma|_2} \hat{\sigma}_2 \hat{\sigma}_1
+	\end{equation}
+	where $\hat{\sigma}_1, \hat{\sigma}_2$ are strings of fermionic operators acting on disjoint mode partitions of lengths $|\sigma|_1, |\sigma|_2$, respectively.
+	
+	Bringing all annihilation operators acting on the $i$-th mode partition requires swapping them with all strings of annihilation operators acting on partitions with higher index $j>i$, and then doing the same with the strings of creation operators on partitions with higher index $j>i$. Because this always entails performing an even number of single-operator-pair swaps, the total sign is unchanged. This is what had to be proven.
+	
+	\subsection{An example of a separable Fock state}
+	A succint example of a separable Fock state emerges when considering the non-relativistic electronic molecular structure under the Born-Oppenheimer approximation. When building upon the Hartree-Fock method, one finds that the molecular spin-orbitals are classified by their spin (up and down). This suggests a natural partitioning the Hilbert space into the two spin-subspaces. A canonical ordering of the modes must be chosen: we propose spin-up modes first, spin-down modes second. The proposed labels are $a/b$ for spin-up/down.
+	
+	The non-relativistic Hamiltonian is PPNP, since it preserves the spin-projection number, containing no spin-flip terms.
+	
+	A concrete example of a class of approaches where this separation is immediately helpful is when working with $SU(M)$ coherent states for the purposes of semi-classical approximations. One may express the energy eigenstates or other wavefunctions of interest as superpositions of $\ket{z^a_i}_{\mathcal{H}_a} \otimes \ket{z^b_j}_{\mathcal{H}_b}$, where $\ket{z^{a/b}}$ is an $SU(M_{a/b})$ coherent state. These product states have a defined spin-projection quantum number, allowing one to restrict themselves to a particular spin-projection-labelled subspace without losing the properties of coherent states, such as forming a differentiable manifold.
+	
+	\section{Algorithm for normal-ordering an arbitrary string of fermionic operators}
+	
+	Consider an arbitrary string $\sigma$ of fermionic creation and annihilation operators labelled by known indices. We wish to algorithmically produce an equivalent expression composed from a linear combination of monotone-ordered operator strings.
+	
+	Wick's theorem provides a closed-form answer for this question, however, it is very computationally expensive. The theorem is useful for algebraic manipulation of strings with free indices, however, when dealing with a long string over a few given indices, most of the terms in the Wick expression vanish by trivially-zero-valued Dirac deltas. For this reason, we provide a simpler algorithm here.
+	
+	For the sake of ease of building an inductive argument, we shall standardise the indexing of modes for the operators in $\sigma$. Without loss of generality, we can map the $\mu$ distinct indices in $\sigma$ onto the numbers $1 \dots \mu$, and then invert the mapping after the algorithm finishes.
+	
+	To separate the algorithm from surplus information regarding mode partitioning, we will explicitly bring the operator string to the form in Eq.~\eqref{eq: O general form}. As discussed in Sec.~\ref{sec: decomposing O}, further separation with regard to the mode partitioning is trivial.
+	
+	The algorithm, in broad strokes, will use simple manipulation rules to bring the creation operators to the front and annihilation operators to the back of the string, to naturally end up at a monotone-ordered operator.
+	
+	\subsection{Classification of substrings}
+	
+	Fermionic creation/annihilation operators are nilpotent with degree 2. For this reason, when we consider the substring $\sigma_i \subset \sigma$ of all fermionic operators acting on mode $i$, this substring must strictly alternate between creation and annihilation operators, otherwise the entire string $\sigma$ vanishes (i.e. produces zero when acting on any state in $\mathcal{H}$).
+	
+	Therefore, we can classify every substring by its first and last operator type. This yields the following four classes:
+	\begin{enumerate}
+	\item If $\sigma_i$ starts and ends with a creation operator, we say its signature is \textit{CC}.
+	\item If $\sigma_i$ starts and ends with an annihilation operator, we say its signature is \textit{AA}.
+	\item If $\sigma_i$ starts with a creation operator and ends with an annihilation operator, we say its signature is \textit{CA}.
+	\item If $\sigma_i$ starts with an annihilation operator and ends with a creation operator, we say its signature is \textit{AC}.
+	\end{enumerate}
+	
+	Without loss of generality, we will from now on assume $\sigma$ to not vanish trivially: hence all substrings $\sigma_1 \dots \sigma_\mu$ have one of the four quoted signatures.
+	
+	\subsection{Reduced position}
+	
+	To keep track of the Jordan-Wigner string, we need to consider the position of each operator in the string. Let us denote $C^i_j/A^i_j$ the \textit{reduced position} within $\sigma$ of the $j$-th creation/annihilation operator on mode $i$. \textit{Reduced position} is defined to be the number of operators to the left of the considered operator which act on a mode with index larger than $i$, so that if the first creation operator on mode 1 is at the very start of the whole string, then $C^1_1 = 0$. A succint example:
+	\begin{tabular}{c | c c c c c c c c c c}
+	string $\sigma$ & $\hat{f}_1\hc$ & $\hat{f}_1$ & $\hat{f}_2$ & $\hat{f}_1\hc$ & $\hat{f}_3\hc$ & $\hat{f}_2\hc$ & $\hat{f}_1$ & $\hat{f}_3$ & $\hat{f}_3\hc$ & $\hat{f}_2$\\
+	reduced position & 0 & 0 & 0 & 1 & 0 & 1 & 3 & 0 & 0 & 3
+	\end{tabular}
+	
+	\subsection{Treating $\sigma_1$}
+	We now wish to find a string equal to $\sigma$ which has all operators $\hat{f}_1\hc$ in the front and all operators $\hat{f}_1$ in the back. Because these are nilpotent operators, and we assume $\sigma$ is not trivially zero, we know there will be either one or zero of each of these two types of operators in each term of the final operator.
+	
+	In broad strokes, we will seek to eliminate pairs of the form $\hat{f}_1 \hat{f}_1\hc$ by bringing them next to each other through reordering (keeping track of the Jordan-Wigner string) and then replacing them with $1 - \hat{f}_1\hc \hat{f}_1$. The second term typically vanishes due to the new mode-1 substring not being strictly alternating, which simplifies the entire expression.
+	
+	\subsubsection{For $\sigma_1$ with signature \textit{CC}}
+	Let us bring the first creation operator on mode 1 to the very front of $\sigma$. The sign factor associated with this reordering is $(-1)^{C^1_1}$.
+	
+	Now, let us consider the first annihilation and second creation operator on mode 1. Bringing them together (without changing their order) introduces a sign factor of $(-1)^{C^1_2 - A^1_1} = (-1)^{C^1_2 + A^1_1}$. Then, we can replace $\hat{f}_1 \hat{f}_1\hc$ with $1 - \hat{f}_1\hc \hat{f}_1$. However, the second term vanishes, since in that term two creation operators on mode $1$ follow each other without an annihilation operator on mode 1 in between.
+	
+	By a similar process, we eliminate the remaining pairs of operators in $\sigma_1$. The result is $\hat{f}_1\hc$ followed by $\sigma$ with all operators acting on mode 1 removed (denoted $\sigma - \sigma_1$), with a total sign factor of $(-1)^{\sum C^1}(-1)^{\sum A^1}$.
+	
+	\subsubsection{For $\sigma_1$ with signature \textit{AA}}
+	This is analogous to signature $CC$, with one crucial difference: bringing the last $\hat{f}_1$ to the very end of $\sigma$ introduces the sign factor $(-1)^{|\sigma| - (A^1_{|A^1|} + |\sigma_1|)} = (-1)^{|\sigma| + A^1_{|A^1|} - |\sigma_1|}$, where $A^1_{|A^1|} + |\sigma_1|$ is the actual list position of the final $\hat{f}_1$ indexed from 1. Collecting the middle term with the sign factors associated with removing the other creation-annihilation pairs, the output of the process is $\sigma - \sigma_1$ followed by a singular $\hat{f}_1$, with a total factor of $(-1)^{\sum C^1}(-1)^{\sum A^1}(-1)^{|\sigma - \sigma_1|}$.
+	
+	\subsubsection{For $\sigma_1$ with signature \textit{CA}}
+	For this signature, we will keeep both the first creation and the last annihilation operator acting on mode $1$, only seeking to remove the remaining pairs in the middle of the string. As per above, this results in $\hat{f}_1\hc (\sigma - \sigma_1) \hat{f}_1$ with a sign factor of $(-1)^{\sum C^1} (-1)^{\sum A^1} (-1)^{|\sigma - \sigma_1|}$.
+	
+	\subsubsection{For $\sigma_1$ with signature \textit{AC}}
+	This case is non-trivial when compared to the other three signatures, because we will find that two non-vanishing terms will remain.
+	
+	Firstly, we bring each neighbouring pair $\hat{f}_1 \dots \hat{f}_1\hc$ together, introducing a sign factor of $(-1)^{\sum C^1}(-1)^{\sum A^1}$. Then we replace all but the final pair of operators with $1-\hat{f}_1\hc \hat{f}_1$ one-by-one, arguing that the second term vanishes before moving on to the next pair. This removes all but the final pair of operators from the string with no extra factor.
+	
+	Then we replace the final pair. Neither of the terms vanish. In the second term we must bring the only remaining $\hat{f}_1\hc$ to the very front of the string and the only remaining $\hat{f}_1$ to the very back of the string. This introduces a sign factor of $(-1)^{|\sigma - \sigma_1|}$.
+	
+	Hence, the output is a linear combination of two terms:
+	$$(-1)^{\sum C^1}(-1)^{\sum A^1} \left( (\sigma - \sigma_1) + (-1)^{1+|\sigma - \sigma_1|} \hat{f}_1\hc (\sigma - \sigma_1) \hat{f}_1 \right)$$
+	
+	\subsection{Extending the process for all remaining substrings}
+	
+	After we have succesfully expressed $\sigma$ using only $\sigma - \sigma_1$ with potential leading (trailing) creation (annihilation) operators acting on mode 1, we seek to repeat the process to remove operators acting on modes $2, 3 \dots M$.
+	
+	We find that the approaches outlined above extend readily for all substrings, not just $\sigma_1$. This is due to the careful definition of \textit{reduced position}, which, for all elements of $\sigma - \sigma_1$ equals their values within $\sigma$. For convenience, let us define $\sigma^{(i)}$ to be the sequence $\sigma$ with all operators acting on modes with indices equal to or smaller than $i$ removed, i.e. $\sigma^{(i)} = \sigma - \sigma_1 - \dots - \sigma_i$.
+	
+	To quickly go through the four signatures for an arbitrary substring $\sigma_i$:
+	\begin{enumerate}
+	\item For $CC$, we have
+	\begin{equation}
+	\sigma^{(i - 1)} = (-1)^{\sum C^i} (-1)^{\sum A^i} \hat{f}_i\hc \sigma^{(i)}
+	\end{equation}
+	\item For $AA$, we have
+	\begin{equation}
+	\sigma^{(i - 1)} = (-1)^{\sum C^i} (-1)^{\sum A^i} (-1)^{|\sigma^{(i)}|} \sigma^{(i)} \hat{f}_i
+	\end{equation}
+	\item For $CA$, we have
+	\begin{equation}
+	\sigma^{(i - 1)} = (-1)^{\sum C^i} (-1)^{\sum A^i} (-1)^{|\sigma^{(i)}|} \hat{f}_i\hc \sigma^{(i)} \hat{f}_i
+	\end{equation}
+	\item For $AC$, we have
+	\begin{equation}
+	\sigma^{(i - 1)} = (-1)^{\sum C^i} (-1)^{\sum A^i} \left( \sigma^{(i)} + (-1)^{1+|\sigma^{(i)}|} \hat{f}_i\hc \sigma^{(i)} \hat{f}_i \right)
+	\end{equation}
+	\end{enumerate}
+	
+	These recursion relations allow one to reduce the entire string $\sigma$ into a linear combination of monotone-ordered operators. A helpful simplification entails collecting the constant sign factors in front of the entire expression:
+	$(-1)^{\sum_{i,j} C^i_j} (-1)^{\sum_{i,j} A^i_j}$
+	
+	
+\end{document}

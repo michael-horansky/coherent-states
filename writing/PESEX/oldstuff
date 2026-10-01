@@ -1,0 +1,37 @@
+
+	Let us Taylor expand the stationary condition to first order:
+	
+	\begin{align}
+	\xi^T_{ij}(z, z^*) \pdv{H_{q = 0}(z, z^*)}{z_j} + \pdv{z_k^*}(\xi^T_{ij}(z, z^*) \pdv{H_{q = 0}(z, z^*)}{z_j}) \delta z_k^* + \pdv{z_k}(\xi^T_{ij}(z, z^*) \pdv{H_{q = 0}(z, z^*)}{z_j}) \delta z_k \nonumber\\
+	 = -\xi^T_{ij}(z, z^*) \pdv{\delta H(z, z^*)}{z_j} \qq{where} \delta H(z, z^*) \equiv H_{q = \delta q}(z, z^*) - H_{q = 0}(z, z^*)
+	\end{align}
+	where the entire expression is understood to be evaluated at $z = z_0$. The first term vanishes by Eq.~\eqref{eq: char traj init stat}. Using the real embedding $z = x + iy$, where $x,y \in \mathbb{R}$, we obtain
+	
+	\begin{align}
+	-\xi^T_{ij}(z, z^*) \pdv{\delta H(z, z^*)}{z_j}=&\pdv{z_k^*}(\xi^T_{ij}(z, z^*) \pdv{H_{q = 0}(z, z^*)}{z_j}) (\delta x_k - i \delta y_k) + \pdv{z_k}(\xi^T_{ij}(z, z^*) \pdv{H_{q = 0}(z, z^*)}{z_j}) (\delta x_k + i \delta y_k)\nonumber\\
+	&= \left(\left(\pdv{\xi^T_{ij}}{z_k} + \pdv{\xi^T_{ij}}{z_k^*}\right) \pdv{H_{q = 0}}{z_j} + \xi^T_{ij}\left( \pdv[2]{H_{q = 0}}{z_k}{z_j} + \pdv[2]{H_{q = 0}}{z_k^*}{z_j}\right)\right) \delta x_k\nonumber\\
+	&+ \left(\left(\pdv{\xi^T_{ij}}{z_k} - \pdv{\xi^T_{ij}}{z_k^*}\right) \pdv{H_{q = 0}}{z_j} + \xi^T_{ij}\left( \pdv[2]{H_{q = 0}}{z_k}{z_j} - \pdv[2]{H_{q = 0}}{z_k^*}{z_j}\right)\right) i\delta y_k
+	\end{align}
+	This produces two systems of equations:
+	\begin{align}
+	\Re\left[\xi^T_{ij}(z, z^*) \pdv{\delta H(z, z^*)}{z_j}\right] &= \Re\left[\left(\pdv{\xi^T_{ij}}{z_k} + \pdv{\xi^T_{ij}}{z_k^*}\right) \pdv{H_{q = 0}}{z_j} + \xi^T_{ij}\left( \pdv[2]{H_{q = 0}}{z_k}{z_j} + \pdv[2]{H_{q = 0}}{z_k^*}{z_j}\right)\right]\delta x_k\nonumber\\
+	&-\Im\left[\left(\pdv{\xi^T_{ij}}{z_k} - \pdv{\xi^T_{ij}}{z_k^*}\right) \pdv{H_{q = 0}}{z_j} + \xi^T_{ij}\left( \pdv[2]{H_{q = 0}}{z_k}{z_j} - \pdv[2]{H_{q = 0}}{z_k^*}{z_j}\right)\right]\delta y_k\\
+	\Im\left[\xi^T_{ij}(z, z^*) \pdv{\delta H(z, z^*)}{z_j}\right] &= \Im\left[\left(\pdv{\xi^T_{ij}}{z_k} + \pdv{\xi^T_{ij}}{z_k^*}\right) \pdv{H_{q = 0}}{z_j} + \xi^T_{ij}\left( \pdv[2]{H_{q = 0}}{z_k}{z_j} + \pdv[2]{H_{q = 0}}{z_k^*}{z_j}\right)\right]\delta x_k\nonumber\\
+	&+\Re\left[\left(\pdv{\xi^T_{ij}}{z_k} - \pdv{\xi^T_{ij}}{z_k^*}\right) \pdv{H_{q = 0}}{z_j} + \xi^T_{ij}\left( \pdv[2]{H_{q = 0}}{z_k}{z_j} - \pdv[2]{H_{q = 0}}{z_k^*}{z_j}\right)\right]\delta y_k
+	\end{align}
+	This system of partial differential equations can be written in a form which permits standard numerical solutions:
+	\begin{equation}
+	\pdv{q}\mqty(x \\ y) = \mqty(\Omega^{RR} & \Omega^{RI} \\ \Omega^{IR} & \Omega^{II})^{-1} \mqty(F^R \\ F^I)
+	\end{equation}
+	where
+	\begin{align}
+	F^R_i &= \Re\left[\xi^T_{ij}(z, z^*) \pdv[2]{H(z, z^*)}{q}{z_j}\right]\\
+	F^I_i &= \Im\left[\xi^T_{ij}(z, z^*) \pdv[2]{H(z, z^*)}{q}{z_j}\right]
+	\end{align}
+	and
+	\begin{align}
+	\Omega^{RR}_{ab} = \Re\left[\pdv{\Re z_b}(\xi^T_{aj} \pdv{H_{q = 0}}{z_j}) \right] = \Re\left[\left(\pdv{\xi^T_{aj}}{z_b} + \pdv{\xi^T_{aj}}{z_b^*}\right) \pdv{H_{q = 0}}{z_j} + \xi^T_{aj}\left( \pdv[2]{H_{q = 0}}{z_b}{z_j} + \pdv[2]{H_{q = 0}}{z_b^*}{z_j}\right)\right]\\
+	\Omega^{RI}_{ab} = \Re\left[\pdv{\Im z_b}(\xi^T_{aj} \pdv{H_{q = 0}}{z_j}) \right] = \Re\left[\left(\pdv{\xi^T_{aj}}{z_b} - \pdv{\xi^T_{aj}}{z_b^*}\right) \pdv{H_{q = 0}}{z_j} + \xi^T_{aj}\left( \pdv[2]{H_{q = 0}}{z_b}{z_j} - \pdv[2]{H_{q = 0}}{z_b^*}{z_j}\right)\right]\\
+	\Omega^{IR}_{ab} = \Im\left[\pdv{\Re z_b}(\xi^T_{aj} \pdv{H_{q = 0}}{z_j}) \right] = \Im\left[\left(\pdv{\xi^T_{aj}}{z_b} + \pdv{\xi^T_{aj}}{z_b^*}\right) \pdv{H_{q = 0}}{z_j} + \xi^T_{aj}\left( \pdv[2]{H_{q = 0}}{z_b}{z_j} + \pdv[2]{H_{q = 0}}{z_b^*}{z_j}\right)\right]\\
+	\Omega^{II}_{ab} = \Im\left[\pdv{\Im z_b}(\xi^T_{aj} \pdv{H_{q = 0}}{z_j}) \right] = \Im\left[\left(\pdv{\xi^T_{aj}}{z_b} - \pdv{\xi^T_{aj}}{z_b^*}\right) \pdv{H_{q = 0}}{z_j} + \xi^T_{aj}\left( \pdv[2]{H_{q = 0}}{z_b}{z_j} - \pdv[2]{H_{q = 0}}{z_b^*}{z_j}\right)\right]
+	\end{align}

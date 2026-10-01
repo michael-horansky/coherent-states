@@ -1,0 +1,195 @@
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+----------------------------- HPC Aire: Handbook ------------------------------
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+
+This is a little internal handbook related to the Coherent States Project; it catalogues useful commands and procedures to make communication with the HPC easy.
+
+---------------------- The ssh routes and configuration -----------------------
+
+The Aire host lives at login1.aire.leeds.ac.uk (there's also login2 and login3
+as alternatives). It cannot be accessed directly; all communication must be
+routed through rash.leeds.ac.uk. Normally, this would mean using lots of jump
+options and remote shells. However, I have created ~/.ssh/config which sets up
+the following hosts:
+    -rash: vzwt2244@rash.leeds.ac.uk
+    -aire: vzwt2244@login1.aire.leeds.ac.uk
+    -aire2: vzwt2244@login2.aire.leeds.ac.uk (use when aire is down)
+where for the aire hosts we specified rash as a ProxyJump.
+
+-------------------------------------------------------------------------------
+-------------------------- Establishing a connection --------------------------
+-------------------------------------------------------------------------------
+
+To create a remote connection to Aire, run the following command on a new terminal session:
+
+    ssh aire
+
+The command requires double authentication, because it firstly connects to an outer and then to the inner layer.
+Once connected, you are in control of a remote terminal session.
+
+If login1 is down, try
+
+    ssh aire2
+
+-------------------------------------------------------------------------------
+-------------------------------- Running a job --------------------------------
+-------------------------------------------------------------------------------
+
+A job file is prepared as a shell script (.sh extension). The template for a job is
+
+#!/bin/bash
+#SBATCH --job-name=miniforge_job
+#SBATCH --output=output_%A.out
+#SBATCH --error=error_%A.err
+#SBATCH --time=48:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=16G
+#SBATCH --account=chmdsh_project
+
+module load miniforge/24.7.1
+conda activate mol-el-struct-env
+
+cd /users/vzwt2244/coherent-states/mol_el_struct
+
+python -u AP_separation_coefficient_variation.py \
+    [args here]
+
+
+The memory specification is important when running FCI on larger systems, as OOT errors can occur otherwise.
+The --acount flag specifies the node. Since Dmitry bought a node, we should use it to get priority in the queue.
+The --time specification seems to be capped at 48 hours. It is meaningless to submit a shorter time, since we have priority in the queue and the cpus free dynamically after the task finishes.
+
+You can create the script either from scratch with
+
+    nano job_script.sh
+
+or by copying another script with
+
+    cp old_job_script.sh new_job_script.sh
+
+To submit a job, run the command
+
+    sbatch job_script.sh
+
+--------------------------------- Task arrays ---------------------------------
+
+The template for a task array is
+
+#!/bin/bash
+#SBATCH --job-name=miniforge_job
+#SBATCH --output=output_%A_%a.out
+#SBATCH --error=error_%A_%a.err
+#SBATCH --time=48:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=16G
+#SBATCH --account=chmdsh_project
+
+SBATCH --array=0-39
+
+module load miniforge/24.7.1
+conda activate mol-el-struct-env
+
+N_MO_vals=(16 17)
+
+N_MO_index=$(($SLURM_ARRAY_TASK_ID / 20))
+ds_index=$(($SLURM_ARRAY_TASK_ID % 20))
+
+N_MO_val=${N_MO_vals[$N_MO_index]}
+ds_id="RNCS_i${ds_index}"
+sys_id="ccpVDZ_N_MO=${N_MO_val}"
+
+cd /users/vzwt2244/coherent-states/mol_el_struct
+
+python -u AP_separation_coefficient_variation.py \
+    ds_id=$ds_id \
+    sys_id=$sys_id \
+    [args here]
+
+In this example, 40 jobs are created. The AP arguments are comprised of all possible pairings between the 2 possible choices of N_MO_vals and the 20 possible ds_index values (0-19).
+
+Note that the outputs and error files will be indexed by their batch ID thanks to the addition of '_%a' in their filenames.
+
+------------------------------- Monitoring jobs -------------------------------
+
+To list all of your jobs, run the command
+
+    squeue --me
+
+To track the output file of a job, run the command
+
+    tail -f output_[job ID and task array ID].out
+
+The -f flag makes sure the output updates as the code runs. For this reason we run the code with the -u flag, which makes sure the output flushes without delay.
+
+To find all non-empty errors for task array [ID], run
+
+    find . -maxdepth 1 -type f -name 'error_[ID]_*.err' -size +0
+
+-------------------------------------------------------------------------------
+-------------------------------- File transfer --------------------------------
+-------------------------------------------------------------------------------
+
+Two methods of transferring files are to be used: the simple scp, and the powerful rsync.
+These should be run from a local terminal session; for local-within-remote-host transfers, use the cp command.
+
+---------------------------------- Using scp ----------------------------------
+
+The syntax is "scp [source] [destination]". The -J flag resolves the two-step connection process.
+
+--- local to HOME transfer
+
+Single file:
+
+    scp /home/michal/Documents/Projects/coherent-states/mol_el_struct/... aire:/users/vzwt2244/coherent-states/mol_el_struct/...
+
+Directory:
+
+    scp -r /home/michal/Documents/Projects/coherent-states/mol_el_struct/... aire:/users/vzwt2244/coherent-states/mol_el_struct/...
+
+--- HOME to local transfer
+
+    scp aire:/users/vzwt2244/coherent-states/mol_el_struct/... /home/michal/Documents/Projects/coherent-states/mol_el_struct/...
+
+Directory:
+
+    scp -r aire:/users/vzwt2244/coherent-states/mol_el_struct/... /home/michal/Documents/Projects/coherent-states/mol_el_struct/...
+
+--------------------------------- Using rsync ---------------------------------
+
+The syntax is "rsync [source] [destination]".
+
+--- Useful flags
+
+  -f=RULE (Filters out files based on a single rule)
+  --exclude-from=FILE (Filters out files based on a set of rules from a file, analogous to .gitignore.)
+  --include=PATTERN (Analogous to -f)
+  --include-from=FILE (Analogous to --exclude-from)
+  -u (Do not overwrite files which are newer on the receiver.)
+  -a (Archive mode: automatically recursive, preserve permissions, timestamps, symlinks etc)
+  -v (Verbose)
+  -h (Human-readable file sizes)
+  --progress (Show progress for each file)
+
+--- local to HOME transfer
+
+Single file:
+
+    rsync -vh /home/michal/Documents/Projects/coherent-states/mol_el_struct/file.txt aire:/users/vzwt2244/coherent-states/mol_el_struct/
+
+Folder:
+
+    rsync -avh /home/michal/Documents/Projects/coherent-states/mol_el_struct/folder aire:/users/vzwt2244/coherent-states/mol_el_struct/
+
+(Note: adding a trailing slash after the folder name copies the folder content directly)
+
+
+
+
+
+

@@ -1,0 +1,183 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper, left = 2cm, right = 2cm, tmargin = 0.8cm, bmargin = 0.8cm]{geometry}
+\usepackage{xargs}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{physics}
+\usepackage{graphicx}
+
+\usepackage{enumitem}
+
+\setlist[enumerate]{
+    topsep=2pt,
+    itemsep=1pt,
+    parsep=0pt,
+    partopsep=0pt
+}
+
+\setlist[enumerate,1]{label=\arabic*}
+\setlist[enumerate,2]{label=\theenumi.\arabic*}
+\setlist[enumerate,3]{label=\theenumii.\arabic*}
+
+
+\begin{document}
+
+\thispagestyle{empty}
+
+	\begin{center}
+	\textbf{Thesis plan:} Coherent states in numerical methods for fermionic particle-preserving quantum systems (Michal Horanský)
+	\end{center}
+	
+	\begin{enumerate}
+	
+	\item Introduction
+	
+	\begin{enumerate}
+	
+		\item Semi-classical methods in high-dimensional quantum mechanics
+		
+		\begin{enumerate}
+		
+			\item The problem of diagonalisation
+			
+			\item The problem of dynamics
+		
+		\end{enumerate}
+		
+		\item Coherent states throughout the 20th century
+		
+		\begin{enumerate}
+		
+			\item Schr\"odinger coherent states
+			
+			\item Glauber coherent states
+			
+			\item Gilmore-Perelomov coherent states
+		
+		\end{enumerate}
+	
+	\end{enumerate}
+	
+	\item Constructing the coherent state manifold
+	
+	\begin{enumerate}
+	
+		\item Gilmore-Perelomov coherent states in general
+		
+		\begin{enumerate}
+		
+			\item Action group, stability group
+	
+			\item Reference state operator and Hadamard's lemma
+	
+			\item Topology of the coherent state manifold
+	
+			\item Equations of motion
+		
+		\end{enumerate}
+		
+		\item $SU(M)$ fermionic coherent states
+		
+		\begin{enumerate}
+		
+			\item Displacement operator
+	
+			\item Decomposition into the full occupancy basis
+	
+			\item Overlaps and normalisation
+	
+			\item Fermionic operator sequence matrix elements
+	
+			\item Overlap update formalism
+		
+		\end{enumerate}
+		
+		\item Approximately-coherent particle-number-conserving states
+		
+		\begin{enumerate}
+		
+			\item Qubit operators
+			
+			\item Overlaps with elementary symmetric polynomial
+			
+			\item Fermionic operator sequence matrix elements
+			
+			\item Topology of the ACPNCS manifold
+		
+		\end{enumerate}
+	
+	\end{enumerate}
+	
+	
+	\item Molecular electronic structure
+	
+	\begin{enumerate}
+	
+		\item System description
+		
+		\begin{enumerate}
+		
+			\item Non-relativistic electronic Hamiltonian
+			
+			\item Spin-$z$-labelled subspaces
+			
+			\item Symmetry-labelled subspaces
+			
+			\item Potential energy surfaces
+		
+		\end{enumerate}
+		
+		\item Ground state estimation with Monte Carlo
+		
+		\begin{enumerate}
+		
+			\item Low-excitation-guided sampling
+			
+			\item Varying the sample basis size
+			
+			\item Varying the Hilbert space dimension
+			
+			\item The effects of spin and symmetry
+			
+			\item Multireferential regimes
+		
+		\end{enumerate}
+		
+		\item Potential energy surface extrapolation with coherent-state transfer
+		
+		\begin{enumerate}
+		
+			\item Sampling and decomposition strategy
+			
+			\item Energy eigenstate reconstruction from transferred basis
+			
+			\item Spin-protected crossings
+			
+			\item Symmetry-protected crossings
+			
+			\item Unprotected crossings
+			
+			\item Multireferential regimes
+		
+		\end{enumerate}
+		
+		\item Discussion
+	
+	\end{enumerate}
+	
+	
+	\item Appendix
+	
+	\begin{enumerate}
+	
+		\item[A] Counting constrained minor products
+		
+		\item[B] Repeated commutator of the $SU(M)$ displacement operator and the $\hat{\phi}$-operator
+	
+	\end{enumerate}
+	
+	\end{enumerate}
+	
+
+	
+\end{document}

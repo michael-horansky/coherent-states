@@ -27,12 +27,12 @@ nontrivial_separations = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1.05, 1.15, 1.2, 
 
 
 cur_molecule = 'Li2'
-N = 20
-N_sub = 10
+N = 50
+N_sub = 50
 rs = "rp"
 freeze_basis = True
 
-ds_id = "N_MO=5"
+ds_id = "ccpVDZ_N_MO=10"
 
 #atasets_to_load = ["RNCS_50_50_rp", "RNCS_50_50_rp_nf", "RNCS_100_50_rp"] # None for default
 datasets_to_load = None #["RNCS_50_50_rp_nf"] # None for default
@@ -82,7 +82,7 @@ mol_solvers[1.0].load_data(["self_analysis", "measured_datasets"], base_sep_data
 #basis_sample_z_tensor = mol_solvers[1.0].disk_jockey.data_bulks[global_ds_label]["basis_samples"]
 E_data_base_sep = mol_solvers[1.0].get_dataset_info(base_sep_datasets_to_load)
 E_data.append({})
-for base_key in ["CI", "HF", "LE"]:
+for base_key in ["FCI", "HF", "LE"]:
     E_data[-1][base_key] = E_data_base_sep[base_key]
 for ds in datasets_to_load:
     E_data[-1][ds] = E_data_base_sep[base_sep_dataset_buf[ds]]
@@ -127,7 +127,7 @@ E_data.sort(key = lambda x: x["c"], reverse = True)
 N_c = 1 + len(nontrivial_separations)
 E_cols = {
     "c" : np.zeros(N_c),
-    "CI" : np.zeros(N_c),
+    "FCI" : np.zeros(N_c),
     "HF" : np.zeros(N_c),
     "LE" : np.zeros(N_c)
     }
@@ -142,17 +142,23 @@ for ds in datasets_to_load:
 total_calculation_time = 0.0
 for row_i in range(len(E_data)):
     row = E_data[row_i]
+
+    print(f"Parsing row {i + 1} with c={row['c']}")
+
     E_cols["c"][row_i] = row["c"]
-    E_cols["CI"][row_i] = row["CI"]
+    E_cols["FCI"][row_i] = row["FCI"]["E"]
     E_cols["HF"][row_i] = row["HF"]
     E_cols["LE"][row_i] = row["LE"]
+
+    print(f"  -FCI was calculated in {functions.dtstr(row["FCI"]['duration'])}")
+
     for ds in datasets_to_load:
         E_cols[ds]["E_g"][row_i] = row[ds]["E_g"]
         E_cols[ds]["E_extrapolated"][row_i] = row[ds]["E_extrapolated"]
         E_cols[ds]["E_extrapolated_err"][row_i] = row[ds]["E_extrapolated_err"]
         E_cols[ds]["duration"][row_i] = row[ds]["duration"]
 
-        print(f"Dataset {ds} was calculated in {functions.dtstr(row[ds]['duration'])}")
+        print(f"    -Dataset {ds} was calculated in {functions.dtstr(row[ds]['duration'])}")
         total_calculation_time += row[ds]["duration"]
 
 print(f"Total calculation time: {functions.dtstr(total_calculation_time)}")
@@ -186,7 +192,7 @@ ax1.set_title("Abs g.s. energy against separation dist.")
 ax1.set_xlabel("Atom separation coef.")
 ax1.set_ylabel("E [Hartree]")
 
-ax1.plot(E_cols["c"], E_cols["CI"], label = "full CI", color = cmap(0))
+ax1.plot(E_cols["c"], E_cols["FCI"], label = "full CI", color = cmap(0))
 ax1.plot(E_cols["c"], E_cols["HF"], label = "ref E", color = cmap(1))
 for i_ds in range(len(datasets_to_load)):
     ds = datasets_to_load[i_ds]
@@ -211,15 +217,15 @@ secax_y.set_ylabel(r'$E\ [K]$')
 
 
 
-ax2.plot(E_cols["c"], E_cols["HF"] - E_cols["CI"], "x", label = "ref E", color = cmap(1))
-ax2.plot(E_cols["c"], E_cols["LE"] - E_cols["CI"], linestyle = "dashed", label = "${\\rm E}_{\\rm L.E.}$", color = cmap(2))
+ax2.plot(E_cols["c"], E_cols["HF"] - E_cols["FCI"], "x", label = "ref E", color = cmap(1))
+ax2.plot(E_cols["c"], E_cols["LE"] - E_cols["FCI"], linestyle = "dashed", label = "${\\rm E}_{\\rm L.E.}$", color = cmap(2))
 for i_ds in range(len(datasets_to_load)):
     ds = datasets_to_load[i_ds]
-    ax2.plot(E_cols["c"], E_cols[ds]["E_g"] - E_cols["CI"], "x", label = ds, color = cmap(i_ds + 3))
-    #ax2.plot(E_cols["c"], E_cols[ds]["E_extrapolated"] - E_cols["CI"], linestyle = "dashed", label = ds + " ext.", color = cmap(i_ds + 3))
-    ax2.errorbar(E_cols["c"], E_cols[ds]["E_extrapolated"] - E_cols["CI"], yerr = E_cols[ds]["E_extrapolated_err"], capsize = 2, linestyle = "dashed", label = ds + " ext.", color = cmap(i_ds + 3))
+    ax2.plot(E_cols["c"], E_cols[ds]["E_g"] - E_cols["FCI"], "x", label = ds, color = cmap(i_ds + 3))
+    #ax2.plot(E_cols["c"], E_cols[ds]["E_extrapolated"] - E_cols["FCI"], linestyle = "dashed", label = ds + " ext.", color = cmap(i_ds + 3))
+    ax2.errorbar(E_cols["c"], E_cols[ds]["E_extrapolated"] - E_cols["FCI"], yerr = E_cols[ds]["E_extrapolated_err"], capsize = 2, linestyle = "dashed", label = ds + " ext.", color = cmap(i_ds + 3))
 
-    #ax2.errorbar(E_cols["c"], E_cols[ds]["E_extrapolated"] - E_cols["CI"], yerr = E_cols[ds]["E_extrapolated_err"] * E_base_err[ds], fmt = 'x', capsize = 3, label = f"{ds} (ext.)")
+    #ax2.errorbar(E_cols["c"], E_cols[ds]["E_extrapolated"] - E_cols["FCI"], yerr = E_cols[ds]["E_extrapolated_err"] * E_base_err[ds], fmt = 'x', capsize = 3, label = f"{ds} (ext.)")
 
 
 ax2.legend()
@@ -235,9 +241,9 @@ ax3.grid(True)
 
 for i_ds in range(len(datasets_to_load)):
     ds = datasets_to_load[i_ds]
-    ax3.plot(E_cols["c"], 100 * (E_cols[ds]["E_g"] - E_cols["CI"]) / (E_cols["HF"] - E_cols["CI"]), "x", label = ds, color = cmap(i_ds + 3))
-    #ax3.plot(E_cols["c"], 100 * (E_cols[ds]["E_extrapolated"] - E_cols["CI"]) / (E_cols["HF"] - E_cols["CI"]), linestyle = "dashed", label = ds + " ext.", color = cmap(i_ds + 3))
-    ax3.errorbar(E_cols["c"], 100 * (E_cols[ds]["E_extrapolated"] - E_cols["CI"]) / (E_cols["HF"] - E_cols["CI"]), yerr = 100 * E_cols[ds]["E_extrapolated_err"] / (E_cols["HF"] - E_cols["CI"]), capsize = 2, linestyle = "dashed", label = ds + " ext.", color = cmap(i_ds + 3))
+    ax3.plot(E_cols["c"], 100 * (E_cols[ds]["E_g"] - E_cols["FCI"]) / (E_cols["HF"] - E_cols["FCI"]), "x", label = ds, color = cmap(i_ds + 3))
+    #ax3.plot(E_cols["c"], 100 * (E_cols[ds]["E_extrapolated"] - E_cols["FCI"]) / (E_cols["HF"] - E_cols["FCI"]), linestyle = "dashed", label = ds + " ext.", color = cmap(i_ds + 3))
+    ax3.errorbar(E_cols["c"], 100 * (E_cols[ds]["E_extrapolated"] - E_cols["FCI"]) / (E_cols["HF"] - E_cols["FCI"]), yerr = 100 * E_cols[ds]["E_extrapolated_err"] / (E_cols["HF"] - E_cols["FCI"]), capsize = 2, linestyle = "dashed", label = ds + " ext.", color = cmap(i_ds + 3))
 
 ax3.legend()
 

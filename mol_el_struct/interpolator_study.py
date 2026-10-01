@@ -14,7 +14,7 @@ from utils.class_Semaphor import Semaphor
 from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_sample import CS_sample
 
-import utils.functions
+import functions
 
 from molecules_abstract import *
 
@@ -127,7 +127,7 @@ for sep_c in [1.0] + nontrivial_separations[:1]:
         ax1.set_ylabel("$E$ [H]", color=color)
         ax1.plot(N_cutoff_space, E_ext_space, color=color)
         ax1.tick_params(axis='y', labelcolor=color)
-        ax1.axhline(y = mol_solvers[sep_c].ci_energy, linestyle = "dashed", label = "$E_g$")
+        ax1.axhline(y = mol_solvers[sep_c].FCI_sol["E"], linestyle = "dashed", label = "$E_g$")
 
         ax2 = ax1.twinx()  # instantiate a second Axes that shares the same x-axis
 

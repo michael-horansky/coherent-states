@@ -19,6 +19,74 @@
     "B1SCV_i9_100_50_rp": [
       "basis_samples",
       "result_energy_states"
+    ],
+    "B1SCV_i0_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i1_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i2_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i3_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i4_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i5_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i6_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i7_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i8_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i10_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i11_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i12_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i14_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i16_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i17_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i18_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
+    ],
+    "B1SCV_i19_100_50_rp": [
+      "basis_samples",
+      "result_energy_states"
     ]
   },
   "data_bulk_types": {
@@ -41,6 +109,74 @@
     "B1SCV_i9_100_50_rp": {
       "basis_samples": "pkl",
       "result_energy_states": "csv"
+    },
+    "B1SCV_i0_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i1_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i2_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i3_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i4_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i5_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i6_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i7_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i8_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i10_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i11_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i12_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i14_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i16_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i17_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i18_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
+    },
+    "B1SCV_i19_100_50_rp": {
+      "basis_samples": "pkl",
+      "result_energy_states": "csv"
     }
   },
   "metadata_types": {
@@ -61,6 +197,74 @@
       "diagnostic_log": "json"
     },
     "B1SCV_i9_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i0_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i1_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i2_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i3_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i4_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i5_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i6_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i7_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i8_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i10_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i11_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i12_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i14_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i16_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i17_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i18_100_50_rp": {
+      "basis_samples": "json",
+      "result_energy_states": "pkl"
+    },
+    "B1SCV_i19_100_50_rp": {
       "basis_samples": "json",
       "result_energy_states": "pkl"
     }

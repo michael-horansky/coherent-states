@@ -31,10 +31,12 @@ if cur_molecule not in mol_catalogue.keys():
 
 N = params["N"]
 N_sub = params["N_sub"]
+method = params["method"]
 rs = params["sr"]
 sym = params["sym"]
 freeze_basis = (params["freeze_basis"] == 1)
 load_analysis = (params["load_analysis"] == 1)
+load_base_dist = (params["load_base_dist"] == 1)
 c_restrict = params["c_restrict"]
 ds_id = params["ds_id"]
 sys_id = params["sys_id"]
@@ -47,7 +49,7 @@ if number_of_NOs == 0:
 
 #nontrivial_separations = [0.5, 0.6, 0.7, 0.85, 1.2, 1.4, 1.7, 2.0]
 #nontrivial_separations = [0.8, 0.9, 0.95, 1.05, 1.1, 1.15, 1.3]
-nontrivial_separations = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1.05, 1.1, 1.15, 1.2, 1.3, 1.4, 1.7, 2.0]
+nontrivial_separations = [1.3, 1.4, 1.7, 2.0]
 
 global_ds_label = f"{ds_id}_{N}_{N_sub}"
 if rs != "ai":
@@ -72,27 +74,29 @@ mol_solvers = {} # [sep coef] = ground_state_solver object
 
 if freeze_basis or (c_restrict == 0 or c_restrict == 1):
     # Standard sep
-    mol_solvers[1.0] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist=1.0", yes = True, fancy_printing = False)
+    mol_solvers[1.0] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist=1.0", yes = True, fancy_printing = True)
     mol_solvers[1.0].initialise_molecule(mol_objs[1.0], N_MO = number_of_NOs)
     if load_analysis:
-        mol_solvers[1.0].load_data(["self_analysis"])
+        if load_base_dist:
+            mol_solvers[1.0].load_data(["self_analysis", "measured_datasets"])
+        else:
+            mol_solvers[1.0].load_data(["self_analysis"])
     else:
         mol_solvers[1.0].full_CI_sol()
         mol_solvers[1.0].find_LE_solution("SE", diag_alg = "SCF")
-    mol_solvers[1.0].find_ground_state("LE_Zombie_cov_RSOPM_moment_matching", N = N, N_sub = N_sub, N_no_cov = 0, rs = rs, dataset_label = global_ds_label)
+
+    if not load_base_dist:
+        mol_solvers[1.0].find_ground_state(method, N = N, N_sub = N_sub, N_no_cov = 0, rs = rs, dataset_label = global_ds_label)
 
     # We extract the sample
     basis_sample_z_tensor = mol_solvers[1.0].disk_jockey.data_bulks[global_ds_label]["basis_samples"]
-    E_base_err = mol_solvers[1.0].disk_jockey.metadata[global_ds_label]["result_energy_states"]["E_base_err"]
-    duration = mol_solvers[1.0].disk_jockey.metadata[global_ds_label]["result_energy_states"]["duration"]
-
     mol_solvers[1.0].save_data()
 
 
 for i_separation_coef in range(len(nontrivial_separations)):
     if c_restrict == 0 or c_restrict == i_separation_coef + 2:
         separation_coef = nontrivial_separations[i_separation_coef]
-        mol_solvers[separation_coef] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist={separation_coef}", yes = True, fancy_printing = False)
+        mol_solvers[separation_coef] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist={separation_coef}", yes = True, fancy_printing = True)
         mol_solvers[separation_coef].initialise_molecule(mol_objs[separation_coef], N_MO = number_of_NOs)
         if load_analysis:
             mol_solvers[separation_coef].load_data(["self_analysis"])
@@ -102,7 +106,7 @@ for i_separation_coef in range(len(nontrivial_separations)):
         if freeze_basis:
             mol_solvers[separation_coef].find_ground_state("Qubit_from_z_tensor", z = basis_sample_z_tensor, dataset_label = global_ds_label)
         else:
-            mol_solvers[separation_coef].find_ground_state("LE_Zombie_cov_RSOPM_moment_matching", N = N, N_sub = N_sub, N_no_cov = 0, rs = rs, dataset_label = global_ds_label)
+            mol_solvers[separation_coef].find_ground_state(method, N = N, N_sub = N_sub, N_no_cov = 0, rs = rs, dataset_label = global_ds_label)
         mol_solvers[separation_coef].save_data()
 
 

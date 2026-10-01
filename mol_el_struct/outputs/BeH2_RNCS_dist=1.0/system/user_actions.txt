@@ -1,4 +1,6 @@
 initialised solver BeH2_RNCS_dist=1.0
-initialise_molecule [M = 14, S = 6]
+initialise_molecule [HF_method = "RHF", N_MO = None]
 load_data
+get_top_closed_shells [N_cs = 5, trim_M = None]
+single_excitation_singlets_projection [trim_M = None]
 save_data

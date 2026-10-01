@@ -3,6 +3,8 @@ import numpy as np
 import scipy as sp
 import matplotlib.pyplot as plt
 
+import time
+
 from pyscf import gto, scf, cc, ao2mo, ci, fci
 
 from coherent_states.CS_Thouless import CS_Thouless
@@ -160,8 +162,11 @@ class ground_state_solver():
         self.HF_method = None
         self.reference_state_energy = None
         # Full CI properties
-        self.ci_energy = None
-        self.ci_sol = None # We did not perform full CI
+        self.FCI_sol = {
+            "E" : None,
+            "sol" : None,
+            "duration" : None
+            }
         # Low-excitation solution properties
         self.LE_sol = {
             "E" : None, # Energy of solution
@@ -191,6 +196,7 @@ class ground_state_solver():
             "LE_Zombie_cov_SOPM" : self.find_ground_state_LEGS_Zombie_cov_SOPM,
             "LE_Zombie_cov_RSOPM" : self.find_ground_state_LEGS_Zombie_cov_RSOPM,
             "LE_Zombie_cov_RSOPM_moment_matching" : self.find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching,
+            "LEGS_standard" : self.find_ground_state_LEGS_standard,
             "Qubit_from_z_tensor" : self.find_ground_state_from_z_tensor,
             "krylov" : self.find_ground_state_krylov,
             "imag_timeprop" : self.find_ground_state_imaginary_timeprop
@@ -617,7 +623,7 @@ class ground_state_solver():
             print(f"  Z_{i} = [ {repr(cur_CS_sample[i][0].z)}, {repr(cur_CS_sample[i][1].z)} ]")
         for i in range(N):
             print(f"  Z_{i} self-energy: {H_eff[i][i]}")
-            if H_eff[i][i] < self.ci_energy:
+            if H_eff[i][i] < self.FCI_sol["E"]:
                 print("SMALLER THAN GROUND STATE???")
 
         def get_partial_sol(N_eff):
@@ -748,7 +754,7 @@ class ground_state_solver():
             print(f"  Z_{i} = [ {repr(cur_CS_sample[i][0].z)}, {repr(cur_CS_sample[i][1].z)} ]")
         for i in range(N):
             print(f"  Z_{i} self-energy: {H_eff[i][i]}")
-            if H_eff[i][i] < self.ci_energy:
+            if H_eff[i][i] < self.FCI_sol["E"]:
                 print("SMALLER THAN GROUND STATE???")
 
         def get_partial_sol(N_eff):
@@ -2880,22 +2886,21 @@ class ground_state_solver():
         # alpha-alpha
         for i in range(self.N_MO):
             for j in range(i + 1, self.N_MO):
-                cur_cov = alpha * np.sqrt(self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] * variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("a", j)])
+                cur_cov = alpha * self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] * np.sqrt(variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("a", j)])
                 cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = cur_cov
                 cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] # conjugate?
         # beta-beta
         for i in range(self.N_MO):
             for j in range(i + 1, self.N_MO):
-                cur_cov = alpha * np.sqrt(self.LE_sol["RSOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] * variances[spat_to_spin_idx("b", i)] * variances[spat_to_spin_idx("b", j)])
+                cur_cov = alpha * self.LE_sol["RSOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] * np.sqrt(variances[spat_to_spin_idx("b", i)] * variances[spat_to_spin_idx("b", j)])
                 cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] = cur_cov
                 cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("b", i)] = cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] # conjugate?
 
         # alpha-beta
-        # We remain agnostic! Because even tho this should work perfectly, I'm not sure how the gershgorin stuff will work
 
         for i in range(self.N_MO):
             for j in range(self.N_MO):
-                cur_cov = alpha * np.sqrt(self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("b", j)] * variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("b", j)])
+                cur_cov = alpha * self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("b", j)] * np.sqrt(variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("b", j)])
                 cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", j)] = cur_cov
                 cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", j)] # conjugate?
 
@@ -2939,7 +2944,9 @@ class ground_state_solver():
                 list_of_rows = diagnostic_table
                 )
 
-            self.log.print_matrix(cov, "covariance matrix", dec_points = 5)
+            self.log.print_matrix(cov[:self.N_MO, :self.N_MO], "cov(a, a)", dec_points = 5)
+            self.log.print_matrix(cov[:self.N_MO, self.N_MO:], "cov(a, b)", dec_points = 5)
+            self.log.print_matrix(cov[self.N_MO:, self.N_MO:], "cov(b, b)", dec_points = 5)
 
         # -------------- making sure covariances dont overshadow the variances ----------------
 
@@ -3326,6 +3333,408 @@ class ground_state_solver():
         self.log.exit()
         return(N_vals, convergence_sols)
 
+    def find_ground_state_LEGS_standard(self, **kwargs):
+
+        # This method uses Zombie (Qubit) states.
+        # It looks at the total norm of the states in | LE > which have i-th MO
+        # occupied, i.e. < LE | b_i\hc b_i | LE >, and uses this to estimate
+        # E[z_i^2].
+        # The means are equal to sigmas, and the sample is then multiplied by a random sign mask
+
+        # The standard method does not use moment matching--instead, Isserlis's
+        # theorem is used to rigorousle retrieve the second moments from the
+        # approximate expressions for <S_i>, <S_i S_j> in the vicinity of |ref>
+
+        # kwargs:
+        #     -N: Sample size
+        #     -N_sub: Subsample size
+        #     -N_no_cov: Number of configs per subsample for which correlation is ignored
+        #     -phase: Three options:
+        #         -"ai": As is. Defalt option
+        #         -"rs": Random sign. The parameter signs are randomised, but kept real.
+        #         -"rp": Random phase. The parameter complex phases are randomised.
+        #     -sym: Four options:
+        #         -"default": Based on HF method. Default option.
+        #         -"full": Spin-subspace sampling fully symmetrical (default for RHF)
+        #         -"phase": The magnitudes are symmetrical, but phase masks are not.
+        #         -"none": The spin-subspace samplings are independent. (default for UHF)
+        #     -alpha: strength of correlation. Default 1.0
+        #     -eta: step-size for moment matching; default 1e-8
+        #     ------------------------
+        #     -dataset_label: if present, this will label the dataset in disc jockey. Otherwise, label is generated from other kwargs.
+
+        # -------------------- Parameter initialisation
+
+        N = parse_param(kwargs, "N")
+        N_subsample = parse_param(kwargs, "N_sub", 1)
+        N_no_cov = min(parse_param(kwargs, "N_no_cov", 0), N_subsample)
+
+        randomise_signs = parse_param(kwargs, "rs", "rp", {"ai", "rs", "rp"})
+        rs_label = f"({randomise_signs})"
+
+        sym = parse_param(kwargs, "sym", "default", {"default", "full", "phase", "none"})
+        alpha = parse_param(kwargs, "alpha", 1.0)
+        eta = parse_param(kwargs, "eta", 1e-1)
+
+        dataset_label = parse_param(kwargs, "dataset_label", f"LEGS_standard_{N}_{N_subsample}_{N_no_cov}_{rs_label}_{sym}_{alpha}")
+
+        self.log.enter(f"Obtaining the ground state with the method \"LEGS standard\" [N = {N}, N_sub = {N_subsample}, N_no_cov = {N_no_cov}, rs = {randomise_signs}, sym = {sym}, alpha = {alpha}, eta = {eta}]", 1)
+
+
+        # Disk jockey node creation and metadata storage
+        self.disk_jockey.create_data_nodes({dataset_label : {"basis_samples" : "pkl", "result_energy_states" : "csv"}})
+        self.disk_jockey.commit_metadatum(dataset_label, "basis_samples", {
+                "method" : "LEGS_Zombie_cov_RSOPM_moment_matching", # required
+                "params" : {
+                    "N" : N,
+                    "N_sub" : N_subsample,
+                    "N_no_cov" : N_no_cov,
+                    "rs" : randomise_signs,
+                    "sym" : sym,
+                    "alpha" : alpha,
+                    "eta" : eta
+                }
+            })
+        self.user_actions += f"find_ground_state_LEGS_standard [N = {N}, N_sub = {N_subsample}, N_no_cov = {N_no_cov}, rs = {randomise_signs}, sym = {sym}, alpha = {alpha}, eta = {eta}]\n"
+        procedure_diagnostic = []
+
+        if "LE_sol" not in self.checklist:
+            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            self.log.exit()
+            return(None)
+
+        if randomise_signs == "ai":
+            self.log.write("Parameter phases are untouched after sampling.")
+        elif randomise_signs == "rs":
+            self.log.write("Parameter signs are randomised.")
+        elif randomise_signs == "rp":
+            self.log.write("Parameter phases are randomised.")
+
+        if sym == "default":
+            self.log.write("Automatic symmetry determination.")
+            if self.HF_method == "RHF":
+                sym = "phase"
+                self.log.write("Restricted HF -> magnitudes symmetrical, phases randomised.")
+            elif self.HF_method == "UHF":
+                sym = "none"
+                self.log.write("Unrestricted HF -> no symmetrisation between spin-subspaces except for covariance.")
+
+        # We now manually sample Thouless states guided by the LE solution
+        cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
+
+        # We find the means and the covariances
+        spin_idx_dict = {"a" : 0, "b" : 1}
+        spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.N_MO + i
+        means = np.zeros( 2 * self.N_MO )
+        sq_means = np.zeros( 2 * self.N_MO )
+        variances = np.zeros( 2 * self.N_MO )
+        cov = np.zeros( (2 * self.N_MO, 2 * self.N_MO) )
+
+
+
+        dec_point = 4
+
+        eta = {"a" : np.zeros(self.N_MO, dtype = int), "b" : np.zeros(self.N_MO, dtype = int)}
+        eta["a"][self.S_alpha:] = 1
+        eta["b"][self.S_beta:] = 1
+
+        # -------------------- Variances --------------------
+
+        # var(zeta_i) = <S_i> / binom(S, eta_i)
+        #variances = self.LE_sol["RNCS"] ** 2 # <z_i^2>, taking <z_i> = 0
+
+        for i in range(self.N_MO):
+            variances[spat_to_spin_idx("a", i)] = self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] / math.comb(self.S_alpha, eta["a"][i])
+            variances[spat_to_spin_idx("b", i)] = self.LE_sol["RSOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", i)] / math.comb(self.S_beta, eta["b"][i])
+
+        cov = np.diag(variances)
+
+        # initialise covariances
+
+        # If the inside of any sqrt should be negative, we ascribe this to an issue with the approximations used
+        # and set the value to zero (no overshooting to negatives)
+
+        # alpha-alpha
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
+
+                cur_cov_sq = np.abs( 0.5 * (
+                    self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] / math.comb(self.S_alpha + eta["a"][i] + eta["a"][j] - 2, self.S_alpha - 2)
+                    - variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("a", j)]
+                    ) )
+                if cur_cov_sq > 0.0:
+                    cur_cov = alpha * np.sqrt(cur_cov_sq)
+                else:
+                    cur_cov = 0.0
+
+                cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)] = cur_cov
+                cov[spat_to_spin_idx("a", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", j)]
+        # beta-beta
+        for i in range(self.N_MO):
+            for j in range(i + 1, self.N_MO):
+                cur_cov_sq = np.abs(0.5 * (
+                    self.LE_sol["RSOPM"][spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] / math.comb(self.S_beta + eta["b"][i] + eta["b"][j] - 2, self.S_beta - 2)
+                    - variances[spat_to_spin_idx("b", i)] * variances[spat_to_spin_idx("b", j)]
+                    ))
+                if cur_cov_sq > 0.0:
+                    cur_cov = alpha * np.sqrt(cur_cov_sq)
+                else:
+                    cur_cov = 0.0
+                cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)] = cur_cov
+                cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("b", i)] = cov[spat_to_spin_idx("b", i)][spat_to_spin_idx("b", j)]
+
+        # alpha-beta
+
+        for i in range(self.N_MO):
+            for j in range(self.N_MO):
+                cur_cov_sq = np.abs(0.5 * (
+                    self.LE_sol["RSOPM"][spat_to_spin_idx("a", i)][spat_to_spin_idx("b", j)] / (math.comb(self.S_alpha, eta["a"][i]) * math.comb(self.S_beta, eta["b"][j]))
+                    - variances[spat_to_spin_idx("a", i)] * variances[spat_to_spin_idx("b", j)]
+                    ))
+                if cur_cov_sq > 0.0:
+                    cur_cov = alpha * np.sqrt(cur_cov_sq)
+                else:
+                    cur_cov = 0.0
+                cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", j)] = cur_cov
+                cov[spat_to_spin_idx("b", j)][spat_to_spin_idx("a", i)] = cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("b", j)]
+
+        if sym == "full":
+            diagnostic_table = []
+            for i in range(self.N_MO):
+                diagnostic_table.append([
+                    np.round(means[spat_to_spin_idx("a", i)], dec_point),
+                    np.round(np.sqrt(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)]), dec_point),
+                    np.round(cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
+                    np.round(np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) - cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], dec_point),
+                    np.round(2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])), dec_point),
+                    np.round(100 * (2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) ) / cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], 1)
+                    ])
+
+            self.log.print_table(
+                table_name = "LE Zombie diag.",
+                column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
+                row_names = np.arange(1, self.N_MO + 1, 1, dtype = int),
+                list_of_rows = diagnostic_table
+                )
+
+            self.log.print_matrix(cov[:self.N_MO,:self.N_MO], "covariance matrix", dec_points = 5)
+        else:
+            diagnostic_table = []
+            for s in ["a", "b"]:
+                for i in range(self.N_MO):
+                    diagnostic_table.append([
+                        np.round(means[spat_to_spin_idx(s, i)], dec_point),
+                        np.round(np.sqrt(cov[spat_to_spin_idx(s, i)][spat_to_spin_idx(s, i)]), dec_point),
+                        np.round(cov[spat_to_spin_idx(s, i)][spat_to_spin_idx(s, i)], dec_point),
+                        np.round(np.sum(np.abs(cov[spat_to_spin_idx(s, i)])) - cov[spat_to_spin_idx(s, i)][spat_to_spin_idx(s, i)], dec_point),
+                        np.round(2 * cov[spat_to_spin_idx(s, i)][spat_to_spin_idx(s, i)] - np.sum(np.abs(cov[spat_to_spin_idx(s, i)])), dec_point),
+                        np.round(100 * (2 * cov[spat_to_spin_idx(s, i)][spat_to_spin_idx(s, i)] - np.sum(np.abs(cov[spat_to_spin_idx(s, i)])) ) / cov[spat_to_spin_idx(s, i)][spat_to_spin_idx(s, i)], 1)
+                        ])
+
+            self.log.print_table(
+                table_name = "LE Zombie diag.",
+                column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
+                row_names = np.arange(1, 2 * self.N_MO + 1, 1, dtype = int),
+                list_of_rows = diagnostic_table
+                )
+
+            self.log.print_matrix(cov[:self.N_MO, :self.N_MO], "cov(a, a)", dec_points = 5)
+            self.log.print_matrix(cov[:self.N_MO, self.N_MO:], "cov(a, b)", dec_points = 5)
+            self.log.print_matrix(cov[self.N_MO:, self.N_MO:], "cov(b, b)", dec_points = 5)
+
+        # -------------- making sure covariances dont overshadow the variances ----------------
+
+        eigvals, eigvecs = np.linalg.eigh(cov)
+        min_eigval = min(eigvals)
+        if min_eigval <= 0.0:
+            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+
+        # We pre-sample the parameters
+        # Some with cov...
+        rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * (N_subsample - N_no_cov))
+        # ...and some without
+        rand_X_no_cov = np.random.randn(N * N_no_cov, 2 * self.N_MO) * np.sqrt(variances) + means
+
+        raw_Z_sample = np.zeros((2, N, N_subsample, self.N_MO), dtype = complex)
+
+
+        self.log.enter("Treating phase randomisation and spin symmetrisation of sample...")
+
+        if sym == "full":
+            self.log.write("Full symmetry across spin-subspaces.")
+
+            for n in range(N):
+                # First, the cov elements...
+                for n_sub in range(N_subsample - N_no_cov):
+                    for i in range(self.N_MO):
+                        raw_Z_sample[0][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("a", i)]
+                # ...then the no cov elements.
+                for n_sub in range(N_no_cov):
+                    for i in range(self.N_MO):
+                        raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
+
+            self.log.write("Randomising parameter phases...")
+            spin_symmetrical_randsign_mask = functions.randsign_mask((N, N_subsample, self.N_MO), randomise_signs)
+            raw_Z_sample[0] = raw_Z_sample[0] * spin_symmetrical_randsign_mask
+
+            self.log.write("Setting |Z_beta> = |Z_alpha> for each basis state...")
+            raw_Z_sample[1] = raw_Z_sample[0]
+
+        if sym == "phase":
+            self.log.write("Magnitudes symmetrical, phases randomised across spin-subspaces.")
+
+            for n in range(N):
+                # First, the cov elements...
+                for n_sub in range(N_subsample - N_no_cov):
+                    for i in range(self.N_MO):
+                        raw_Z_sample[0][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("a", i)]
+                # ...then the no cov elements.
+                for n_sub in range(N_no_cov):
+                    for i in range(self.N_MO):
+                        raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
+
+            raw_Z_sample[1] = raw_Z_sample[0]
+
+            self.log.write("Randomising parameter phases...")
+            raw_Z_sample = raw_Z_sample * functions.randsign_mask(raw_Z_sample.shape, randomise_signs)
+
+
+        if sym == "none":
+            self.log.write("No symmetrisation between spin-subspaces.")
+
+            for n in range(N):
+                # First, the cov elements...
+                for n_sub in range(N_subsample - N_no_cov):
+                    for i in range(self.N_MO):
+                        raw_Z_sample[0][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("a", i)]
+                        raw_Z_sample[1][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("b", i)]
+                # ...then the no cov elements.
+                for n_sub in range(N_no_cov):
+                    for i in range(self.N_MO):
+                        raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
+                        raw_Z_sample[1][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("b", i)]
+
+            self.log.write("Randomising parameter phases...")
+            raw_Z_sample = raw_Z_sample * functions.randsign_mask(raw_Z_sample.shape, randomise_signs)
+
+        self.log.exit()
+
+        N_vals = [1]
+        convergence_sols = [self.reference_state_energy]
+
+        matrix_condition = "H"
+
+        msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
+        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
+        if matrix_condition == "H":
+            max_tau =  N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1
+        elif matrix_condition == "S":
+            max_tau = ((N + 2) * (N + 1) / 2 - 1) + 1
+        self.log.enter(msg, 1, True, tau_space = np.linspace(0, max_tau, 1000 + 1))
+
+        for n in range(N):
+            # We add the best out of 10 random states
+            cur_subsample = []
+            for n_sub in range(N_subsample):
+
+                rand_z_alpha = CS_Qubit(self.N_MO, self.S_alpha, raw_Z_sample[0][n][n_sub])
+                rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
+                cur_subsample.append([rand_z_alpha, rand_z_beta])
+
+            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True, condition = matrix_condition, reject_high_overlap = True)
+            N_vals.append(cur_sample.N)
+            convergence_sols.append(cur_sample.E_ground[-1])
+
+        procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
+
+        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
+        calc_duration = self.log.exit("Evaluation")
+
+        csv_sol = [] # list of rows
+        for i in range(len(N_vals)):
+            csv_sol.append({"N" : N_vals[i], "E [H]" : float(convergence_sols[i])})
+
+
+
+        # We estimate the error on a single-basis-state energy estimate
+        N_err_est = 10
+
+        self.log.enter("Estimating the error on an N=1 dataset", semaphored = True, tau_space = np.linspace(0, N_err_est, 100 + 1))
+
+        E_err_min = []
+        for n in range(N_err_est):
+            cur_err_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
+            cur_rand_X = functions.sample_with_autocorrelation_safe(means, cov, N_subsample - N_no_cov)
+            # ...and some without
+            cur_rand_X_no_cov = np.random.randn(N_no_cov, 2 * self.N_MO) * np.sqrt(variances) + means
+
+            #if randomise_signs:
+            cur_rand_X = cur_rand_X * functions.randsign_mask(cur_rand_X.shape, randomise_signs)
+            cur_rand_X_no_cov = cur_rand_X_no_cov * functions.randsign_mask(cur_rand_X_no_cov.shape, randomise_signs)
+
+            cur_raw_Z_sample = [
+                np.zeros((N_subsample, self.N_MO), dtype = complex),
+                np.zeros((N_subsample, self.N_MO), dtype = complex)
+                ]
+
+            for n_sub in range(N_subsample - N_no_cov):
+                for i in range(self.N_MO):
+                    cur_raw_Z_sample[0][n_sub][i] = cur_rand_X[n_sub][spat_to_spin_idx("a", i)]
+                    if self.HF_method == "RHF":
+                        cur_raw_Z_sample[1][n_sub][i] = cur_raw_Z_sample[0][n_sub][i]
+                    elif self.HF_method == "UHF":
+                        cur_raw_Z_sample[1][n_sub][i] = cur_rand_X[n_sub][spat_to_spin_idx("b", i)]
+            # ...then the no cov elements.
+            for n_sub in range(N_no_cov):
+                for i in range(self.N_MO):
+                    cur_raw_Z_sample[0][N_subsample - N_no_cov + n_sub][i] = cur_rand_X_no_cov[n_sub][spat_to_spin_idx("a", i)]
+                    if self.HF_method == "RHF":
+                        cur_raw_Z_sample[1][N_subsample - N_no_cov + n_sub][i] = cur_raw_Z_sample[0][N_subsample - N_no_cov + n_sub][i]
+                    elif self.HF_method == "UHF":
+                        cur_raw_Z_sample[1][N_subsample - N_no_cov + n_sub][i] = cur_rand_X_no_cov[n_sub][spat_to_spin_idx("b", i)]
+
+            cur_subsample = []
+            for n_sub in range(N_subsample):
+
+                rand_z_alpha = CS_Qubit(self.N_MO, self.S_alpha, cur_raw_Z_sample[0][n_sub])
+                rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, cur_raw_Z_sample[1][n_sub])
+                cur_subsample.append([rand_z_alpha, rand_z_beta])
+
+            cur_err_sample.add_best_of_subsample(cur_subsample, condition = matrix_condition, reject_high_overlap = True)
+            E_err_min.append(cur_err_sample.E_ground[-1])
+
+            self.log.update_semaphor_event(n + 1)
+
+        self.log.exit("Error evaluation")
+
+        E_base_err = np.std(E_err_min)
+        self.log.write(f"Error on a single-state basis: {E_base_err}")
+
+        # --------------- We extrapolate using inverse sqrt law ----------------
+        E_zero, E_zero_err = self.extrapolate_by_inverse_sqrt(csv_sol)
+
+        self.log.write(f"Value of lin fit at x = 0: {E_zero} +- {E_zero_err}.sigma_0, where sigma_0 is the error on a single datapoint.")
+
+
+
+        self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
+        self.disk_jockey.commit_datum_bulk(dataset_label, "result_energy_states", csv_sol)
+        self.disk_jockey.commit_metadatum(dataset_label, "result_energy_states", {
+            "E_g" : cur_sample.E_ground[-1],
+            "E_base_err" : E_base_err,
+            "E_extrapolated" : E_zero,
+            "E_extrapolated_err" : E_zero_err,
+            "duration" : calc_duration
+            })
+        self.diagnostics_log.append({f"find_ground_state_LEGS_standard ({dataset_label})" : procedure_diagnostic})
+
+        self.measured_datasets.append(dataset_label)
+
+        self.log.write(f"Measured datasets: {self.measured_datasets}")
+
+        self.log.exit()
+        return(N_vals, convergence_sols)
+
     def find_ground_state_from_z_tensor(self, **kwargs):
 
         # This method uses Zombie (Qubit) states.
@@ -3516,8 +3925,44 @@ class ground_state_solver():
 
         #self.log.write(f"For N_min = {min_N}; intercept {res.intercept} +- {res.intercept_stderr}")
 
+        #return(res.intercept, res.intercept_stderr / np.sqrt(N_space[-1] - N_space[trim_i]))
         return(res.intercept, res.intercept_stderr)
 
+
+    def get_optimal_linfit(self, dataset_label, base_err, min_number_of_datapoints = 10):
+        N_space = []
+        for row in self.disk_jockey.data_bulks[dataset_label]["result_energy_states"]:
+            N_space.append(row["N"])
+        N_cutoff_space = N_space[:-10] # we don't consider cutoffs for which the number of datapoints is smaller than 10
+
+        self.log.write(f"Cutoff N values range from {N_cutoff_space[0]} to {N_cutoff_space[-1]}.")
+
+        E_ext_space = np.zeros(len(N_cutoff_space))
+        E_ext_err_space = np.zeros(len(N_cutoff_space))
+
+        for i in range(len(N_cutoff_space)):
+            cur_E_ext, cur_E_ext_err = self.extrapolate_by_inverse_sqrt(self.disk_jockey.data_bulks[dataset_label]["result_energy_states"], N_cutoff_space[i])
+            E_ext_space[i] = cur_E_ext
+            E_ext_err_space[i] = cur_E_ext_err * base_err
+
+        self.log.write("Extrapolated energy and its uncertainty calculated for each cutoff N value.")
+
+        # As our FINAL GUESS, we select the first datapoint (lowest cutoff) for which all subsequent datapoints are within its interval of uncertainty
+        """for i in range(len(N_cutoff_space)):
+            is_consistent_with_subsequent_datapoints = True
+            for j in range(i + 1, len(N_cutoff_space)):
+                if E_ext_space[j] > E_ext_space[i] + E_ext_err_space[i] or E_ext_space[j] < E_ext_space[i] - E_ext_err_space[i]:
+                    is_consistent_with_subsequent_datapoints = False
+                    break
+            if is_consistent_with_subsequent_datapoints:
+                final_guess = E_ext_space[i]
+                final_guess_err = E_ext_err_space[i]
+                final_guess_index = i
+                break"""
+        final_guess_index = np.argmin(E_ext_err_space)
+        final_guess = E_ext_space[final_guess_index]
+        final_guess_err = E_ext_err_space[final_guess_index]
+        return(final_guess_index, final_guess, final_guess_err, N_space[final_guess_index])
 
 
     def get_dataset_info(self, dataset_label_list, base_err_dict = None):
@@ -3530,7 +3975,7 @@ class ground_state_solver():
         self.log.write(f"Requested datasets: {', '.join(dataset_label_list)}")
 
         res = {
-            "CI" : self.ci_energy,
+            "FCI" : self.FCI_sol,
             "HF" : self.reference_state_energy,
             "LE" : self.LE_sol["E"]
             }
@@ -3554,7 +3999,7 @@ class ground_state_solver():
                 else:
                     base_err = base_err_dict[dataset_label]
                     self.log.write(f"Base error is given as {base_err}")
-                N_space = []
+                """N_space = []
                 for row in self.disk_jockey.data_bulks[dataset_label]["result_energy_states"]:
                     N_space.append(row["N"])
                 N_cutoff_space = N_space[:-10] # we don't consider cutoffs for which the number of datapoints is smaller than 10
@@ -3571,32 +4016,28 @@ class ground_state_solver():
 
                 self.log.write("Extrapolated energy and its uncertainty calculated for each cutoff N value.")
 
-                # As our FINAL GUESS, we select the first datapoint (lowest cutoff) for which all subsequent datapoints are within its interval of uncertainty
-                """for i in range(len(N_cutoff_space)):
-                    is_consistent_with_subsequent_datapoints = True
-                    for j in range(i + 1, len(N_cutoff_space)):
-                        if E_ext_space[j] > E_ext_space[i] + E_ext_err_space[i] or E_ext_space[j] < E_ext_space[i] - E_ext_err_space[i]:
-                            is_consistent_with_subsequent_datapoints = False
-                            break
-                    if is_consistent_with_subsequent_datapoints:
-                        final_guess = E_ext_space[i]
-                        final_guess_err = E_ext_err_space[i]
-                        final_guess_index = i
-                        break"""
                 final_guess_index = np.argmin(E_ext_err_space)
                 final_guess = E_ext_space[final_guess_index]
-                final_guess_err = E_ext_err_space[final_guess_index]
-                self.log.write(f"Lowest consistent cutoff N value is {N_cutoff_space[final_guess_index]}; corresponding ext. E = {final_guess:0.5f} +- {final_guess_err:0.5f}")
+                final_guess_err = E_ext_err_space[final_guess_index]"""
+                final_guess_index, final_guess, final_guess_err, final_guess_N = self.get_optimal_linfit(dataset_label, base_err)
+                self.log.write(f"Lowest consistent cutoff N value is {final_guess_N}; corresponding ext. E = {final_guess:0.5f} +- {final_guess_err:0.5f}")
                 self.log.exit()
             else:
                 self.log.write("Base error (on an N = 1 calculation) not given; extrapolation meta-analysis skipped.")
 
 
+            # We collect the bulk
+            bulk_csv = self.disk_jockey.data_bulks[dataset_label]["result_energy_states"]
+            E_bulk = []
+            for row in bulk_csv:
+                E_bulk.append(row["E [H]"])
+
             res[dataset_label] = {
                 "E_g" : self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_g"],
                 "E_extrapolated" : final_guess, #self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_extrapolated"],
                 "E_extrapolated_err" : final_guess_err, #self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_extrapolated_err"],
-                "duration" : self.disk_jockey.metadata[dataset_label]["result_energy_states"]["duration"]
+                "duration" : self.disk_jockey.metadata[dataset_label]["result_energy_states"]["duration"],
+                "E_bulk" : E_bulk
                 }
             self.log.write(f"  -Ground state energy estimate: {res[dataset_label]['E_g']}")
             if final_guess is not None:
@@ -3692,7 +4133,7 @@ class ground_state_solver():
             self.HF_method = HF_method
             self.log.write("Mean field method: Restricted Hartree-Fock (selected by user)")
             if self.mol.spin != 0:
-                self.log.write("WARNING: The molecule is not a singlet, RHF is unsuitable.")
+                self.log.warning("The molecule is not a singlet, RHF is unsuitable.")
         elif HF_method == "UHF":
             self.HF_method = HF_method
             self.log.write("Mean field method: Unrestricted Hartree-Fock (selected by user)")
@@ -3805,7 +4246,7 @@ class ground_state_solver():
         self.log.write(f"  -in the spin-alpha subspace: {occ_orbs_alpha}", 4)
         self.log.write(f"  -in the spin-beta subspace:  {occ_orbs_beta}", 4)
 
-        self.log.write("Testing each CS type Hamiltonian overlap evaluation against the reference state...")
+        """self.log.write("Testing each CS type Hamiltonian overlap evaluation against the reference state...")
         for CS_type in self.coherent_state_types.keys():
             null_state_alpha = self.coherent_state_types[CS_type].null_state(self.N_MO, self.S_alpha)
             null_state_beta = self.coherent_state_types[CS_type].null_state(self.N_MO, self.S_beta)
@@ -3815,7 +4256,7 @@ class ground_state_solver():
                 nse_comment = "agrees"
             else:
                 nse_comment = "disagrees"
-            self.log.write(f"  -For {CS_type}: E_ref = {null_state_direct_self_energy:0.5f}, which {nse_comment} with the true value", 4)
+            self.log.write(f"  -For {CS_type}: E_ref = {null_state_direct_self_energy:0.5f}, which {nse_comment} with the true value", 4)"""
         self.log.exit() # exits reference state analysis
 
         self.user_actions += f"initialise_molecule [HF_method = \"{HF_method}\", N_MO = {N_MO}]\n"
@@ -3847,7 +4288,8 @@ class ground_state_solver():
 
         if "full_CI_sol" in self.checklist:
             print("Full CI by PySCF already performed.")
-            return(self.ci_energy)
+            return(self.FCI_sol)
+
 
         if self.HF_method == "RHF":
             cisolver = fci.FCI(self.mol, self.MO_coefs["a"])
@@ -3858,12 +4300,16 @@ class ground_state_solver():
             return(None)
 
         self.log.write("FCI solver initialised...", 0)
-        self.ci_energy, raw_ci_sol = cisolver.kernel()
+        FCI_start_time = time.time()
+        self.FCI_sol["E"], raw_ci_sol = cisolver.kernel()
+        self.FCI_sol["duration"] = time.time() - FCI_start_time
+
+        self.log.write(f"FCI calculation duration: {functions.dtstr(self.FCI_sol['duration'])}", 0)
 
         # We convert the raw_ci_sol object (which is an FCIvector) into a dict
         # with tuples as keys (tuples represent occupancy strings)
 
-        self.ci_sol = {}
+        self.FCI_sol["sol"] = {}
 
         self.log.write("Regularising solution as a dict of tuples...", 3)
         for a in range(raw_ci_sol.shape[0]):
@@ -3871,13 +4317,13 @@ class ground_state_solver():
                 alpha_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(self.N_MO, self.S_alpha, a)))
                 beta_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(self.N_MO, self.S_beta, b)))
                 key = (alpha_occ, beta_occ)
-                self.ci_sol[key] = float(raw_ci_sol[a, b])
+                self.FCI_sol["sol"][key] = float(raw_ci_sol[a, b])
 
         self.check_off("full_CI_sol")
 
-        self.log.write(f"Ground state energy as calculated by SCF (full configuration) = {self.ci_energy:0.5f}", 0)
+        self.log.write(f"Ground state energy as calculated by SCF (full configuration) = {self.FCI_sol['E']:0.5f}", 0)
         self.log.exit()
-        return(self.ci_energy)
+        return(self.FCI_sol)
 
 
 
@@ -3977,9 +4423,9 @@ class ground_state_solver():
         # equal spin
         c_pairs = functions.subset_indices(np.arange(self.N_MO), 2)
         a_pairs = functions.subset_indices(np.arange(self.N_MO), 2)
-        upup = 0.0
-        downdown = 0.0
-        mixed = 0.0
+        #upup = 0.0
+        #downdown = 0.0
+        #mixed = 0.0
         for c_pair in c_pairs:
             for a_pair in a_pairs:
 
@@ -3999,8 +4445,8 @@ class ground_state_solver():
                 # beta beta
                 H_two_term += prefactor_same_spin_beta * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
 
-                upup += prefactor_same_spin_alpha * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
-                downdown += prefactor_same_spin_beta * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
+                #upup += prefactor_same_spin_alpha * pair_a[0].norm_overlap(pair_b[0], [j, i], [l, k]) * beta_overlap
+                #downdown += prefactor_same_spin_beta * pair_a[1].norm_overlap(pair_b[1], [j, i], [l, k]) * alpha_overlap
 
         # opposite spin
         for i in range(self.N_MO):
@@ -4020,7 +4466,7 @@ class ground_state_solver():
                         #H_two_term += prefactor * pair_a[0].norm_overlap(pair_b[0], [j], [l]) * pair_a[1].norm_overlap(pair_b[1], [i], [k])
                         H_two_term += prefactor_beta_alpha * W_alpha[j][l] * W_beta[i][k]
 
-                        mixed += prefactor_alpha_beta * W_alpha[i][k] * W_beta[j][l] + prefactor_beta_alpha * W_alpha[j][l] * W_beta[i][k]
+                        #mixed += prefactor_alpha_beta * W_alpha[i][k] * W_beta[j][l] + prefactor_beta_alpha * W_alpha[j][l] * W_beta[i][k]
 
 
         #print(H_one_term, H_two_term)
@@ -4169,20 +4615,20 @@ class ground_state_solver():
     # Note that ci_sol is a dict with 2-tuples of occ-tuples as keys.
 
     def print_ground_state(self):
-        assert self.ci_sol is not None
+        assert self.FCI_sol["sol"] is not None
 
         print("Printing ground state solution on the full CI...")
-        print(self.ci_sol)
+        print(self.FCI_sol["sol"])
 
     def ground_state_component(self, alpha_occupancy, beta_occupancy):
-        assert self.ci_sol is not None
+        assert self.FCI_sol["sol"] is not None
 
         # Access coefficient
         if isinstance(alpha_occupancy, tuple):
-            return(self.ci_sol[(alpha_occupancy, beta_occupancy)])
+            return(self.FCI_sol["sol"][(alpha_occupancy, beta_occupancy)])
         elif isinstance(alpha_occupancy, list):
-            return(self.ci_sol[(self.occ_list_to_occ_tuple(alpha_occupancy), self.occ_list_to_occ_tuple(beta_occupancy) )])
-        #return(self.ci_sol[alpha_idx, beta_idx])
+            return(self.FCI_sol["sol"][(self.occ_list_to_occ_tuple(alpha_occupancy), self.occ_list_to_occ_tuple(beta_occupancy) )])
+        #return(self.FCI_sol["sol"][alpha_idx, beta_idx])
 
     # ------------------------------ RHF methods ------------------------------
 
@@ -4634,7 +5080,7 @@ class ground_state_solver():
         ground_state_energy = energy_levels[ground_state_index]
         ground_state_vector = energy_states[:,ground_state_index] # note that energy_states consist of column vectors, not row vectors
 
-        self.log.write(f"Ground state energy: {ground_state_energy} (compare to full CI: {self.ci_energy})", 1)
+        self.log.write(f"Ground state energy: {ground_state_energy} (compare to full CI: {self.FCI_sol['E']})", 1)
 
         # Mark as solved
         self.check_off("LE_sol")
@@ -4763,7 +5209,7 @@ class ground_state_solver():
             ground_state_vector = energy_states[:,ground_state_index] # note that energy_states consist of column vectors, not row vectors
 
             if "full_CI_sol" in self.checklist:
-                self.log.write(f"Ground state energy: {ground_state_energy:0.5f} (compare to full CI: {self.ci_energy:0.5f})", 1)
+                self.log.write(f"Ground state energy: {ground_state_energy:0.5f} (compare to full CI: {self.FCI_sol['E']:0.5f})", 1)
             else:
                 self.log.write(f"Ground state energy: {ground_state_energy:0.5f}", 1)
 
@@ -4829,7 +5275,7 @@ class ground_state_solver():
             self.log.write(f"Obtained CISD solution (basis length = {len(cisd_solver.ci)})")
 
             if "full_CI_sol" in self.checklist:
-                self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f} (compare to full CI: {self.ci_energy:0.5f})", 1)
+                self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f} (compare to full CI: {self.FCI_sol['E']:0.5f})", 1)
             else:
                 self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f}", 1)
 
@@ -5023,7 +5469,7 @@ class ground_state_solver():
         self.log.write(f"Obtained CISD solution (basis length = {len(cisd_solver.ci)})")
 
         if "full_CI_sol" in self.checklist:
-            self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f} (compare to full CI: {self.ci_energy:0.5f})", 1)
+            self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f} (compare to full CI: {self.FCI_sol['E']:0.5f})", 1)
         else:
             self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f}", 1)
 
@@ -5503,6 +5949,8 @@ class ground_state_solver():
         # The RNCS is simply a Qubit CS for which every expected occupancy
         # matches the LE solution after projecting out |HF>
 
+
+
         self.log.enter("Calculating the reduced null-coherent state...")
 
         # Firstly, we renormalise RSOPM to satisfy the constraint
@@ -5519,15 +5967,15 @@ class ground_state_solver():
             y_0[i] = np.log(RSOPM_renorm[i][i])
         y_0_norm_sq = cur_scale(y_0)
         self.log.write(f"Norm squared of initial guess is {y_0_norm_sq}. Renormalising...")
-        """"
-        z^2 = e^y
-        {z|z} = e_S(z^2) = e_S(e^y)
-        Let y = y + c
-        then e^y = e^c.e^y
-        then {z|z} = {z|z} . e^Sc
-        We want e^Sc = 1 / cur scale
-        hence c = -ln(cur_scale) / S
-        """
+
+        # z^2 = e^y
+        # {z|z} = e_S(z^2) = e_S(e^y)
+        # Let y = y + c
+        # then e^y = e^c.e^y
+        # then {z|z} = {z|z} . e^Sc
+        # We want e^Sc = 1 / cur scale
+        # hence c = -ln(cur_scale) / S
+
 
         y_0 -= np.log(y_0_norm_sq) / (self.S_alpha + self.S_beta)
         y_0_norm_sq = cur_scale(y_0)
@@ -5620,6 +6068,8 @@ class ground_state_solver():
         self.log.exit()
 
 
+
+
         self.log.exit()
 
 
@@ -5679,8 +6129,9 @@ class ground_state_solver():
                 })
         if "full_CI_sol" in self.checklist:
             self.disk_jockey.commit_datum_bulk("self_analysis", "full_CI_sol", {
-                "E" : self.ci_energy,
-                "sol" : {str(k): v for k, v in self.ci_sol.items()} # each key is a tuple of tuples
+                "E" : self.FCI_sol['E'],
+                "sol" : {str(k): v for k, v in self.FCI_sol['sol'].items()}, # each key is a tuple of tuples
+                "duration" : self.FCI_sol['duration']
                 })
         if "LE_sol" in self.checklist:
             LE_sol_encoded = {
@@ -5748,8 +6199,11 @@ class ground_state_solver():
 
                 if "full_CI_sol" in loaded_checklist:
                     loaded_full_CI_sol = self.disk_jockey.data_bulks["self_analysis"]["full_CI_sol"]
-                    self.ci_energy = loaded_full_CI_sol["E"]
-                    self.ci_sol = {self.occ_tuple_restore(k): v for k, v in loaded_full_CI_sol["sol"].items()}
+                    self.FCI_sol = {
+                        "E" : loaded_full_CI_sol["E"],
+                        "sol" : {self.occ_tuple_restore(k): v for k, v in loaded_full_CI_sol["sol"].items()},
+                        "duration" : loaded_full_CI_sol.get("duration", 0)
+                        }
                     self.check_off("full_CI_sol")
                     self.log.write("Results from SCF performed on the full CI loaded...", 4)
 
@@ -5790,18 +6244,19 @@ class ground_state_solver():
 
             if "measured_datasets" in what_to_load:
                 self.log.enter("Restoring measured datasets...", 3)
+
                 for loaded_dataset in load_specific_datasets:
                     if loaded_dataset not in self.disk_jockey.data_nodes.keys():
-                        self.log.write(f"WARNING: Requested dataset '{loaded_dataset}' not found on disk.")
+                        self.log.warning(f"Requested dataset '{loaded_dataset}' not found on disk.")
                     elif loaded_dataset in self.measured_datasets:
-                        self.log.write(f"WARNING: Requested dataset '{loaded_dataset}' initialised during computation session. Loading aborted to not overwrite session data.")
+                        self.log.warning(f"Requested dataset '{loaded_dataset}' initialised during computation session. Loading aborted to not overwrite session data.")
                     else:
                         self.log.enter(f"Loading dataset '{loaded_dataset}'...", 4)
                         for dataset_datum in self.disk_jockey.data_nodes[loaded_dataset]:
                             self.disk_jockey.load_datum(loaded_dataset, dataset_datum)
                         self.measured_datasets.append(loaded_dataset)
                         self.log.write(f"Results from dataset '{loaded_dataset}' loaded.", 4)
-                        self.log.write(f"  -sampling method: {self.disk_jockey.metadata[loaded_dataset]["basis_samples"]["method"]}", 4)
+                        self.log.write(f"  -sampling method: {self.disk_jockey.metadata[loaded_dataset]["basis_samples"].get("method", "unknown")}", 4)
                         self.log.write(f"  -parameters:", 4)
                         for param_name, param_val in self.disk_jockey.metadata[loaded_dataset]["basis_samples"]["params"].items():
                             self.log.write(f"    -{param_name}: {param_val}", 4)
@@ -5836,7 +6291,7 @@ class ground_state_solver():
         if "mol_init" in self.checklist:
             plt.axhline(y = self.reference_state_energy, label = "ref state", color = functions.ref_energy_colors["ref state"])
         if "full_CI_sol" in self.checklist:
-            plt.axhline(y = self.ci_energy, label = "full CI", color = functions.ref_energy_colors["full CI"])
+            plt.axhline(y = self.FCI_sol['E'], label = "full CI", color = functions.ref_energy_colors["full CI"])
         if "LE_sol" in self.checklist:
             # LE ground state
             plt.axhline(y = self.LE_sol["E"], label = "LE CI", color = functions.ref_energy_colors["LE CI"])
@@ -5862,7 +6317,7 @@ class ground_state_solver():
         # We add a second y axis which shows the difference from the real ground state (if given) in Kelvin
         # If full CI sol is known, we set it to 0. Otherwise, we set the HF state energy to 0
         if "full_CI_sol" in self.checklist:
-            ref_E = self.ci_energy
+            ref_E = self.FCI_sol['E']
         else:
             ref_E = self.reference_state_energy
         H_in_K = 315775.326864009 # tha value of 1 Hartree in Kelvin
@@ -5881,7 +6336,7 @@ class ground_state_solver():
 
         self.log.exit()
 
-    def plot_datasets_extra(self, reference_energies = None):
+    def plot_datasets_extra(self, aggregate = False, reference_energies = None):
         # Plots energy against configuration size
         self.log.enter("Plotting obtained measurements...", 1)
 
@@ -5892,6 +6347,9 @@ class ground_state_solver():
         linfit_xspace = np.linspace(0.0, 1.0, 3)
         min_N = 10 # do not consider lower values of N for the fit
         sigma_zero = 0.01 # dummy val of inherent err
+
+        measured_datalines = []
+        fitted_datalines = []
 
         for i in range(len(self.measured_datasets)):
             self.log.write(f"Collecting data from dataset '{self.measured_datasets[i]}'...", 5)
@@ -5912,16 +6370,14 @@ class ground_state_solver():
 
 
             sqinv_N_space = np.array(1/np.sqrt(N_space))
-            sqinv_N_space_yerr = sigma_zero * sqinv_N_space # the lower the N value, the higher the uncertainty! propto 1/sqrt(N). Res err is quoted as a proportion to the unknown coef
-            popt, pcov = sp.optimize.curve_fit(
-                lambda x, l, c: l * x + c,
-                sqinv_N_space[trim_i:],
-                E_space[trim_i:],
-                sigma=sqinv_N_space_yerr[trim_i:],
-                absolute_sigma=True
-            )
-            l_best, c_best = popt
-            l_err, c_err = np.sqrt(np.diag(pcov))
+            sqinv_N_space_yerr = sigma_zero * sqinv_N_space
+
+            res = sp.stats.linregress(sqinv_N_space[trim_i:], E_space[trim_i:])
+
+            l_best = res.slope
+            l_err = res.stderr
+            c_best = res.intercept
+            c_err = res.intercept_stderr
 
             E_zero = c_best
             E_zero_err = c_err / sigma_zero
@@ -5930,25 +6386,15 @@ class ground_state_solver():
 
             plt.errorbar(sqinv_N_space, E_space, yerr = sqinv_N_space_yerr, fmt = 'x', capsize = 3, label = self.measured_datasets[i])
             plt.plot(linfit_xspace, l_best * linfit_xspace + c_best, label = 'Linear fit')
-            #plt.errorbar(np.zeros(1), np.array([E_zero]), yerr = np.array([E_zero_err * sigma_zero]), fmt = 'x', capsize = 3)
 
-            """
-
-            trim_N_space = np.array(1/np.sqrt(N_space))[20:]
-            trim_E_space = np.array(E_space)[20:]
-
-            E_fit = np.polyfit(trim_N_space, trim_E_space, deg = 1)
-            E_fit_func = lambda x : E_fit[0] * x + E_fit[1]
-
-            plt.plot(1/np.sqrt(N_space), E_space, "x", label = self.measured_datasets[i])
-            plt.plot(np.concatenate((np.zeros(1), trim_N_space)), E_fit_func(np.concatenate((np.zeros(1), trim_N_space))), label = 'Linear fit')
-
-            self.log.write(f"Value of lin fit at x = 0: {E_fit_func(0.0)}")"""
+        #for i in range(len(measured_datalines)):
+        #    plt.errorbar(measured_datalines[i][0], measured_datalines[i][1], yerr = measured_datalines[i][2], fmt = 'x', capsize = 3, label = measured_datalines[i][3])
+        #    plt.plot(linfit_xspace, fitted_datalines[i][0] * linfit_xspace + fitted_datalines[i][1], label = 'Linear fit')
 
         if "mol_init" in self.checklist:
             plt.axhline(y = self.reference_state_energy, label = "ref state", color = functions.ref_energy_colors["ref state"])
         if "full_CI_sol" in self.checklist:
-            plt.axhline(y = self.ci_energy, label = "full CI", color = functions.ref_energy_colors["full CI"])
+            plt.axhline(y = self.FCI_sol['E'], label = "full CI", color = functions.ref_energy_colors["full CI"])
         if "LE_sol" in self.checklist:
             # LE ground state
             plt.axhline(y = self.LE_sol["E"], label = "LE CI", color = functions.ref_energy_colors["LE CI"])
@@ -5974,7 +6420,7 @@ class ground_state_solver():
         # We add a second y axis which shows the difference from the real ground state (if given) in Kelvin
         # If full CI sol is known, we set it to 0. Otherwise, we set the HF state energy to 0
         if "full_CI_sol" in self.checklist:
-            ref_E = self.ci_energy
+            ref_E = self.FCI_sol['E']
         else:
             ref_E = self.reference_state_energy
         H_in_K = 315775.326864009 # tha value of 1 Hartree in Kelvin
@@ -6029,7 +6475,7 @@ class ground_state_solver():
         if "mol_init" in self.checklist:
             plt.axhline(y = self.reference_state_energy, label = "ref state", color = functions.ref_energy_colors["ref state"])
         if "full_CI_sol" in self.checklist:
-            plt.axhline(y = self.ci_energy, label = "full CI", color = functions.ref_energy_colors["full CI"])
+            plt.axhline(y = self.FCI_sol['E'], label = "full CI", color = functions.ref_energy_colors["full CI"])
         if "LE_sol" in self.checklist:
             # LE ground state
             plt.axhline(y = self.LE_sol["E"], label = "LE CI", color = functions.ref_energy_colors["LE CI"])

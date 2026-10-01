@@ -5,29 +5,27 @@ Initialising molecule solver BeH2_RNCS_dist=0.5 at log_verbosity = 5
 Initialising molecule...
 | Building molecule...
 | | There are 7 atomic orbitals, each able to hold 2 electrons of opposing spin.
+| | The number of spatial molecular orbitals per spin-subspace is untrimmed and equal to the number of atomic orbitals.
 | | The molecule is occupied by 6 electrons in total: 3 with spin alpha, 3 with spin beta.
 | | The molecule consists of the following atoms: ['H', 'Be', 'H']
 | | The atomic orbitals are ordered as follows: ['0 H 1s    ', '1 Be 1s    ', '1 Be 2s    ', '1 Be 2px   ', '1 Be 2py   ', '1 Be 2pz   ', '2 H 1s    ']
-| | The nuclear repulsion energy is 5.024671068833881
+| | The nuclear repulsion energy is 5.0133967195551
 | | -------------------- Hilbert space properties --------------------
-| |   [93m-[0mTotal number of Slater determinants: 1225
-| |   [93m-[0mTotal number of S_z-preserving spin-adapted configurations: 490
+| |   -Total number of Slater determinants: 1225
+| |   -Total number of S_z-preserving spin-adapted configurations: 490
 | | Calculating 1e integrals...
 | | Calculating 2e integrals...
 | \_
 | Performing mean-field calculations to determine the molecular orbitals...
 | | Mean field method: Restricted Hartree-Fock (selected by user)
 | | Finding the molecular orbitals using mean-field approximations...
-| | Done! Reference state energy is -15.13217
+| | Done! Reference state energy is -15.13536
 | | Transforming 1e and 2e integrals to MO basis...
 | \_
 | Reference state analysis
 | | Occupied orbitals:
 | |   -in the spin-alpha subspace: [0, 1, 2]
 | |   -in the spin-beta subspace:  [0, 1, 2]
-| | Testing each CS type Hamiltonian overlap evaluation against the reference state...
-| |   -For Thouless: E_ref = -15.13217, which agrees with the true value
-| |   -For Qubit: E_ref = -15.13217, which agrees with the true value
 | \_
 \_
 Loading data from the disk...

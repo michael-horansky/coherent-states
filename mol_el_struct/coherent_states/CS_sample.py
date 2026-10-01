@@ -150,7 +150,7 @@ class CS_sample:
                 energy_levels, _ = sp.linalg.eigh(aug_H, aug_S)
                 ground_state_index = np.argmin(energy_levels)
                 candidate_E_ground = energy_levels[ground_state_index]
-                assert candidate_E_ground < self.E_ground[self.N - 1] # By Cauchy interlacing theorem
+                assert candidate_E_ground <= self.E_ground[self.N - 1] # By Cauchy interlacing theorem
 
                 if candidate_E_ground < min_ground_state:
                     # This is the best so far

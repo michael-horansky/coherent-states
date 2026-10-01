@@ -14,7 +14,7 @@ from utils.class_Semaphor import Semaphor
 from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_sample import CS_sample
 
-import utils.functions
+import functions
 
 from molecules_abstract import *
 
@@ -26,10 +26,11 @@ from molecules_abstract import *
 nontrivial_separations = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1.05, 1.15, 1.2, 1.3, 1.4, 1.7, 2.0]
 
 
-ds_id = "B1SCV"
+ds_id = "RNCS"
+sys_id = "ccpVDZ_N_MO=16"
 N_rep = 20
-cur_molecule = 'BeH2'
-N = 100
+cur_molecule = 'Li2'
+N = 50
 N_sub = 50
 rs = "rp"
 freeze_basis = True
@@ -60,7 +61,7 @@ E_base_err = {} # [dataset label] = E base err
 # Build the solvers for each separation. The first one is at normal distance and determines the basis
 mol_solvers = {} # [sep coef] = ground_state_solver object
 # Standard sep
-mol_solvers[1.0] = ground_state_solver(f"{cur_molecule}_RNCS_dist=1.0")
+mol_solvers[1.0] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist=1.0")
 mol_solvers[1.0].initialise_molecule(mol_objs[1.0], HF_method = "RHF")
 
 # for the base separation, we actually don't care about the _nf suffix.
@@ -81,7 +82,7 @@ mol_solvers[1.0].load_data(["self_analysis", "measured_datasets"], base_sep_data
 #basis_sample_z_tensor = mol_solvers[1.0].disk_jockey.data_bulks[global_ds_label]["basis_samples"]
 E_data_base_sep = mol_solvers[1.0].get_dataset_info(base_sep_datasets_to_load)
 E_data.append({})
-for base_key in ["CI", "HF"]:
+for base_key in ["FCI", "HF"]:
     E_data[-1][base_key] = E_data_base_sep[base_key]
 for ds in datasets_to_load:
     E_data[-1][ds] = E_data_base_sep[base_sep_dataset_buf[ds]]
@@ -99,7 +100,7 @@ mol_solvers[1.0].save_data()
 
 for i in range(len(nontrivial_separations)):
     separation_coef = nontrivial_separations[i]
-    mol_solvers[separation_coef] = ground_state_solver(f"{cur_molecule}_RNCS_dist={separation_coef}")
+    mol_solvers[separation_coef] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist={separation_coef}")
     mol_solvers[separation_coef].initialise_molecule(mol_objs[separation_coef], HF_method = "RHF")
     mol_solvers[separation_coef].load_data(["self_analysis", "measured_datasets"], datasets_to_load)
     #mol_solvers[separation_coef].full_CI_sol()
@@ -126,7 +127,7 @@ E_data.sort(key = lambda x: x["c"], reverse = True)
 N_c = 1 + len(nontrivial_separations)
 E_cols = {
     "c" : np.zeros(N_c),
-    "CI" : np.zeros(N_c),
+    "FCI" : np.zeros(N_c),
     "HF" : np.zeros(N_c),
     "E_g" : np.zeros(N_c),
     "E_g_err" : np.zeros(N_c),
@@ -142,7 +143,7 @@ total_calculation_time = 0.0
 for row_i in range(len(E_data)):
     row = E_data[row_i]
     E_cols["c"][row_i] = row["c"]
-    E_cols["CI"][row_i] = row["CI"]
+    E_cols["FCI"][row_i] = row["FCI"]["E"]
     E_cols["HF"][row_i] = row["HF"]
 
     # Now we aggregate the data
@@ -156,7 +157,7 @@ for row_i in range(len(E_data)):
         cur_E_extrapolated.append(row[ds]["E_extrapolated"])
         cur_duration.append(row[ds]["duration"])
 
-        print(f"Dataset {ds} was calculated in {utils.functions.dtstr(row[ds]['duration'])}")
+        print(f"Dataset {ds} was calculated in {functions.dtstr(row[ds]['duration'])}")
         total_calculation_time += row[ds]["duration"]
 
     E_cols["E_g"][row_i] = np.average(cur_E_g)
@@ -166,7 +167,7 @@ for row_i in range(len(E_data)):
     E_cols["duration"][row_i] = np.average(cur_duration)
 
 
-print(f"Total calculation time: {utils.functions.dtstr(total_calculation_time)}")
+print(f"Total calculation time: {functions.dtstr(total_calculation_time)}")
 
 
 H_in_K = 315775.326864009 # tha value of 1 Hartree in Kelvin
@@ -188,6 +189,7 @@ gs = fig.add_gridspec(2, 2)
 
 plt.suptitle(f"{cur_am.label} electronic ground state energy against atomic separation")
 
+
 ax1 = fig.add_subplot(gs[0, 0])
 ax2 = fig.add_subplot(gs[0, 1])
 ax3 = fig.add_subplot(gs[1, :])
@@ -197,7 +199,7 @@ ax1.set_title("Abs g.s. energy against separation dist.")
 ax1.set_xlabel("Atom separation coef.")
 ax1.set_ylabel("E [Hartree]")
 
-ax1.plot(E_cols["c"], E_cols["CI"], label = "full CI", color = cmap(0))
+ax1.plot(E_cols["c"], E_cols["FCI"], label = "full CI", color = cmap(0))
 ax1.plot(E_cols["c"], E_cols["HF"], label = "ref E", color = cmap(1))
 #ax1.errorbar(E_cols["c"], E_cols["E_g"], yerr = E_cols["E_g_err"], label = "ds", color = cmap(2))
 ax1.plot(E_cols["c"], E_cols["E_g"], label = "ds", color = cmap(2))
@@ -208,27 +210,26 @@ ax1.legend()
 
 
 
-
 ax2.set_title("Rel g.s. energy against separation dist.")
 
 ax2.set_xlabel("Atom separation coef.")
-ax2.set_ylabel(r'$E - E_{\rm CI}$ [Hartree]')
+ax2.set_ylabel(r'$E - E_{\rm FCI}$ [Hartree]')
 
 ax2.grid(True)
 
 secax_y = ax2.secondary_yaxis(
     'right', functions=(H_to_K, K_to_H))
-secax_y.set_ylabel(r'$E - E_{\rm CI}\ [K]$')
+secax_y.set_ylabel(r'$E - E_{\rm FCI}\ [K]$')
 
 
 
-ax2.plot(E_cols["c"], E_cols["HF"] - E_cols["CI"], "x", label = "ref E", color = cmap(1))
-ax2.errorbar(E_cols["c"], E_cols["E_g"] - E_cols["CI"], yerr = E_cols["E_g_err"], capsize = 2, label = "ds", color = cmap(2))
-#ax2.plot(E_cols["c"], E_cols["E_g"] - E_cols["CI"], "x", label = ds, color = cmap(2))
-#ax2.plot(E_cols["c"], E_cols[ds]["E_extrapolated"] - E_cols["CI"], linestyle = "dashed", label = ds + " ext.", color = cmap(i_ds + 2))
-ax2.errorbar(E_cols["c"], E_cols["E_extrapolated"] - E_cols["CI"], yerr = E_cols["E_extrapolated_err"], capsize = 2, linestyle = "dashed", label = "extrapol.", color = cmap(2))
+ax2.plot(E_cols["c"], E_cols["HF"] - E_cols["FCI"], "x", label = "ref E", color = cmap(1))
+ax2.errorbar(E_cols["c"], E_cols["E_g"] - E_cols["FCI"], yerr = E_cols["E_g_err"], capsize = 2, label = "MC calc.", color = cmap(2))
+#ax2.plot(E_cols["c"], E_cols["E_g"] - E_cols["FCI"], "x", label = ds, color = cmap(2))
+#ax2.plot(E_cols["c"], E_cols[ds]["E_extrapolated"] - E_cols["FCI"], linestyle = "dashed", label = ds + " ext.", color = cmap(i_ds + 2))
+ax2.errorbar(E_cols["c"], E_cols["E_extrapolated"] - E_cols["FCI"], yerr = E_cols["E_extrapolated_err"], capsize = 2, linestyle = "dashed", label = "extrapol.", color = cmap(3))
 
-#ax2.errorbar(E_cols["c"], E_cols[ds]["E_extrapolated"] - E_cols["CI"], yerr = E_cols[ds]["E_extrapolated_err"] * E_base_err[ds], fmt = 'x', capsize = 3, label = f"{ds} (ext.)")
+#ax2.errorbar(E_cols["c"], E_cols[ds]["E_extrapolated"] - E_cols["FCI"], yerr = E_cols[ds]["E_extrapolated_err"] * E_base_err[ds], fmt = 'x', capsize = 3, label = f"{ds} (ext.)")
 
 
 ax2.legend()
@@ -238,18 +239,20 @@ ax2.legend()
 ax3.set_title("G.s. energy calc as a correction of H.F. ref state energy")
 
 ax3.set_xlabel("Atom separation coef.")
-ax3.set_ylabel(r'$\frac{E - E_{\rm CI}}{E_{\rm ref} - E_{\rm CI}}$ (%)')
+ax3.set_ylabel(r'$(E - E_{\rm FCI})/(E_{\rm ref} - E_{\rm FCI})$ [%]')
 
 ax3.grid(True)
 
-ax3.errorbar(E_cols["c"], 100 * (E_cols["E_g"] - E_cols["CI"]) / (E_cols["HF"] - E_cols["CI"]), yerr = E_cols["E_g_err"] / (E_cols["HF"] - E_cols["CI"]), capsize = 2, label = "ds", color = cmap(2))
-#ax3.plot(E_cols["c"], 100 * (E_cols["E_g"] - E_cols["CI"]) / (E_cols["HF"] - E_cols["CI"]), "x", label = "ds", color = cmap(2))
-#ax3.plot(E_cols["c"], 100 * (E_cols[ds]["E_extrapolated"] - E_cols["CI"]) / (E_cols["HF"] - E_cols["CI"]), linestyle = "dashed", label = ds + " ext.", color = cmap(i_ds + 2))
-ax3.errorbar(E_cols["c"], 100 * (E_cols["E_extrapolated"] - E_cols["CI"]) / (E_cols["HF"] - E_cols["CI"]), yerr = 100 * E_cols["E_extrapolated_err"] / (E_cols["HF"] - E_cols["CI"]), capsize = 2, linestyle = "dashed", label = "extrapol.", color = cmap(2))
+ax3.errorbar(E_cols["c"], 100 * (E_cols["E_g"] - E_cols["FCI"]) / (E_cols["HF"] - E_cols["FCI"]), yerr = 100 * E_cols["E_g_err"] / (E_cols["HF"] - E_cols["FCI"]), capsize = 2, label = "MC calc.", color = cmap(2))
+#ax3.plot(E_cols["c"], 100 * (E_cols["E_g"] - E_cols["FCI"]) / (E_cols["HF"] - E_cols["FCI"]), "x", label = "ds", color = cmap(2))
+#ax3.plot(E_cols["c"], 100 * (E_cols[ds]["E_extrapolated"] - E_cols["FCI"]) / (E_cols["HF"] - E_cols["FCI"]), linestyle = "dashed", label = ds + " ext.", color = cmap(i_ds + 2))
+ax3.errorbar(E_cols["c"], 100 * (E_cols["E_extrapolated"] - E_cols["FCI"]) / (E_cols["HF"] - E_cols["FCI"]), yerr = 100 * E_cols["E_extrapolated_err"] / (E_cols["HF"] - E_cols["FCI"]), capsize = 2, linestyle = "dashed", label = "extrapol.", color = cmap(3))
 
 ax3.legend()
 
-#plt.tight_layout()
+fig.set_figwidth(15)
+
+plt.tight_layout()
 plt.show()
 
 # 1 Improve extrapolation

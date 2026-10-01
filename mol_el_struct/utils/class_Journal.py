@@ -244,8 +244,15 @@ class Journal():
 
     def __init__(self, verbosity = 5, print_on_the_fly = True, fancy_printing = True, max_row_width = 200, yes = None):
 
+        # Verbosity key:
+        #   0/None: Important, always prints (user methods)
+        #   2: Important, major subroutine
+        #   5: Minor subroutine
+        #   10: Micro-subroutine (expected to repeat many times)
+        # Typically, writes within subroutines are one level of verbosity higher than the subroutine itself
+
         self.journal_text = ""
-        self.routine_stack = [] # every routine is [header, max required verbosity]
+        self.routine_stack = [] # every routine is [header, max required verbosity, agent]
         self.verbosity = verbosity # The higher the verbosity, the more in detail the Journal is
         self.print_on_the_fly = print_on_the_fly # If True, printing to terminal happens concurrently
         self.depth = 0
@@ -264,6 +271,8 @@ class Journal():
         self.semaphor = Semaphor(time_format = "%H:%M:%S", print_directly = False) # The in-house semaphor used to hang on a routine
         self.cur_semaphor_event = None
         self.cur_semaphor_prefix_id = 0
+
+        self.agent_tags = {} # Used to distinguish write sources. Each tag has the form "agent" : {"label" : "agent name", "color" : "color code"}
 
     def close_journal(self):
         if self.print_on_the_fly:
@@ -296,6 +305,11 @@ class Journal():
             return(self.routine_stack[-1][1])
         return(-1)
 
+    def get_stack_agent(self):
+        if len(self.routine_stack) > 0:
+            return(self.routine_stack[-1][2])
+        return(None)
+
     # fancy printing methods
 
     def cur_highlight(self, raw):
@@ -320,33 +334,36 @@ class Journal():
 
     # Write method
 
-    def write(self, msg, v = -1, prevent_printing_on_the_fly = False, plain_msg = None):
+    def write(self, msg, v = -1, prevent_printing_on_the_fly = False, plain_msg = None, agent = None):
         # Writes a message inside current routine at current depth
+
+        agent_pre, agent_plain_pre = self.get_agent_tag(agent)
+
         if self.verbosity >= max(v, self.get_stack_v()):
             if plain_msg is None:
-                self.journal_text += self.pre(False) + msg + "\n"
+                self.journal_text += self.pre(False) + agent_plain_pre + msg + "\n"
             else:
-                self.journal_text += self.pre(False) + plain_msg + "\n"
+                self.journal_text += self.pre(False) + agent_plain_pre + plain_msg + "\n"
             if self.print_on_the_fly and not prevent_printing_on_the_fly:
                 if self.fancy_printing:
                     # We firstly print the last submitted line, and then the preprint of the current line
                     self.commit_last_line()
-                    self.preview_print(msg)
+                    self.preview_print(agent_pre + msg)
                 else:
                     # crude printing only
-                    print(self.pre() + msg)
+                    print(self.pre() + agent_plain_pre + msg)
 
     # Special object printing methods
 
-    def warning(self, msg, v = -1):
+    def warning(self, msg, v = -1, agent = None):
         fancy_msg = color.BRIGHT_YELLOW + color.BOLD + "WARNING" + color.END + ": " + str(msg)
         plain_msg = "WARNING: " + str(msg)
-        self.write(fancy_msg, v, plain_msg = plain_msg)
+        self.write(fancy_msg, v, plain_msg = plain_msg, agent = agent)
 
-    def error(self, msg, v = -1):
+    def error(self, msg, v = -1, agent = None):
         fancy_msg = color.BRIGHT_RED + color.BOLD + "ERROR" + color.END + ": " + color.bg.RED + str(msg) + color.bg.DEFAULT
         plain_msg = "ERROR: " + str(msg)
-        self.write(fancy_msg, v, plain_msg = plain_msg)
+        self.write(fancy_msg, v, plain_msg = plain_msg, agent = agent)
 
     def print_itemize(self, std_object):
         # std_object is an object with the following properties:
@@ -573,13 +590,13 @@ class Journal():
 
     # Routine stack management
 
-    def enter(self, header, v = -1, semaphored = False, **kwargs):
+    def enter(self, header, v = -1, semaphored = False, agent = None, **kwargs):
         # header: human-readable name of routine
         # v: verbosity requirement
         # semaphored: if True, the routine is semaphored
         # if semaphored, kwargs are provided to semaphor
 
-        self.routine_stack.append([header, max(v, self.get_stack_v())])
+        self.routine_stack.append([header, max(v, self.get_stack_v()), None])
 
         if semaphored:
             if self.verbosity >= max(v, self.get_stack_v()):
@@ -604,15 +621,17 @@ class Journal():
 
                 semaphor_event_ID, semaphor_header = self.semaphor.create_event(tau_space, header, s_nl)
                 self.cur_semaphor_event = semaphor_event_ID
-                self.write(semaphor_header, v)
+                self.write(semaphor_header, v, agent = agent)
 
         else:
-            self.write(header, v)
+            self.write(header, v, agent = agent)
         self.depth += 1
 
         if semaphored and self.fancy_printing:
             # We create the placeholder line
             self.write(header + " waiting for the first event...", v)
+
+        self.routine_stack[-1][2] = agent
 
     def update_semaphor_event(self, tau):
         if self.print_on_the_fly and self.cur_semaphor_event is not None:
@@ -661,21 +680,21 @@ class Journal():
 
     # Interactive element
 
-    def ask_yes_no(self, question):
+    def ask_yes_no(self, question, agent = None):
         # Requires a print on the fly method.
         # Doesn't proceed until given answer
         # Returns True if yes, False if no
 
         if self.yes is not None:
             if self.yes:
-                self.write(question + " (Automatically decided 'yes')")
+                self.write(question + " (Automatically decided 'yes')", agent = agent)
             else:
-                self.write(question + " (Automatically decided 'no')")
+                self.write(question + " (Automatically decided 'no')", agent = agent)
             return(self.yes)
 
         if not self.print_on_the_fly:
             # Assume yes
-            self.write(question + " (Assumed 'yes')")
+            self.write(question + " (Assumed 'yes')", agent = agent)
             return(True)
 
         # First, we commit the previous line
@@ -683,9 +702,11 @@ class Journal():
 
         ans = "NOT_PROVIDED"
 
-        question_print = self.pre() + question + " (y / n) "
+        agent_pre, agent_plain_pre = self.get_agent_tag(agent)
+
+        question_print = self.pre() + agent_plain_pre + question + " (y / n) "
         if self.fancy_printing:
-            question_print = self.pre() + self.cur_highlight(question) + " (" + color.GREEN + "y" + color.END + " / " + color.RED + "n" + color.END + ") "
+            question_print = self.pre() + agent_pre + self.cur_highlight(question) + " (" + color.GREEN + "y" + color.END + " / " + color.RED + "n" + color.END + ") "
 
         while ans.lower() not in Journal.valid_answers:
             ans = input(question_print)
@@ -696,6 +717,18 @@ class Journal():
         if ans in Journal.answer_strings["no"]:
             self.write(question + "(Answered 'no')", prevent_printing_on_the_fly = True)
             return(False)
+
+    # -------------- Agent tag management -------------------
+
+    def register_agent_tag(self, ID, tag):
+        self.agent_tags[ID] = tag
+
+    def get_agent_tag(self, ID):
+        if ID is None or ID == self.get_stack_agent():
+            return("", "")
+        if ID not in self.agent_tags:
+            return("", "")
+        return("[" + self.agent_tags[ID]["color"] + self.agent_tags[ID]["label"] + color.END + "]" + " ", "[" + self.agent_tags[ID]["label"] + "] ")
 
 # -----------------------------------------------------------------------------
 # --------------------------- class DisabledJournal ---------------------------

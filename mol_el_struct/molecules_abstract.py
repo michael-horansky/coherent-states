@@ -50,10 +50,10 @@ class AbstractMolecule():
 
 # -------------------------- Li2
 
-# Li2: bond length ≈ 2.673 Å = 5.0512375675 Bohr
-# placed symmetrically about origin: half-distance ≈ 2.5256187838 Bohr
+# Li2: bond length ≈ 2.715 Å = 5.1306064 Bohr
+# placed symmetrically about origin: half-distance ≈ 2.5653032 Bohr
 li2_am = AbstractMolecule(
-    atoms = [["Li", 0.0, 0.0, -2.5], ["Li", 0.0, 0.0, 2.5]],
+    atoms = [["Li", 0.0, 0.0, -2.5653032], ["Li", 0.0, 0.0, 2.5653032]],
     basis = 'sto-3g',
     unit = 'Bohr',
     label = r'${\rm Li}_2$'
@@ -78,10 +78,10 @@ beh_am = AbstractMolecule(
 
 # ------------------------------ N2
 
-# N2: bond length ≈ 1.098 Å = 2.0749191355 Bohr
+# N2: bond length ≈ 1.117 Å = 2.1108241 Bohr
 # placed symmetrically about origin: half-distance ≈ 1.0374595677 Bohr
 n2_am = AbstractMolecule(
-    atoms = [["N", 0.0, 0.0, -1.0374595677], ["N", 0.0, 0.0, 1.0374595677]],
+    atoms = [["N", 0.0, 0.0, -1.05541205], ["N", 0.0, 0.0, 1.05541205]],
     basis = 'sto-3g',
     unit = 'Bohr',
     label = r'${\rm N}_2$'
@@ -124,10 +124,10 @@ no_am = AbstractMolecule(
 
 # -------------------------------- BeH2
 
-# BeH2: BeH bonds are of length 1.334 A = 2.5208947 Bohr
+# BeH2: BeH bonds are of length 1.337 A = 2.5265638 Bohr
 # linear geometry: H - Be - H
 BeH2_am = AbstractMolecule(
-    atoms = [["H", 0.0, 0.0, -2.5208947], ["Be", 0.0, 0.0, 0.0], ["H", 0.0, 0.0, 2.5208947]],
+    atoms = [["H", 0.0, 0.0, -2.5265638], ["Be", 0.0, 0.0, 0.0], ["H", 0.0, 0.0, 2.5265638]],
     basis = 'sto-3g',
     unit = 'Bohr',
     spin = 0,

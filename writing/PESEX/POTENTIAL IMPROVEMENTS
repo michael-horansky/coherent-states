@@ -1,0 +1,17 @@
+Check "Stochastic Variational Approach to Quantum-Mechanical Few-Body Problems" by Suzuki and Varga.
+
+Theorem 3.2 (Generalized Ritz Theorem): The energy expectation value is stationary at eigenstates. This means we don't need to use the F scalar function: H(z, z^*) itself can be set to be stationary, greatly reducing the order of the equations involved.
+
+Theorem 3.7 (Hellmann-Feynman Theorem): If H(q) depends on a real parameter, and E(q) is the eigenvalue of some energy eigenstate u(q) (so that H(q)|u(q)> = E(q)|u(q)>), then the dependence of E(q) on q is easily described by its total derivative
+
+    d/dq E(q) = < u(q) | dH(q)/dq | u(q) >
+
+This means we can calculate the new eigenvalue E(q + dq) before applying variational calculus. (This is only useful if 3.2 proves to not really work.)
+
+
+
+
+
+
+Relaxation
+we could sample and then grad descend to local min. Expensive but should be a great improvement.

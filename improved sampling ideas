@@ -1,0 +1,21 @@
+Ideas for improved sampling. These might not be mutually exclusive!
+
+1 [Conditioning method] Inter-dependent candidate selection (inspired by beam search, but fundamentally different)
+
+We are guided by two heuristics: independent heuristic f(z_i), which is the improvement to E_min (old E_min - new E_min), and the inter-dependent heuristic g(z_i_1, z_i_2 ... z_i_n). We select n candidates at the same time.
+Proposed g: g = det(S_aug)/det(S_old), the determinant of the overlap matrix evaluated between the candidate tuple. If 0: candidates are linearly dependent, condition number explodes. If 1/det(S_old): Candidates are orthogonal, maximising span.
+
+Proposed total tuple heuristic: h(z_i_1 ... z_i_n) = [prod_k f(z_i_k)] * g(z_i_1 ... z_i_n). The bigger the value, the better the candidate tuple.
+
+We explicitly try all n-tuples and select the one minimising h.
+
+2 [Sampling method] Tightening sampling
+
+This is a sample-dependent algorithm, so it works incrementally.
+
+Suppose you have an existing sample S of size N. You want to add a single new addition. We know that the ground state is in the vicinity of the HF state, mapped to the manifold parameter tensor (1 ... 1 0 ... 0). We expect good candidates to be in the vicinity here. However, the sampling methods we tried saturate really quickly, have horrible condition numbers, and seem to get stuck (maybe only capture one of multiple features).
+
+We estimate the tensor "width" W in a specific direction within which the ground state should lie, i.e. by low-excitation-guided sampling. Pick z_A = x.W.z_0, where z_0 is the unit tensor in that direction, and x is some large integer (maybe 10 or 100). Set z_B = -z_A (maybe plus some random noise).
+Consider the linear line between z_A, z_B, parametrised by p. So that z(p=0) = z_A, z(p=1) = z_B. Calculate the candidate heuristic for z(p=0), z(p=1/3), z(p=2/3), and z(p=1).
+Pick the best of the four points. If it's on the edge, zoom in on the interval adjanced to it. If not, zoom in on the interval whose other end has the better heuristic value.
+Repeat the zooming process until the interval width is much smaller than W. Submit the best of the four points.

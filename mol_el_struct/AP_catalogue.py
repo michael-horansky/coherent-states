@@ -12,6 +12,7 @@ sep_coef_AP = AccessPoint(
             ["method", str, "LE_Zombie_cov_RSOPM_moment_matching", "Keyword specifying the sampling method used (except for deformed c vals when freezing the basis)."],
             ["sr", str, "rp", "Sign randomisation for parameter tensor. \"ai\": as is. \"rs\": random sign. \"rp\": random complex phase."],
             ["sym", str, "default", "Symmetrisation of parameter tensor across spin-subspaces. \"full\": tensors equal. \"phase\": elementwise magnitudes equal. \"none\": no symmetrisation. \"default\": phase for RHF, none for UHF."],
+            ["heur", str, "struct", "Method for sampling candidate comparison. \"struct\": structured comparison based on feasibility. Default. \"score\": scoring function which estimates the error on energy eigenvalue calculation."],
             ["freeze_basis", int, 1, "Whether the parameter tensor is frozen based on the sampling for the default separation coefficient. 1: frozen. 0: not frozen (much higher time complexity)."],
             ["load_analysis", int, 0, "Whether the CI and CISD solution and derived properties are loaded from the disk for each molecule geometry. 0: no loading, the analysis is calculated from scratch. 1: loading."],
             ["load_base_dist", int, 0, "If 0, the calculation is performed for c=1.0 (default). If 1, it is assumed that the calculation was already performed and the sampled basis is loaded from disk."],

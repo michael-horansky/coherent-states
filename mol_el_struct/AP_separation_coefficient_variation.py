@@ -34,6 +34,7 @@ N_sub = params["N_sub"]
 method = params["method"]
 rs = params["sr"]
 sym = params["sym"]
+heur = params["heur"]
 freeze_basis = (params["freeze_basis"] == 1)
 load_analysis = (params["load_analysis"] == 1)
 load_base_dist = (params["load_base_dist"] == 1)
@@ -86,7 +87,7 @@ if freeze_basis or (c_restrict == 0 or c_restrict == 1):
         mol_solvers[1.0].find_LE_solution("SE", diag_alg = "SCF")
 
     if not load_base_dist:
-        mol_solvers[1.0].find_ground_state(method, N = N, N_sub = N_sub, N_no_cov = 0, rs = rs, dataset_label = global_ds_label)
+        mol_solvers[1.0].find_ground_state(method, N = N, N_sub = N_sub, N_no_cov = 0, rs = rs, sym = sym, heur = heur, dataset_label = global_ds_label)
 
     # We extract the sample
     basis_sample_z_tensor = mol_solvers[1.0].disk_jockey.data_bulks[global_ds_label]["basis_samples"]
@@ -106,7 +107,7 @@ for i_separation_coef in range(len(nontrivial_separations)):
         if freeze_basis:
             mol_solvers[separation_coef].find_ground_state("Qubit_from_z_tensor", z = basis_sample_z_tensor, dataset_label = global_ds_label)
         else:
-            mol_solvers[separation_coef].find_ground_state(method, N = N, N_sub = N_sub, N_no_cov = 0, rs = rs, dataset_label = global_ds_label)
+            mol_solvers[separation_coef].find_ground_state(method, N = N, N_sub = N_sub, N_no_cov = 0, rs = rs, sym = sym, heur = heur, dataset_label = global_ds_label)
         mol_solvers[separation_coef].save_data()
 
 

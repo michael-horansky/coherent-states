@@ -7,6 +7,8 @@ import time
 
 from pyscf import gto, scf, cc, ao2mo, ci, fci
 
+from sampling.class_Sampler import Sampler
+
 from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_Qubit import CS_Qubit
 from coherent_states.CS_sample import CS_sample
@@ -250,6 +252,15 @@ class ground_state_solver():
             else:
                 return(f"(2S+1)={self.mol.spin}")
         return("[mol not initialised]")
+
+    def E_frac(self, E_val):
+        # Expresses energy value as fraction of the way from ref state to true sol, if known
+
+        if self.reference_state_energy is None:
+            return(None)
+        if self.FCI_sol["E"] is None:
+            return(None)
+        return( (self.reference_state_energy - E_val) / (self.reference_state_energy - self.FCI_sol["E"]) )
 
 
     # -------------------------------------------------------------------------
@@ -2792,7 +2803,9 @@ class ground_state_solver():
         #         -"phase": The magnitudes are symmetrical, but phase masks are not.
         #         -"none": The spin-subspace samplings are independent. (default for UHF)
         #     -alpha: strength of correlation. Default 1.0
-        #     -eta: step-size for moment matching; default 1e-8
+        #     -heur: magic word for CS_sample describing the way we compare candidates.
+        #         -"struct": structured comparison based on feasibility. Default.
+        #         -"score": scoring function which estimates the error on energy eigenvalue calculation
         #     ------------------------
         #     -dataset_label: if present, this will label the dataset in disc jockey. Otherwise, label is generated from other kwargs.
 
@@ -2807,11 +2820,11 @@ class ground_state_solver():
 
         sym = parse_param(kwargs, "sym", "default", {"default", "full", "phase", "none"})
         alpha = parse_param(kwargs, "alpha", 1.0)
-        eta = parse_param(kwargs, "eta", 1e-1)
+        heur = parse_param(kwargs, "heur", "struct", {"struct", "score"})
 
-        dataset_label = parse_param(kwargs, "dataset_label", f"LEGS_Zombie_cov_RSOPM_moment_matching_{N}_{N_subsample}_{N_no_cov}_{rs_label}_{sym}_{alpha}")
+        dataset_label = parse_param(kwargs, "dataset_label", f"LEGS_Zombie_cov_RSOPM_moment_matching_{N}_{N_subsample}_{N_no_cov}_{rs_label}_{sym}_{alpha}_{heur}")
 
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov RSOPM moment matching\" [N = {N}, N_sub = {N_subsample}, N_no_cov = {N_no_cov}, rs = {randomise_signs}, sym = {sym}, alpha = {alpha}, eta = {eta}]", 1)
+        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov RSOPM moment matching\" [N = {N}, N_sub = {N_subsample}, N_no_cov = {N_no_cov}, rs = {randomise_signs}, sym = {sym}, alpha = {alpha}, heur = {heur}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -2825,10 +2838,10 @@ class ground_state_solver():
                     "rs" : randomise_signs,
                     "sym" : sym,
                     "alpha" : alpha,
-                    "eta" : eta
+                    "heur" : heur
                 }
             })
-        self.user_actions += f"find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching [N = {N}, N_sub = {N_subsample}, N_no_cov = {N_no_cov}, rs = {randomise_signs}, sym = {sym}, alpha = {alpha}, eta = {eta}]\n"
+        self.user_actions += f"find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching [N = {N}, N_sub = {N_subsample}, N_no_cov = {N_no_cov}, rs = {randomise_signs}, sym = {sym}, alpha = {alpha}, heur = {heur}]\n"
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
@@ -2851,6 +2864,11 @@ class ground_state_solver():
             elif self.HF_method == "UHF":
                 sym = "none"
                 self.log.write("Unrestricted HF -> no symmetrisation between spin-subspaces except for covariance.")
+
+        if heur == "struct":
+            self.log.write("Candidates are compared lexicographically based on their condition numbers and energy estimates.")
+        elif heur == "score":
+            self.log.write("Candidates are compared based on a scoring function combining their condition numbers and energy estimates.")
 
         # We now manually sample Thouless states guided by the LE solution
         cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
@@ -2955,6 +2973,7 @@ class ground_state_solver():
         if min_eigval <= 0.0:
             self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
+        """
         # We pre-sample the parameters
         # Some with cov...
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * (N_subsample - N_no_cov))
@@ -3024,21 +3043,28 @@ class ground_state_solver():
             raw_Z_sample = raw_Z_sample * functions.randsign_mask(raw_Z_sample.shape, randomise_signs)
 
         self.log.exit()
+        """
+        self.log.enter("Creating a Sampler...")
+
+        if sym == "none":
+            Sampler_cov = Sampler("MNDps", self.log, m = means, S = cov, pr = randomise_signs, sym = sym)
+        else:
+            # We symmetrise, so we restrict the means and covariance to the first spin-subspace
+            Sampler_cov = Sampler("MNDps", self.log, m = means[:self.N_MO], S = cov[:self.N_MO,:self.N_MO], pr = randomise_signs, sym = sym)
 
         N_vals = [1]
         convergence_sols = [self.reference_state_energy]
 
-        matrix_condition = "H"
-
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        if matrix_condition == "H":
+        if heur in ["struct", "score"]:
             max_tau =  N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1
-        elif matrix_condition == "S":
+        elif heur == "S":
             max_tau = ((N + 2) * (N + 1) / 2 - 1) + 1
         self.log.enter(msg, 1, True, tau_space = np.linspace(0, max_tau, 1000 + 1))
 
         for n in range(N):
+            """
             # We add the best out of 10 random states
             cur_subsample = []
             for n_sub in range(N_subsample):
@@ -3047,7 +3073,11 @@ class ground_state_solver():
                 rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True, condition = matrix_condition, reject_high_overlap = True)
+            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True, heuristic = heur, reject_high_overlap = True)
+            """
+
+            cur_sample.add_best_of_subsample(Sampler_cov, min_tries = N_subsample, max_tries = N_subsample * 10, max_cond = 1e8, update_semaphor = True, heuristic = heur, reject_high_overlap = True)
+
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
@@ -3056,12 +3086,22 @@ class ground_state_solver():
         #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
         calc_duration = self.log.exit("Evaluation")
 
+
+        quick_output_table = []
+        quick_output_table_col_names = ["E g.s.", "<z|H|z>", "S cond", "% sol"]
+        quick_output_table_row_names = []
+        for n in range(N + 1):
+            quick_output_table_row_names.append(f"{n + 1} states")
+            quick_output_table.append([cur_sample.E_ground[n], cur_sample.H[n][n].real, cur_sample.S_cond[n], f"{self.E_frac(cur_sample.E_ground[n]):.1%}" ])
+        quick_output_table_row_names[0] = "ref state"
+        self.log.print_table("Outputs", quick_output_table_col_names, quick_output_table_row_names, quick_output_table)
+
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
             csv_sol.append({"N" : N_vals[i], "E [H]" : float(convergence_sols[i])})
 
 
-
+        """
         # We estimate the error on a single-basis-state energy estimate
         N_err_est = 10
 
@@ -3106,14 +3146,14 @@ class ground_state_solver():
                 rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, cur_raw_Z_sample[1][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_err_sample.add_best_of_subsample(cur_subsample, condition = matrix_condition, reject_high_overlap = True)
+            cur_err_sample.add_best_of_subsample(cur_subsample, condition = matrix_condiE_groundtion, reject_high_overlap = True)
             E_err_min.append(cur_err_sample.E_ground[-1])
 
             self.log.update_semaphor_event(n + 1)
 
-        self.log.exit("Error evaluation")
+        self.log.exit("Error evaluation")"""
 
-        E_base_err = np.std(E_err_min)
+        E_base_err = 1.0#np.std(E_err_min)
         self.log.write(f"Error on a single-state basis: {E_base_err}")
 
         # --------------- We extrapolate using inverse sqrt law ----------------

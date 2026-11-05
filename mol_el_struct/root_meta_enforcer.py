@@ -1,6 +1,6 @@
 import json
 
-sys_name = "Li2_ccpVDZ_N_MO=16"
+sys_name = "N2_ccpVDZ_N_MO=14"
 ds_name = "RNCS"
 
 N = 50
@@ -8,8 +8,8 @@ N_sub = 50
 rs = "rp"
 freeze_basis = True
 
-dist_vals = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1.05, 1.15, 1.2, 1.3, 1.4, 1.7, 2.0]
-
+#dist_vals = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1.05, 1.15, 1.2, 1.3, 1.4, 1.7, 2.0]
+dist_vals = []
 
 
 repeats = 20

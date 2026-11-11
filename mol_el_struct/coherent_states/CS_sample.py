@@ -274,14 +274,14 @@ class CS_sample:
         E_no_offset = E - self.E_ground[0]
         return(E_no_offset + k * EPS * cond * abs(E_no_offset)) # The lower the score, the better.
 
-    def add_best_of_subsample(self, sampler_inst, min_tries = 1, max_tries = 100, max_cond = 1e8, update_semaphor = False, semaphor_offset = None, heuristic = "struct", reject_high_overlap = False):
+    def add_best_of_subsample(self, sampler_inst, min_tries = 1, max_tries = 100, max_cond = 1e8, S_ID = None, semaphor_offset = None, heuristic = "struct", reject_high_overlap = False):
         # Selects one vector from subsample which minimises ground state energy
         # when added to the sample
         # subsample can either be a list of basis vectors or a z tensor ndarray
         # heuristic describes how we compare the candidates.
 
 
-        if update_semaphor and semaphor_offset is None:
+        if (S_ID is not None) and (semaphor_offset is None):
             # we assume that every step has the same sized subsample
             if heuristic in ["struct", "score"]:
                 semaphor_offset = min_tries * ((self.N + 1) * self.N / 2.0 - 1) + 1
@@ -340,24 +340,30 @@ class CS_sample:
         for a in range(self.N):
             aug_H[a][self.N] = self.solver.H_overlap(self.basis[a], candidate)
 
-            if update_semaphor:
-                self.solver.log.update_semaphor_event(semaphor_offset + a + 1)
+            if S_ID is not None:
+                #self.solver.log.update_semaphor_event(semaphor_offset + a + 1)
+                self.solver.log.semaphor_progress(S_ID = S_ID)
 
             aug_H[self.N][a] = np.conjugate(aug_H[a][self.N])
         aug_H[self.N][self.N] = self.solver.H_overlap(candidate, candidate).real
 
-        if update_semaphor:
-            self.solver.log.update_semaphor_event(semaphor_offset + (self.N + 1))
+        if S_ID is not None:
+            #self.solver.log.update_semaphor_event(semaphor_offset + (self.N + 1))
+            self.solver.log.semaphor_progress(S_ID = S_ID)
 
         # Now we find the new ground state energy
-        """energy_levels, _ = sp.linalg.eigh(aug_H, aug_S)
-        ground_state_index = np.argmin(energy_levels)
-        candidate_E_ground = energy_levels[ground_state_index]"""
         candidate_E_ground = lowest_E_safe(aug_H, aug_S)
 
         accept_candidate(candidate, candidate_E_ground, np.linalg.cond(aug_S), np.dot(np.conjugate(aug_S[:self.N,self.N]), S_inv @ aug_S[:self.N,self.N]))
 
         N_tries = 0 # Number of attempts. We won't terminate until at least min_tries.
+
+        def semaphor_record_work(dtau = 1):
+            if S_ID is not None:
+                if N_tries < min_tries:
+                    self.solver.log.semaphor_progress(dtau, S_ID = S_ID)
+                else:
+                    self.solver.log.semaphor_overtime(dtau, S_ID = S_ID)
 
 
         while(N_tries < min_tries or (best_S_cond > max_cond and N_tries < max_tries)):
@@ -388,8 +394,9 @@ class CS_sample:
                 best_feasible = best_S_cond <= max_cond
 
                 if not candidate_feasible:
-                    if update_semaphor:
-                        self.solver.log.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
+                    #self.solver.log.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
+                    semaphor_record_work(self.N + 1)
+
                     if best_feasible or candidate_cond >= best_S_cond:
                         # cannot win: reject
                         continue
@@ -403,20 +410,16 @@ class CS_sample:
                 for a in range(self.N):
                     aug_H[a][self.N] = self.solver.H_overlap(self.basis[a], candidate)
 
-                    if update_semaphor:
-                        self.solver.log.update_semaphor_event(semaphor_offset + min(N_tries, min_tries) * (self.N + 1) + a + 1)
+                    #self.solver.log.update_semaphor_event(semaphor_offset + min(N_tries, min_tries) * (self.N + 1) + a + 1)
+                    semaphor_record_work()
 
                     aug_H[self.N][a] = np.conjugate(aug_H[a][self.N])
                 aug_H[self.N][self.N] = self.solver.H_overlap(candidate, candidate).real
 
-                if update_semaphor:
-                    self.solver.log.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
-
+                #self.solver.log.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
+                semaphor_record_work()
 
                 # Now we find the new ground state energy
-                """energy_levels, _ = sp.linalg.eigh(aug_H, aug_S)
-                ground_state_index = np.argmin(energy_levels)
-                candidate_E_ground = energy_levels[ground_state_index]"""
                 candidate_E_ground = lowest_E_safe(aug_H, aug_S)
                 #assert candidate_E_ground <= self.E_ground[self.N - 1] # By Cauchy interlacing theorem
 
@@ -438,22 +441,22 @@ class CS_sample:
                 candidate_cond = np.linalg.cond(aug_S)
                 if not np.isfinite(candidate_cond):
                     # infinite condition number = reject
-                    if update_semaphor:
-                        self.solver.log.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
+                    #self.solver.log.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
+                    semaphor_record_work(self.N + 1)
                     continue
 
                 # We augment the Hamiltonian matrix
                 for a in range(self.N):
                     aug_H[a][self.N] = self.solver.H_overlap(self.basis[a], candidate)
 
-                    if update_semaphor:
-                        self.solver.log.update_semaphor_event(semaphor_offset + min(N_tries, min_tries) * (self.N + 1) + a + 1)
+                    #self.solver.log.update_semaphor_event(semaphor_offset + min(N_tries, min_tries) * (self.N + 1) + a + 1)
+                    semaphor_record_work()
 
                     aug_H[self.N][a] = np.conjugate(aug_H[a][self.N])
                 aug_H[self.N][self.N] = self.solver.H_overlap(candidate, candidate).real
 
-                if update_semaphor:
-                    self.solver.log.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
+                #self.solver.log.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
+                semaphor_record_work()
 
                 candidate_E_ground = lowest_E_safe(aug_H, aug_S)
 
@@ -478,9 +481,6 @@ class CS_sample:
                     aug_H[self.N][a] = np.conjugate(aug_H[a][self.N])
                 aug_H[self.N][self.N] = self.solver.H_overlap(best_addition, best_addition).real
 
-                """energy_levels, _ = sp.linalg.eigh(aug_H, aug_S)
-                ground_state_index = np.argmin(energy_levels)
-                candidate_E_ground = energy_levels[ground_state_index]"""
                 candidate_E_ground = lowest_E_safe(aug_H, aug_S)
 
                 min_ground_state = candidate_E_ground

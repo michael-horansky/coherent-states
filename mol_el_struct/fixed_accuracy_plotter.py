@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 
 from pyscf import gto, scf, fci
 from mol_solver_degenerate import ground_state_solver
-from utils.class_Semaphor import Semaphor
 
 from coherent_states.CS_Thouless import CS_Thouless
 
@@ -44,7 +43,7 @@ def get_log_ticks(minpower, maxpower):
 nontrivial_separations = []
 
 
-ds_id = "RNCS"
+ds_id = "CO_S"
 N_rep = 20
 cur_molecule = 'N2'
 N = 50
@@ -66,7 +65,7 @@ for i in range(N_rep):
         cur_label += "_nf"
     datasets_to_load.append(cur_label)
 
-N_MO_vals = np.array([10, 11, 12, 13, 14], dtype=int)
+N_MO_vals = np.array([10, 11, 12, 13], dtype=int)
 
 
 

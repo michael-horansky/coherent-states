@@ -1,6 +1,6 @@
 
 from data_objects.class_Data_Object import Data_Object
-from utils.class_Disk_Jockey import Disk_Jockey
+from project_management_utils.Disk_Jockey import Disk_Jockey
 
 
 class DO_Measurement(Data_Object):

@@ -10,7 +10,6 @@ import matplotlib.lines as mlines
 
 from pyscf import gto, scf, fci
 from mol_solver_degenerate import ground_state_solver
-from utils.class_Semaphor import Semaphor
 
 from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_sample import CS_sample
@@ -27,15 +26,15 @@ from molecules_abstract import *
 nontrivial_separations = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1.05, 1.15, 1.2, 1.3, 1.4, 1.7, 2.0]
 
 
-ds_id = "RNCS"
+ds_id = "CO_S"
 sys_id = "ccpVDZ"
 N_rep = 20
-cur_molecule = 'Li2'
+cur_molecule = 'N2'
 N = 50
 N_sub = 50
 rs = "rp"
 freeze_basis = True
-number_of_NOs = 16
+number_of_NOs = 10
 abf_basis = "cc-pvdz"
 
 if number_of_NOs is not None:

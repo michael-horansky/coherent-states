@@ -1,8 +1,8 @@
-from utils.class_Access_Point import AccessPoint
+from project_management_utils.Access_Point import Access_Point
 
 ########################### ACCESS POINT CATALOGUE ############################
 
-sep_coef_AP = AccessPoint(
+sep_coef_AP = Access_Point(
         "AP_separation_coefficient_variation.py",
         "For a given diatomic molecule, calculates its electronic ground state energy for different separation coefficients. The basis sample parameter tensor may be frozen to avoid re-sampling for each separation coefficient value.",
         [
@@ -24,7 +24,7 @@ sep_coef_AP = AccessPoint(
         ]
     )
 
-N_MO_AP = AccessPoint(
+N_MO_AP = Access_Point(
         "AP_N_MO_scaling.py",
         "For a given diatomic molecule, calculates its electronic ground state energy for different numbers of molecular orbitals. Either a target accuracy or a rule for choosing sample basis sizes must be provided.",
         [

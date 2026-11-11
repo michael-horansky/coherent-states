@@ -26,9 +26,9 @@ from coherent_states.CS_sample import CS_sample
 from data_objects.class_DO_Molecule import DO_Molecule
 from data_objects.class_DO_Measurement import DO_Measurement
 # Utilities
-from utils.class_Journal import Journal
-from utils.class_Disk_Jockey import Disk_Jockey
-import utils.functions as functions
+from project_management_utils.Journal import Journal
+from project_management_utils.Disk_Jockey import Disk_Jockey
+import functions
 
 # ---------------------------- Auxiliary functions ----------------------------
 

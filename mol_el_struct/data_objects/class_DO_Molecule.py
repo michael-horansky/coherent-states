@@ -3,9 +3,9 @@
 from pyscf import gto, scf, cc, ao2mo, ci, fci, pbc
 
 from data_objects.class_Data_Object import Data_Object
-from utils.class_Disk_Jockey import Disk_Jockey
+from project_management_utils.Disk_Jockey import Disk_Jockey
 
-import utils.functions as functions
+import functions
 
 def esp(roots, order, omit = []):
     # roots is a list

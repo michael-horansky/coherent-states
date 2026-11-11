@@ -10,8 +10,8 @@ from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_Qubit import CS_Qubit
 from coherent_states.CS_sample import CS_sample
 
-from utils.class_Journal import Journal
-from utils.class_Disk_Jockey import Disk_Jockey
+from project_management_utils.Journal import Journal
+from project_management_utils.Disk_Jockey import Disk_Jockey
 import functions
 
 from surf.MBlueprint import bp_catalogue

@@ -11,7 +11,6 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 
 from pyscf import gto, scf, fci
 from mol_solver_degenerate import ground_state_solver
-from utils.class_Semaphor import Semaphor
 
 from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_sample import CS_sample
@@ -21,18 +20,18 @@ import functions
 from molecules_abstract import *
 
 
-ds_id = "B1SCV"
-sys_id = "RNCS"
+ds_id = "CO_S"
+sys_id = "ccpVDZ_N_MO=10"
 N_rep = 20
-cur_molecule = 'BeH2'
-N = 100
+cur_molecule = 'N2'
+N = 50
 N_sub = 50
 rs = "rp"
 freeze_basis = True
 
 #nontrivial_separations = [0.5, 0.6, 0.7, 0.85, 1.2, 1.4, 1.7, 2.0]
 #nontrivial_separations = [0.8, 0.9, 0.95, 1.05, 1.1, 1.15, 1.3]
-nontrivial_separations = [0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1.05, 1.15, 1.2, 1.3, 1.4, 1.7, 2.0]
+nontrivial_separations = []#[0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1.05, 1.15, 1.2, 1.3, 1.4, 1.7, 2.0]
 
 
 # One aggregate dataset per s.c.-

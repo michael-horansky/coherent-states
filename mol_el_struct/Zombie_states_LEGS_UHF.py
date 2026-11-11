@@ -4,12 +4,11 @@ import matplotlib.pyplot as plt
 from pyscf import gto, scf, fci
 from molecules import *
 from mol_solver_degenerate import ground_state_solver
-from utils.class_Semaphor import Semaphor
 
 from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_sample import CS_sample
 
-import utils.functions
+import functions
 
 
 

@@ -1,7 +1,7 @@
 import json
 
-sys_name = "N2_ccpVDZ_N_MO=14"
-ds_name = "RNCS"
+sys_name = "N2_ccpVDZ_N_MO=13"
+ds_name = "CO_S" # Correlated occupancy - Structured conditioning
 
 N = 50
 N_sub = 50

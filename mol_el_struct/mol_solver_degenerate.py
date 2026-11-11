@@ -13,8 +13,8 @@ from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_Qubit import CS_Qubit
 from coherent_states.CS_sample import CS_sample
 
-from utils.class_Journal import Journal
-from utils.class_Disk_Jockey import Disk_Jockey
+from project_management_utils.Journal import Journal
+from project_management_utils.Disk_Jockey import Disk_Jockey
 import functions
 
 
@@ -492,16 +492,14 @@ class ground_state_solver():
         H = np.zeros((len(fb), len(fb)), dtype=complex)
 
         msg = f"Explicit Hamiltonian evaluation on a trimmed full CI"
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, len(fb), 100 + 1))
 
-
-        self.log.write(f"Evaluating the Hamiltonian on full occupancy basis...", 3)
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'H eval', tau_space = len(fb) * len(fb))
         for i in range(len(fb)):
             for j in range(len(fb)):
-                self.log.update_semaphor_event(i)
                 H[i][j] = self.get_H_overlap_on_occupancy(fb[i], fb[j])
+                self.log.semaphor_progress(S_ID = sem_A)
 
-        self.log.exit("Evaluation")
+        self.log.exit()
 
         self.log.enter(f"Diagonalising Hamiltonian matrix...", 3)
         energy_levels, energy_states = np.linalg.eig(H)
@@ -605,15 +603,14 @@ class ground_state_solver():
         H_eff = np.zeros((N, N), dtype=complex)
 
         msg = f"Explicit Hamiltonian evaluation"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N * (N + 1) / 2, 100 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N * (N + 1) / 2, 100 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'H eval', tau_space = N * (N + 1) / 2)
 
         for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
             cur_H_overlap = self.H_overlap(cur_CS_sample[a], cur_CS_sample[a])
             H_eff[a][a] = cur_H_overlap
-            #self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
-            self.log.update_semaphor_event(a * (a + 1) / 2)
+
+            self.log.semaphor_progress(S_ID = sem_A)
 
             # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
             for b in range(a):
@@ -621,11 +618,10 @@ class ground_state_solver():
                 cur_H_overlap = self.H_overlap(cur_CS_sample[a], cur_CS_sample[b])
                 H_eff[a][b] = cur_H_overlap
                 H_eff[b][a] = np.conjugate(H_eff[a][b])
-                #self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
-                self.log.update_semaphor_event(a * (a + 1) / 2 + b + 1)
 
-        #self.solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+                self.log.semaphor_progress(S_ID = sem_A)
+
+        self.log.exit()
 
         # H_eff diagonal terms
         print("------ Debug and diagnostics")
@@ -740,13 +736,13 @@ class ground_state_solver():
         H_eff = np.zeros((N, N), dtype=complex)
 
         msg = f"Explicit Hamiltonian evaluation"
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N * (N + 1) / 2, 100 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'H eval', tau_space = N * (N + 1) / 2)
 
         for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
             cur_H_overlap = self.H_overlap(cur_CS_sample[a], cur_CS_sample[a])
             H_eff[a][a] = cur_H_overlap
-            self.log.update_semaphor_event(a * (a + 1) / 2)
+            self.log.semaphor_progress(S_ID = sem_A)
 
             # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
             for b in range(a):
@@ -754,9 +750,10 @@ class ground_state_solver():
                 cur_H_overlap = self.H_overlap(cur_CS_sample[a], cur_CS_sample[b])
                 H_eff[a][b] = cur_H_overlap
                 H_eff[b][a] = np.conjugate(H_eff[a][b])
-                self.log.update_semaphor_event(a * (a + 1) / 2 + b + 1)
 
-        self.log.exit("Evaluation")
+                self.log.semaphor_progress(S_ID = sem_A)
+
+        self.log.exit()
 
         # H_eff diagonal terms
         print("------ Debug and diagnostics")
@@ -902,8 +899,7 @@ class ground_state_solver():
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'sampling', tau_space = N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, width = 30)
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -913,14 +909,13 @@ class ground_state_solver():
                 rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.N_MO, self.S_beta, np.random.normal(centres_beta, widths_beta, shape_beta))
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            cur_sample.add_best_of_subsample(cur_subsample, S_ID = sem_A)
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        self.log.exit()
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -1003,8 +998,7 @@ class ground_state_solver():
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'sampling', width = 30, tau_space = N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1)
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -1014,18 +1008,16 @@ class ground_state_solver():
                 rand_z_beta = CS_Thouless(self.N_MO, self.S_beta, np.sqrt(cur_SECS_heatmap) * np.exp(1j * np.random.random(shape_beta) * 2.0 * np.pi))
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            cur_sample.add_best_of_subsample(cur_subsample, S_ID = sem_A)
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        self.log.exit()
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
-            #csv_sol.append([N_vals[i], convergence_sols[i]])
             csv_sol.append({"N" : N_vals[i], "E [H]" : float(convergence_sols[i])})
 
         self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", cur_sample.get_z_tensor())
@@ -1150,8 +1142,7 @@ class ground_state_solver():
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'sampling', width = 30, tau_space = N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1)
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -1162,14 +1153,13 @@ class ground_state_solver():
                 rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            cur_sample.add_best_of_subsample(cur_subsample, S_ID = sem_A)
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        self.log.exit()
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -1312,8 +1302,7 @@ class ground_state_solver():
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'sampling', width = 30, tau_space = N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1)
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -1324,14 +1313,13 @@ class ground_state_solver():
                 rand_z_beta = ground_state_solver.coherent_state_types[CS_type](self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            cur_sample.add_best_of_subsample(cur_subsample, S_ID = sem_A)
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        self.log.exit()
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -1511,8 +1499,7 @@ class ground_state_solver():
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'sampling', width = 30, tau_space = N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1)
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -1523,14 +1510,13 @@ class ground_state_solver():
                 rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            cur_sample.add_best_of_subsample(cur_subsample, S_ID = sem_A)
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        self.log.exit()
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -1718,8 +1704,7 @@ class ground_state_solver():
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'sampling', width = 30, tau_space = N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1)
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -1730,14 +1715,13 @@ class ground_state_solver():
                 rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            cur_sample.add_best_of_subsample(cur_subsample, S_ID = sem_A)
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        self.log.exit()
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -1955,8 +1939,7 @@ class ground_state_solver():
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'sampling', width = 30, tau_space = N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1)
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -1967,14 +1950,13 @@ class ground_state_solver():
                 rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            cur_sample.add_best_of_subsample(cur_subsample, S_ID = sem_A)
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        self.log.exit()
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -2279,8 +2261,7 @@ class ground_state_solver():
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'sampling', width = 30, tau_space = N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1)
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -2291,14 +2272,13 @@ class ground_state_solver():
                 rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            cur_sample.add_best_of_subsample(cur_subsample, S_ID = sem_A)
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        self.log.exit()
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -2546,8 +2526,7 @@ class ground_state_solver():
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'sampling', width = 30, tau_space = N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1)
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -2558,14 +2537,13 @@ class ground_state_solver():
                 rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            cur_sample.add_best_of_subsample(cur_subsample, S_ID = sem_A)
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        self.log.exit()
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -2740,8 +2718,7 @@ class ground_state_solver():
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'sampling', width = 30, tau_space = N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1)
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -2752,14 +2729,13 @@ class ground_state_solver():
                 rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            cur_sample.add_best_of_subsample(cur_subsample, S_ID = sem_A)
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        self.log.exit()
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -2973,77 +2949,6 @@ class ground_state_solver():
         if min_eigval <= 0.0:
             self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
-        """
-        # We pre-sample the parameters
-        # Some with cov...
-        rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * (N_subsample - N_no_cov))
-        # ...and some without
-        rand_X_no_cov = np.random.randn(N * N_no_cov, 2 * self.N_MO) * np.sqrt(variances) + means
-
-        raw_Z_sample = np.zeros((2, N, N_subsample, self.N_MO), dtype = complex)
-
-
-        self.log.enter("Treating phase randomisation and spin symmetrisation of sample...")
-
-        if sym == "full":
-            self.log.write("Full symmetry across spin-subspaces.")
-
-            for n in range(N):
-                # First, the cov elements...
-                for n_sub in range(N_subsample - N_no_cov):
-                    for i in range(self.N_MO):
-                        raw_Z_sample[0][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("a", i)]
-                # ...then the no cov elements.
-                for n_sub in range(N_no_cov):
-                    for i in range(self.N_MO):
-                        raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
-
-            self.log.write("Randomising parameter phases...")
-            spin_symmetrical_randsign_mask = functions.randsign_mask((N, N_subsample, self.N_MO), randomise_signs)
-            raw_Z_sample[0] = raw_Z_sample[0] * spin_symmetrical_randsign_mask
-
-            self.log.write("Setting |Z_beta> = |Z_alpha> for each basis state...")
-            raw_Z_sample[1] = raw_Z_sample[0]
-
-        if sym == "phase":
-            self.log.write("Magnitudes symmetrical, phases randomised across spin-subspaces.")
-
-            for n in range(N):
-                # First, the cov elements...
-                for n_sub in range(N_subsample - N_no_cov):
-                    for i in range(self.N_MO):
-                        raw_Z_sample[0][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("a", i)]
-                # ...then the no cov elements.
-                for n_sub in range(N_no_cov):
-                    for i in range(self.N_MO):
-                        raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
-
-            raw_Z_sample[1] = raw_Z_sample[0]
-
-            self.log.write("Randomising parameter phases...")
-            raw_Z_sample = raw_Z_sample * functions.randsign_mask(raw_Z_sample.shape, randomise_signs)
-
-
-        if sym == "none":
-            self.log.write("No symmetrisation between spin-subspaces.")
-
-            for n in range(N):
-                # First, the cov elements...
-                for n_sub in range(N_subsample - N_no_cov):
-                    for i in range(self.N_MO):
-                        raw_Z_sample[0][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("a", i)]
-                        raw_Z_sample[1][n][n_sub][i] = rand_X[n * (N_subsample - N_no_cov) + n_sub][spat_to_spin_idx("b", i)]
-                # ...then the no cov elements.
-                for n_sub in range(N_no_cov):
-                    for i in range(self.N_MO):
-                        raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
-                        raw_Z_sample[1][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("b", i)]
-
-            self.log.write("Randomising parameter phases...")
-            raw_Z_sample = raw_Z_sample * functions.randsign_mask(raw_Z_sample.shape, randomise_signs)
-
-        self.log.exit()
-        """
         self.log.enter("Creating a Sampler...")
 
         if sym == "none":
@@ -3056,35 +2961,21 @@ class ground_state_solver():
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
         if heur in ["struct", "score"]:
             max_tau =  N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1
         elif heur == "S":
             max_tau = ((N + 2) * (N + 1) / 2 - 1) + 1
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, max_tau, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'sampling', width = 30, tau_space = max_tau, update_on_every_tick = True)
 
         for n in range(N):
-            """
-            # We add the best out of 10 random states
-            cur_subsample = []
-            for n_sub in range(N_subsample):
-
-                rand_z_alpha = CS_Qubit(self.N_MO, self.S_alpha, raw_Z_sample[0][n][n_sub])
-                rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
-                cur_subsample.append([rand_z_alpha, rand_z_beta])
-
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True, heuristic = heur, reject_high_overlap = True)
-            """
-
-            cur_sample.add_best_of_subsample(Sampler_cov, min_tries = N_subsample, max_tries = N_subsample * 10, max_cond = 1e8, update_semaphor = True, heuristic = heur, reject_high_overlap = True)
+            cur_sample.add_best_of_subsample(Sampler_cov, min_tries = N_subsample, max_tries = N_subsample * 10, max_cond = 1e8, S_ID = sem_A, heuristic = heur, reject_high_overlap = True)
 
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        calc_duration = self.log.exit("Evaluation")
+        calc_duration = self.log.exit()
 
 
         quick_output_table = []
@@ -3335,8 +3226,7 @@ class ground_state_solver():
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'sampling', width = 30, tau_space = N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1)
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -3347,14 +3237,13 @@ class ground_state_solver():
                 rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True)
+            cur_sample.add_best_of_subsample(cur_subsample, S_ID = sem_A)
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        self.log.exit()
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -3665,12 +3554,11 @@ class ground_state_solver():
         matrix_condition = "H"
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
         if matrix_condition == "H":
             max_tau =  N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1
         elif matrix_condition == "S":
             max_tau = ((N + 2) * (N + 1) / 2 - 1) + 1
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, max_tau, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'sampling', width = 30, tau_space = max_tau, update_on_every_tick = True)
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -3681,14 +3569,13 @@ class ground_state_solver():
                 rand_z_beta = CS_Qubit(self.N_MO, self.S_beta, raw_Z_sample[1][n][n_sub])
                 cur_subsample.append([rand_z_alpha, rand_z_beta])
 
-            cur_sample.add_best_of_subsample(cur_subsample, update_semaphor = True, condition = matrix_condition, reject_high_overlap = True)
+            cur_sample.add_best_of_subsample(cur_subsample, S_ID = sem_A, condition = matrix_condition, reject_high_overlap = True)
             N_vals.append(cur_sample.N)
             convergence_sols.append(cur_sample.E_ground[-1])
 
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        calc_duration = self.log.exit("Evaluation")
+        calc_duration = self.log.exit()
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -3699,7 +3586,7 @@ class ground_state_solver():
         # We estimate the error on a single-basis-state energy estimate
         N_err_est = 10
 
-        self.log.enter("Estimating the error on an N=1 dataset", semaphored = True, tau_space = np.linspace(0, N_err_est, 100 + 1))
+        sem_A = self.log.enter("Estimating the error on an N=1 dataset", semaphored = True, label = 'error est.', width = 30, tau_space = (N_err_est, 100))
 
         E_err_min = []
         for n in range(N_err_est):
@@ -3743,9 +3630,9 @@ class ground_state_solver():
             cur_err_sample.add_best_of_subsample(cur_subsample, condition = matrix_condition, reject_high_overlap = True)
             E_err_min.append(cur_err_sample.E_ground[-1])
 
-            self.log.update_semaphor_event(n + 1)
+            self.log.semaphor_progress(S_ID = sem_A)
 
-        self.log.exit("Error evaluation")
+        self.log.exit()
 
         E_base_err = np.std(E_err_min)
         self.log.write(f"Error on a single-state basis: {E_base_err}")
@@ -3816,7 +3703,7 @@ class ground_state_solver():
         convergence_sols = []
 
         msg = f"Evaluating the Hamiltonian overlap integrals on the {N} basis states provided"
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N * (N + 1) / 2, 1000 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'H eval', tau_space = N * (N + 1) / 2)
 
         H_matrix = np.zeros((N, N), dtype = complex)
         S_matrix = np.identity(N, dtype = complex)
@@ -3836,9 +3723,9 @@ class ground_state_solver():
                 H_matrix[a][n] = self.H_overlap(cur_sample[a], cur_sample[n])
                 H_matrix[n][a] = np.conjugate(H_matrix[a][n])
 
-                self.log.update_semaphor_event(n * (n + 1) / 2 + a + 1)
+                self.log.semaphor_progress(S_ID = sem_A)
             H_matrix[n][n] = self.H_overlap(cur_sample[n], cur_sample[n])
-            self.log.update_semaphor_event(n * (n + 1) / 2 + n + 1)
+            self.log.semaphor_progress(S_ID = sem_A)
 
 
             N_vals.append(n + 1)
@@ -3849,8 +3736,7 @@ class ground_state_solver():
 
         procedure_diagnostic.append(f"Full sample condition number = {np.linalg.cond(S_matrix)}")
 
-        #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        calc_duration = self.log.exit("Evaluation")
+        calc_duration = self.log.exit()
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -5090,17 +4976,15 @@ class ground_state_solver():
         H = np.zeros((len(basis), len(basis)))
         msg = f"Explicit Hamiltonian evaluation on SECS basis"
 
-
-        #new_sem_ID = self.semaphor.create_event(np.linspace(0, len(basis) * (len(basis) + 1) / 2, 100 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, len(basis) * (len(basis) + 1) / 2, 100 + 1))
+        sem_A = self.log.enter(msg, 1, semaphored = True, label = 'H eval', tau_space = len(basis) * (len(basis) + 1) / 2)
 
         for a in range(len(basis)):
             # Here the diagonal <Z_a|H|Z_a>
             cur_H_overlap = self.get_H_overlap_on_occupancy(basis[a], basis[a])
             assert cur_H_overlap.imag < 1e-08
             H[a][a] = cur_H_overlap.real
-            #self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
-            self.log.update_semaphor_event(a * (a + 1) / 2)
+
+            self.log.semaphor_progress(S_ID = sem_A)
 
             # Here the off-diagonal, using the fact that H is a Hermitian matrix
             for b in range(a):
@@ -5109,11 +4993,10 @@ class ground_state_solver():
                 assert cur_H_overlap.imag < 1e-08
                 H[a][b] = cur_H_overlap.real
                 H[b][a] = H[a][b] # np.conjugate(H[a][b])
-                #self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
-                self.log.update_semaphor_event(a * (a + 1) / 2 + b + 1)
 
-        #self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+                self.log.semaphor_progress(S_ID = sem_A)
+
+        self.log.exit()
 
         energy_levels, energy_states = np.linalg.eig(H)
         ground_state_index = np.argmin(energy_levels)
@@ -5223,14 +5106,14 @@ class ground_state_solver():
             H = np.zeros((len(basis), len(basis)))
             msg = f"Explicit Hamiltonian evaluation on SE basis"
 
-            self.log.enter(msg, 1, True, tau_space = np.linspace(0, len(basis) * (len(basis) + 1) / 2, 100 + 1))
+            sem_A = self.log.enter(msg, 1, semaphored = True, label = 'H eval', tau_space = len(basis) * (len(basis) + 1) / 2)
 
             for a in range(len(basis)):
                 # Here the diagonal <Z_a|H|Z_a>
                 cur_H_overlap = self.get_H_overlap_on_occupancy(self.occ_tuple_to_list(basis[a]), self.occ_tuple_to_list(basis[a]))
                 assert cur_H_overlap.imag < 1e-08
                 H[a][a] = cur_H_overlap.real
-                self.log.update_semaphor_event(a * (a + 1) / 2)
+                self.log.semaphor_progress(S_ID = sem_A)
 
                 # Here the off-diagonal, using the fact that H is a Hermitian matrix
                 for b in range(a):
@@ -5239,9 +5122,9 @@ class ground_state_solver():
                     assert cur_H_overlap.imag < 1e-08
                     H[a][b] = cur_H_overlap.real
                     H[b][a] = H[a][b] # np.conjugate(H[a][b])
-                    self.log.update_semaphor_event(a * (a + 1) / 2 + b + 1)
+                    self.log.semaphor_progress(S_ID = sem_A)
 
-            self.log.exit("Evaluation")
+            self.log.exit()
 
             energy_levels, energy_states = np.linalg.eig(H)
             ground_state_index = np.argmin(energy_levels)
@@ -5943,7 +5826,7 @@ class ground_state_solver():
 
         self.log.exit("Calculation")"""
 
-        self.log.enter("Calculating reduced simultanous occupancy proportion matrix", 1, True, tau_space = np.linspace(0, 4 * self.N_MO * self.N_MO, 1000 + 1))
+        sem_A = self.log.enter("Calculating reduced simultanous occupancy proportion matrix", 1, semaphored = True, label = 'RSOPM', tau_space = 4 * self.N_MO * self.N_MO)
 
         self.LE_sol["RSOPM"] = np.zeros((2 * self.N_MO, 2 * self.N_MO))
 
@@ -5951,7 +5834,6 @@ class ground_state_solver():
             for i in range(self.N_MO):
                 for j_sigma in ["a", "b"]:
                     for j in range(self.N_MO):
-                        self.log.update_semaphor_event(2 * self.N_MO * spat_to_spin_idx(i_sigma, i) + spat_to_spin_idx(j_sigma, j))
                         for cur_prom, cur_z in self.LE_sol["sol"].items():
                             if cur_prom == (((), ()), ((), ())):
                                 continue
@@ -5979,10 +5861,11 @@ class ground_state_solver():
                                 continue
 
                             self.LE_sol["RSOPM"][spat_to_spin_idx(i_sigma, i)][spat_to_spin_idx(j_sigma, j)] += cur_z * cur_z / LE_reduced_norm
+                        self.log.semaphor_progress(S_ID = sem_A)
 
 
 
-        self.log.exit("Calculation")
+        self.log.exit()
 
 
         # Now we calculate the reduced null-coherent state (RNCS)
@@ -6046,7 +5929,7 @@ class ground_state_solver():
         init_err = np.max(np.abs(y_step))
         cur_err = init_err
 
-        self.log.enter("Calculating z_i to match reduced mode occupancies", 1, True, tau_space = np.linspace(0, np.log(np.sqrt(init_err / max_err)), 1000 + 1))
+        sem_A = self.log.enter("Calculating z_i to match reduced mode occupancies", 1, semaphored = True, label = 'RNCS', tau_space = np.log(np.sqrt(init_err / max_err)))
 
 
         init_err = None
@@ -6064,12 +5947,12 @@ class ground_state_solver():
             else:
                 #self.log.update_semaphor_event((init_err - cur_err) / (init_err - max_err))
                 #self.log.update_semaphor_event(np.exp(-(init_err - cur_err) / (init_err - max_err)))
-                self.log.update_semaphor_event(np.log(np.sqrt(init_err / cur_err)))
+                self.log.semaphor_update(np.log(np.sqrt(init_err / cur_err)), S_ID = sem_A)
 
             # We project y onto the norm = 1 surface
             cur_y -= np.log(cur_scale(cur_y)) / (self.S_alpha + self.S_beta)
 
-        self.log.exit("Calculation")
+        self.log.exit()
 
         # Now we convert back to the null-CS
         z_null_sq = np.exp(cur_y)
@@ -6302,6 +6185,7 @@ class ground_state_solver():
                             self.log.write(f"    -{param_name}: {param_val}", 4)
 
                         self.log.exit()
+                # TODO create a Data Aggregator instance from the loaded measurements for user-generated plots!
                 self.log.exit()
 
             self.log.exit()

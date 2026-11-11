@@ -2,7 +2,7 @@
 # for a pyscf.gto.Mole object and translates them into a SpinOperator object.
 
 import numpy as np
-from utils.class_Journal import color
+from project_management_utils.color import color
 from SpinOperator import SpinOperator
 
 from pyscf import scf, ao2mo

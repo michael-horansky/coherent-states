@@ -10,8 +10,8 @@ import numpy as np
 
 import functions
 
-from utils.class_Journal import color
-from utils.class_Correspondent import Correspondent
+from project_management_utils.color import color
+from project_management_utils.Correspondent import Correspondent
 
 class Sampler:
 

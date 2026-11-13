@@ -1,6 +1,6 @@
 
 from project_management_utils.Disk_Jockey import Disk_Jockey
-from project_management_utils.Journal import Journal, DisabledJournal
+from project_management_utils.Journal import journal
 
 
 

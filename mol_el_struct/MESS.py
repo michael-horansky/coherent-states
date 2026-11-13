@@ -26,7 +26,7 @@ from coherent_states.CS_sample import CS_sample
 from data_objects.class_DO_Molecule import DO_Molecule
 from data_objects.class_DO_Measurement import DO_Measurement
 # Utilities
-from project_management_utils.Journal import Journal
+from project_management_utils.Journal import journal
 from project_management_utils.Disk_Jockey import Disk_Jockey
 import functions
 
@@ -64,10 +64,9 @@ class MESS():
         "Qubit" : CS_Qubit
     }
 
-    def __init__(self, ID, log_verbosity = 5):
+    def __init__(self, ID):
 
         self.ID = ID
-        self.log = Journal(log_verbosity)
         # Verbosity key:
         #   0/None: Important, always prints (user methods)
         #   2: Important, major subroutine
@@ -75,7 +74,7 @@ class MESS():
         #   10: Micro-subroutine (expected to repeat many times)
         # Typically, writes within subroutines are one level of verbosity higher than the subroutine itself
 
-        self.log.enter(f"Initialising molecule solver {ID} at log_verbosity = {log_verbosity}")
+        journal.enter(f"Initialising molecule solver {ID}")
 
 
         self.user_actions = f"initialised solver {self.ID}\n"
@@ -83,14 +82,14 @@ class MESS():
         # The structure of the diagnostics log is like so: every element is either a list (for multiple same-level subprocedures) or a dict (for a header : content) pair
 
         # ----------- Self-analysis properties
-        self.log.write("Initialising self-analysis properties...", 1)
+        journal.write("Initialising self-analysis properties...", 1)
         self.checklist = [] # List of succesfully performed actions
 
         # Data Objects
         self.mol = None # DO_Molecule object
         self.measurements = [] # list of DO_Measurement objects
 
-        self.log.exit()
+        journal.exit()
 
         self.find_ground_state_methods = {
             "sampling" : self.find_ground_state_sampling,
@@ -198,8 +197,8 @@ class MESS():
             dataset_label = f"sampling_{N-1}_{sampling_method}_{CS_type}_{assume_spin_symmetry}"
 
 
-        self.log.enter(f"Obtaining the ground state with the method \"random sampling\" [CS types = {CS_type}, N = {N - 1}, sampling method = {sampling_method}, assume spin symmetry = {assume_spin_symmetry}]", 0)
-        self.log.write(f"Dataset label is \"{dataset_label}\"", 1)
+        journal.enter(f"Obtaining the ground state with the method \"random sampling\" [CS types = {CS_type}, N = {N - 1}, sampling method = {sampling_method}, assume spin symmetry = {assume_spin_symmetry}]", 0)
+        journal.write(f"Dataset label is \"{dataset_label}\"", 1)
 
 
 
@@ -211,7 +210,7 @@ class MESS():
 
         # We sample around the HF null guess, i.e. Z = 0
         # We include one extra basis vector - the null point itself!
-        self.log.write(f"Sampling the Z-parameter space with provided methods.", 3)
+        journal.write(f"Sampling the Z-parameter space with provided methods.", 3)
         cur_CS_sample = [[MESS.coherent_state_types[CS_type].null_state(self.mol.nao, self.S_alpha), MESS.coherent_state_types[CS_type].null_state(self.mol.nao, self.S_beta)]]
         for i in range(N - 1):
 
@@ -229,16 +228,16 @@ class MESS():
         for i in range(N):
             basis_samples_bulk.append([cur_CS_sample[i][0].z, cur_CS_sample[i][1].z])
         self.disk_jockey.commit_datum_bulk(dataset_label, "basis_samples", basis_samples_bulk)
-        self.log.write(f"Basis sample of size {N} committed", 1)
+        journal.write(f"Basis sample of size {N} committed", 1)
 
         #procedure_diagnostic.append(f"basis norm max/min = {np.max(norm_coefs) / np.min(norm_coefs)}")
 
-        self.log.write(f"Initialising overlap matrix...", 4)
+        journal.write(f"Initialising overlap matrix...", 4)
         overlap_matrix = np.zeros((N, N), dtype=complex) # [a][b] = <a|b>
         for i in range(N):
             for j in range(N):
                 overlap_matrix[i][j] = cur_CS_sample[i][0].norm_overlap(cur_CS_sample[j][0]) * cur_CS_sample[i][1].norm_overlap(cur_CS_sample[j][1])
-        self.log.write(f"Overlap matrix condition number = {np.linalg.cond(overlap_matrix)}", 1)
+        journal.write(f"Overlap matrix condition number = {np.linalg.cond(overlap_matrix)}", 1)
 
         # At what trim number is the condition number maximal?
         S_cond_trim_max = 1
@@ -255,14 +254,14 @@ class MESS():
 
         msg = f"Explicit Hamiltonian evaluation"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N * (N + 1) / 2, 100 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N * (N + 1) / 2, 100 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N * (N + 1) / 2, 100 + 1))
 
         for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
             cur_H_overlap = self.H_overlap(cur_CS_sample[a], cur_CS_sample[a])
             H_eff[a][a] = cur_H_overlap
             #self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
-            self.log.update_semaphor_event(a * (a + 1) / 2)
+            journal.update_semaphor_event(a * (a + 1) / 2)
 
             # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
             for b in range(a):
@@ -271,10 +270,10 @@ class MESS():
                 H_eff[a][b] = cur_H_overlap
                 H_eff[b][a] = np.conjugate(H_eff[a][b])
                 #self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
-                self.log.update_semaphor_event(a * (a + 1) / 2 + b + 1)
+                journal.update_semaphor_event(a * (a + 1) / 2 + b + 1)
 
         #self.solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         # H_eff diagonal terms
         print("------ Debug and diagnostics")
@@ -332,7 +331,7 @@ class MESS():
 
         self.measured_datasets.append(dataset_label)
 
-        self.log.exit()
+        journal.exit()
 
         return(N_vals, convergence_sols)
 
@@ -389,13 +388,13 @@ class MESS():
         H_eff = np.zeros((N, N), dtype=complex)
 
         msg = f"Explicit Hamiltonian evaluation"
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N * (N + 1) / 2, 100 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N * (N + 1) / 2, 100 + 1))
 
         for a in range(N):
             # Here the diagonal <Z_a|H|Z_a>
             cur_H_overlap = self.H_overlap(cur_CS_sample[a], cur_CS_sample[a])
             H_eff[a][a] = cur_H_overlap
-            self.log.update_semaphor_event(a * (a + 1) / 2)
+            journal.update_semaphor_event(a * (a + 1) / 2)
 
             # Here the off-diagonal, using the fact that H_eff is a Hermitian matrix
             for b in range(a):
@@ -403,9 +402,9 @@ class MESS():
                 cur_H_overlap = self.H_overlap(cur_CS_sample[a], cur_CS_sample[b])
                 H_eff[a][b] = cur_H_overlap
                 H_eff[b][a] = np.conjugate(H_eff[a][b])
-                self.log.update_semaphor_event(a * (a + 1) / 2 + b + 1)
+                journal.update_semaphor_event(a * (a + 1) / 2 + b + 1)
 
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         # H_eff diagonal terms
         print("------ Debug and diagnostics")
@@ -494,7 +493,7 @@ class MESS():
             dataset_label = f"SEGS_width_{N}_{N_subsample}_{CS_type}"
 
 
-        self.log.enter(f"Obtaining the ground state with the method \"SEGS for dist width\" [N = {N}, N_sub = {N_subsample}, CS = {CS_type}]", 1)
+        journal.enter(f"Obtaining the ground state with the method \"SEGS for dist width\" [N = {N}, N_sub = {N_subsample}, CS = {CS_type}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -506,8 +505,8 @@ class MESS():
         assert self.S_alpha == self.S_beta # So far only RHF!
 
         if "LE_sol" not in self.checklist:
-            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            self.log.exit()
+            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            journal.exit()
             return(None)
 
         cur_SECS_heatmap = self.LE_sol["exp"]
@@ -517,7 +516,7 @@ class MESS():
 
 
         # Here, depending on the CS type, we set up the normal distribution parameters
-        self.log.write(f"Determining proper Z-parameter constants for the sampling process...", 7)
+        journal.write(f"Determining proper Z-parameter constants for the sampling process...", 7)
         if CS_type == "Thouless":
             shape_alpha = (self.mol.nao - self.S_alpha, self.S_alpha)
             shape_beta = (self.mol.nao - self.S_beta, self.S_beta)
@@ -545,14 +544,14 @@ class MESS():
                         np.sqrt(np.sum(cur_SECS_heatmap, axis = 1)),
                         np.sqrt(np.sum(cur_SECS_heatmap, axis = 0))
                     ))
-        self.log.write(f"Spin-alpha has shape {shape_alpha}; spin-beta has shape {shape_beta}", 3)
+        journal.write(f"Spin-alpha has shape {shape_alpha}; spin-beta has shape {shape_beta}", 3)
 
         N_vals = [1]
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -569,7 +568,7 @@ class MESS():
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
         #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -582,7 +581,7 @@ class MESS():
 
         self.measured_datasets.append(dataset_label)
 
-        self.log.exit()
+        journal.exit()
         return(N_vals, convergence_sols)
 
     def find_ground_state_LEGS_phase(self, **kwargs):
@@ -616,7 +615,7 @@ class MESS():
             dataset_label = f"SEGS_phase_{N}_{N_subsample}_{CS_type}"
 
 
-        self.log.enter(f"Obtaining the ground state with the method \"SEGS with random phase\" [N = {N}, N_sub = {N_subsample}, CS type = {CS_type}]", 1)
+        journal.enter(f"Obtaining the ground state with the method \"SEGS with random phase\" [N = {N}, N_sub = {N_subsample}, CS type = {CS_type}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -628,8 +627,8 @@ class MESS():
         assert self.S_alpha == self.S_beta
 
         if "LE_sol" not in self.checklist:
-            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            self.log.exit()
+            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            journal.exit()
             return(None)
 
         cur_SECS_heatmap = self.LE_sol["exp"]
@@ -638,7 +637,7 @@ class MESS():
         cur_sample = CS_sample(self, CS_Thouless, add_ref_state = True)
 
 
-        self.log.write(f"Determining proper Z-parameter constants for the sampling process...", 7)
+        journal.write(f"Determining proper Z-parameter constants for the sampling process...", 7)
 
         shape_alpha = (self.mol.nao - self.S_alpha, self.S_alpha)
         shape_beta = (self.mol.nao - self.S_beta, self.S_beta)
@@ -646,14 +645,14 @@ class MESS():
         centres_beta = np.zeros(shape_beta)
 
 
-        self.log.write(f"Spin-alpha has shape {shape_alpha}; spin-beta has shape {shape_beta}", 3)
+        journal.write(f"Spin-alpha has shape {shape_alpha}; spin-beta has shape {shape_beta}", 3)
 
         N_vals = [1]
         convergence_sols = [self.reference_state_energy]
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -670,7 +669,7 @@ class MESS():
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
         #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -683,7 +682,7 @@ class MESS():
 
         self.measured_datasets.append(dataset_label)
 
-        self.log.exit()
+        journal.exit()
 
         return(N_vals, convergence_sols)
 
@@ -722,7 +721,7 @@ class MESS():
             dataset_label = f"LEGS_first_order_{N}_{N_subsample}_{CS_type}"
 
 
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS 1st ord.\" [N = {N}, N_sub = {N_subsample}, CS = {CS_type}]", 1)
+        journal.enter(f"Obtaining the ground state with the method \"LEGS 1st ord.\" [N = {N}, N_sub = {N_subsample}, CS = {CS_type}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -732,8 +731,8 @@ class MESS():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            self.log.exit()
+            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            journal.exit()
             return(None)
 
         cur_LE_heatmap = self.LE_sol["exp"] #["g"/"a"/"b"/"ab"] for first order
@@ -773,7 +772,7 @@ class MESS():
         eigvals, eigvecs = np.linalg.eigh(cov_matrix)
         min_eigval = min(eigvals)
         if min_eigval <= 0.0:
-            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+            journal.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov_matrix, N * N_subsample)
@@ -800,7 +799,7 @@ class MESS():
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -818,7 +817,7 @@ class MESS():
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
         #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -831,7 +830,7 @@ class MESS():
 
         self.measured_datasets.append(dataset_label)
 
-        self.log.exit()
+        journal.exit()
         return(N_vals, convergence_sols)
 
     def find_ground_state_LEGS_mixed_spin_covariance(self, **kwargs):
@@ -879,7 +878,7 @@ class MESS():
         else:
             dataset_label = f"LEGS_mixed_spin_covariance_{N}_{N_subsample}_{CS_type}"
 
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS mixed spin covariance\" [N = {N}, N_sub = {N_subsample}, CS = {CS_type}, sigma : {sigma}]", 1)
+        journal.enter(f"Obtaining the ground state with the method \"LEGS mixed spin covariance\" [N = {N}, N_sub = {N_subsample}, CS = {CS_type}, sigma : {sigma}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -889,8 +888,8 @@ class MESS():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            self.log.exit()
+            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            journal.exit()
             return(None)
 
         cur_LE_heatmap = self.LE_sol["exp"] #["g"/"a"/"b"/"ab"] for first order
@@ -930,12 +929,12 @@ class MESS():
         required_variance = np.sum(np.abs(cov_matrix), axis = 1) # minimal diag terms to achieve positive semidefiniteness
         cov_matrix += np.diag(required_variance + stds * stds)
 
-        self.log.write(f"Default variance: {stds * stds}; required additional variance: {required_variance}")
+        journal.write(f"Default variance: {stds * stds}; required additional variance: {required_variance}")
 
         eigvals, eigvecs = np.linalg.eigh(cov_matrix)
         min_eigval = min(eigvals)
         if min_eigval <= 0.0:
-            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+            journal.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov_matrix, N * N_subsample)
@@ -962,7 +961,7 @@ class MESS():
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -980,7 +979,7 @@ class MESS():
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
         #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -993,7 +992,7 @@ class MESS():
 
         self.measured_datasets.append(dataset_label)
 
-        self.log.exit()
+        journal.exit()
         return(N_vals, convergence_sols)
 
     def find_ground_state_LEGS_Zombie_cov(self, **kwargs):
@@ -1026,7 +1025,7 @@ class MESS():
         else:
             dataset_label = f"LEGS_Zombie_cov_{N}_{N_subsample}"
 
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov\" [N = {N}, N_sub = {N_subsample}]", 1)
+        journal.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov\" [N = {N}, N_sub = {N_subsample}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -1036,8 +1035,8 @@ class MESS():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            self.log.exit()
+            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            journal.exit()
             return(None)
 
         # We now manually sample Thouless states guided by the LE solution
@@ -1050,7 +1049,7 @@ class MESS():
         cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
 
 
-        self.log.print_matrix(self.LE_sol["red"][:self.mol.nao,:self.mol.nao], "qubit transition matrix", dec_points = 5)
+        journal.print_matrix(self.LE_sol["red"][:self.mol.nao,:self.mol.nao], "qubit transition matrix", dec_points = 5)
 
 
 
@@ -1113,14 +1112,14 @@ class MESS():
                 np.round(2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])), dec_point)
                 ])
 
-        self.log.print_table(
+        journal.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "var", "gershgorin disc", "leeway"],
             row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        journal.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
 
         """print("")
         print("- Means -")
@@ -1135,14 +1134,14 @@ class MESS():
         print("")"""
 
 
-        """self.log.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
+        """journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
         for i in range(2 * self.mol.nao):
             cov[i][i] = np.sum(np.abs(cov[i]))"""
 
         eigvals, eigvecs = np.linalg.eigh(cov)
         min_eigval = min(eigvals)
         if min_eigval <= 0.0:
-            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+            journal.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
@@ -1161,7 +1160,7 @@ class MESS():
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -1179,7 +1178,7 @@ class MESS():
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
         #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -1192,7 +1191,7 @@ class MESS():
 
         self.measured_datasets.append(dataset_label)
 
-        self.log.exit()
+        journal.exit()
         return(N_vals, convergence_sols)
 
     def find_ground_state_LEGS_Zombie_cov_ALT(self, **kwargs):
@@ -1225,7 +1224,7 @@ class MESS():
         else:
             dataset_label = f"LEGS_Zombie_cov_{N}_{N_subsample}"
 
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov\" [N = {N}, N_sub = {N_subsample}]", 1)
+        journal.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov\" [N = {N}, N_sub = {N_subsample}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -1235,8 +1234,8 @@ class MESS():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            self.log.exit()
+            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            journal.exit()
             return(None)
 
         # We now manually sample Thouless states guided by the LE solution
@@ -1251,10 +1250,10 @@ class MESS():
         cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
 
 
-        self.log.print_matrix(self.LE_sol["red"][:self.mol.nao,:self.mol.nao], "qubit transition matrix", dec_points = 5)
+        journal.print_matrix(self.LE_sol["red"][:self.mol.nao,:self.mol.nao], "qubit transition matrix", dec_points = 5)
 
         # initialise means and variances Dima style (mean = std)
-        self.log.write("Means and variances Dima style (mean = std, and derived from the calculated mean of square)")
+        journal.write("Means and variances Dima style (mean = std, and derived from the calculated mean of square)")
         for i in range(self.mol.nao):
             norm_coef = 1.0
             if i >= self.S_alpha:
@@ -1320,14 +1319,14 @@ class MESS():
                 np.round(2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])), dec_point)
                 ])
 
-        self.log.print_table(
+        journal.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "var", "gershgorin disc", "leeway"],
             row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        journal.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
 
         """print("")
         print("- Means -")
@@ -1342,14 +1341,14 @@ class MESS():
         print("")"""
 
 
-        """self.log.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
+        """journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
         for i in range(2 * self.mol.nao):
             cov[i][i] = np.sum(np.abs(cov[i]))"""
 
         eigvals, eigvecs = np.linalg.eigh(cov)
         min_eigval = min(eigvals)
         if min_eigval <= 0.0:
-            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+            journal.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
@@ -1368,7 +1367,7 @@ class MESS():
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -1386,7 +1385,7 @@ class MESS():
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
         #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -1399,7 +1398,7 @@ class MESS():
 
         self.measured_datasets.append(dataset_label)
 
-        self.log.exit()
+        journal.exit()
         return(N_vals, convergence_sols)
 
     def find_ground_state_LEGS_Zombie_cov_SRRM(self, **kwargs):
@@ -1435,7 +1434,7 @@ class MESS():
         else:
             dataset_label = f"LEGS_Zombie_cov_SRRM_{N}_{N_subsample}"
 
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov SRRM\" [N = {N}, N_sub = {N_subsample}]", 1)
+        journal.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov SRRM\" [N = {N}, N_sub = {N_subsample}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -1445,8 +1444,8 @@ class MESS():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            self.log.exit()
+            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            journal.exit()
             return(None)
 
         # We now manually sample Thouless states guided by the LE solution
@@ -1461,10 +1460,10 @@ class MESS():
         cov = np.zeros( (2 * self.mol.nao, 2 * self.mol.nao) )
 
 
-        self.log.print_matrix(self.LE_sol["SRRM"][:self.mol.nao,:self.mol.nao], "qubit transition matrix", dec_points = 5)
+        journal.print_matrix(self.LE_sol["SRRM"][:self.mol.nao,:self.mol.nao], "qubit transition matrix", dec_points = 5)
 
         # initialise means and variances Dima style (mean = std)
-        self.log.write("Means and variances Dima style (mean = std, and derived from the calculated mean of square)")
+        journal.write("Means and variances Dima style (mean = std, and derived from the calculated mean of square)")
         for i in range(self.mol.nao):
             norm_coef = 1.0
             if i >= self.S_alpha:
@@ -1530,14 +1529,14 @@ class MESS():
                 np.round(2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])), dec_point)
                 ])
 
-        self.log.print_table(
+        journal.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "var", "gershgorin disc", "leeway"],
             row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        journal.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
 
         """print("")
         print("- Means -")
@@ -1554,10 +1553,10 @@ class MESS():
         # -------------- making sure covariances dont overshadow the variances ----------------
 
         """
-        self.log.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
+        journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
         for i in range(2 * self.mol.nao):
             cov[i][i] = np.sum(np.abs(cov[i]))"""
-        self.log.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...")
+        journal.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...")
         for i in range(2 * self.mol.nao):
             row_coef = (np.sum(np.abs(cov[i])) - cov[i][i]) / cov[i][i]
             if row_coef > 1.0:
@@ -1576,7 +1575,7 @@ class MESS():
                 np.round(2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])), dec_point)
                 ])
 
-        self.log.print_table(
+        journal.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "var", "gershgorin disc", "leeway"],
             row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
@@ -1586,7 +1585,7 @@ class MESS():
         eigvals, eigvecs = np.linalg.eigh(cov)
         min_eigval = min(eigvals)
         if min_eigval <= 0.0:
-            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+            journal.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
@@ -1605,7 +1604,7 @@ class MESS():
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -1623,7 +1622,7 @@ class MESS():
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
         #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -1636,7 +1635,7 @@ class MESS():
 
         self.measured_datasets.append(dataset_label)
 
-        self.log.exit()
+        journal.exit()
         return(N_vals, convergence_sols)
 
     def find_ground_state_LEGS_Zombie_cov_SRRM_alt(self, **kwargs):
@@ -1678,7 +1677,7 @@ class MESS():
         else:
             dataset_label = f"LEGS_Zombie_cov_SRRM_alt_{N}_{N_subsample}"
 
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov SRRM alt\" [N = {N}, N_sub = {N_subsample}, cov_proportion = {cov_proportion}]", 1)
+        journal.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov SRRM alt\" [N = {N}, N_sub = {N_subsample}, cov_proportion = {cov_proportion}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -1695,8 +1694,8 @@ class MESS():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            self.log.exit()
+            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            journal.exit()
             return(None)
 
         # We now manually sample Thouless states guided by the LE solution
@@ -1742,10 +1741,10 @@ class MESS():
 
 
 
-        self.log.print_matrix(self.LE_sol["SRRM"][:self.mol.nao,:self.mol.nao], "qubit transition matrix", dec_points = 5)
+        journal.print_matrix(self.LE_sol["SRRM"][:self.mol.nao,:self.mol.nao], "qubit transition matrix", dec_points = 5)
 
         # initialise means and variances Dima style (mean = std)
-        self.log.write("Means and variances Dima style (mean = std, and derived from the calculated mean of square)")
+        journal.write("Means and variances Dima style (mean = std, and derived from the calculated mean of square)")
         for i in range(self.mol.nao):
             if i < self.S_alpha:
                 sq_means[spat_to_spin_idx("a", i)] = self.LE_sol["SRRM"][spat_to_spin_idx("a", i)][i]
@@ -1851,22 +1850,22 @@ class MESS():
                 np.round(100 * (2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) ) / cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], 1)
                 ])
 
-        self.log.print_table(
+        journal.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
             row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        journal.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
 
         # -------------- making sure covariances dont overshadow the variances ----------------
 
 
-        #self.log.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
+        #journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
         #for i in range(2 * self.mol.nao):
         #    cov[i][i] = np.sum(np.abs(cov[i]))
-        self.log.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...")
+        journal.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...")
         for i in range(2 * self.mol.nao):
             if np.sum(np.abs(cov[i])) - cov[i][i] == 0.0:
                 # No off-diagonal terms, we protect against div by zero
@@ -1900,7 +1899,7 @@ class MESS():
                 np.round(100 * (2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) ) / cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], 1)
                 ])
 
-        self.log.print_table(
+        journal.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
             row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
@@ -1910,7 +1909,7 @@ class MESS():
         eigvals, eigvecs = np.linalg.eigh(cov)
         min_eigval = min(eigvals)
         if min_eigval <= 0.0:
-            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+            journal.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
@@ -1929,7 +1928,7 @@ class MESS():
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -1947,7 +1946,7 @@ class MESS():
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
         #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -1961,9 +1960,9 @@ class MESS():
 
         self.measured_datasets.append(dataset_label)
 
-        self.log.write(f"Measured datasets: {self.measured_datasets}")
+        journal.write(f"Measured datasets: {self.measured_datasets}")
 
-        self.log.exit()
+        journal.exit()
         return(N_vals, convergence_sols)
 
     def find_ground_state_LEGS_Zombie_cov_SRRM_mirror(self, **kwargs):
@@ -2005,7 +2004,7 @@ class MESS():
         else:
             dataset_label = f"LEGS_Zombie_cov_SRRM_mirror_{N}_{N_subsample}"
 
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov SRRM mirror\" [N = {N}, N_sub = {N_subsample}, cov_proportion = {cov_proportion}]", 1)
+        journal.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov SRRM mirror\" [N = {N}, N_sub = {N_subsample}, cov_proportion = {cov_proportion}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -2022,8 +2021,8 @@ class MESS():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            self.log.exit()
+            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            journal.exit()
             return(None)
 
         # We now manually sample Thouless states guided by the LE solution
@@ -2111,22 +2110,22 @@ class MESS():
                 np.round(100 * (2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) ) / cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], 1)
                 ])
 
-        self.log.print_table(
+        journal.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
             row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        journal.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
 
         # -------------- making sure covariances dont overshadow the variances ----------------
 
 
-        #self.log.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
+        #journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
         #for i in range(2 * self.mol.nao):
         #    cov[i][i] = np.sum(np.abs(cov[i]))
-        self.log.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...")
+        journal.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...")
         for i in range(2 * self.mol.nao):
             if np.sum(np.abs(cov[i])) - cov[i][i] == 0.0:
                 # No off-diagonal terms, we protect against div by zero
@@ -2160,7 +2159,7 @@ class MESS():
                 np.round(100 * (2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) ) / cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], 1)
                 ])
 
-        self.log.print_table(
+        journal.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
             row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
@@ -2170,7 +2169,7 @@ class MESS():
         eigvals, eigvecs = np.linalg.eigh(cov)
         min_eigval = min(eigvals)
         if min_eigval <= 0.0:
-            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+            journal.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
@@ -2196,7 +2195,7 @@ class MESS():
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -2214,7 +2213,7 @@ class MESS():
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
         #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -2228,9 +2227,9 @@ class MESS():
 
         self.measured_datasets.append(dataset_label)
 
-        self.log.write(f"Measured datasets: {self.measured_datasets}")
+        journal.write(f"Measured datasets: {self.measured_datasets}")
 
-        self.log.exit()
+        journal.exit()
         return(N_vals, convergence_sols)
 
     def find_ground_state_LEGS_Zombie_cov_SOPM(self, **kwargs):
@@ -2265,7 +2264,7 @@ class MESS():
         else:
             dataset_label = f"LEGS_Zombie_cov_SOPM_{N}_{N_subsample}"
 
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov SOPM\" [N = {N}, N_sub = {N_subsample}]", 1)
+        journal.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov SOPM\" [N = {N}, N_sub = {N_subsample}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -2281,8 +2280,8 @@ class MESS():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            self.log.exit()
+            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            journal.exit()
             return(None)
 
         # We now manually sample Thouless states guided by the LE solution
@@ -2356,21 +2355,21 @@ class MESS():
                 np.round(100 * (2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) ) / cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], 1)
                 ])
 
-        self.log.print_table(
+        journal.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
             row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        journal.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
 
         # -------------- making sure covariances dont overshadow the variances ----------------
 
         eigvals, eigvecs = np.linalg.eigh(cov)
         min_eigval = min(eigvals)
         if min_eigval <= 0.0:
-            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+            journal.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
@@ -2390,7 +2389,7 @@ class MESS():
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -2408,7 +2407,7 @@ class MESS():
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
         #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -2422,9 +2421,9 @@ class MESS():
 
         self.measured_datasets.append(dataset_label)
 
-        self.log.write(f"Measured datasets: {self.measured_datasets}")
+        journal.write(f"Measured datasets: {self.measured_datasets}")
 
-        self.log.exit()
+        journal.exit()
         return(N_vals, convergence_sols)
 
     def find_ground_state_LEGS_Zombie_cov_RSOPM_moment_matching(self, **kwargs):
@@ -2465,7 +2464,7 @@ class MESS():
         else:
             dataset_label = f"LEGS_Zombie_cov_RSOPM_moment_matching_{N}_{N_subsample}"
 
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov RSOPM moment matching\" [N = {N}, N_sub = {N_subsample}, eta = {eta}]", 1)
+        journal.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov RSOPM moment matching\" [N = {N}, N_sub = {N_subsample}, eta = {eta}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -2482,8 +2481,8 @@ class MESS():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            self.log.exit()
+            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            journal.exit()
             return(None)
 
         # We now manually sample Thouless states guided by the LE solution
@@ -2548,14 +2547,14 @@ class MESS():
                 np.round(100 * (2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) ) / cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], 1)
                 ])
 
-        self.log.print_table(
+        journal.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
             row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        journal.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
 
 
         # -------------- making sure covariances dont overshadow the variances ----------------
@@ -2563,7 +2562,7 @@ class MESS():
         eigvals, eigvecs = np.linalg.eigh(cov)
         min_eigval = min(eigvals)
         if min_eigval <= 0.0:
-            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+            journal.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
@@ -2583,7 +2582,7 @@ class MESS():
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -2601,7 +2600,7 @@ class MESS():
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
         #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -2615,9 +2614,9 @@ class MESS():
 
         self.measured_datasets.append(dataset_label)
 
-        self.log.write(f"Measured datasets: {self.measured_datasets}")
+        journal.write(f"Measured datasets: {self.measured_datasets}")
 
-        self.log.exit()
+        journal.exit()
         return(N_vals, convergence_sols)
 
     def find_ground_state_LEGS_Zombie_cov_RSOPM(self, **kwargs):
@@ -2652,7 +2651,7 @@ class MESS():
         else:
             dataset_label = f"LEGS_Zombie_cov_RSOPM_{N}_{N_subsample}"
 
-        self.log.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov RSOPM\" [N = {N}, N_sub = {N_subsample}]", 1)
+        journal.enter(f"Obtaining the ground state with the method \"LEGS Zombie cov RSOPM\" [N = {N}, N_sub = {N_subsample}]", 1)
 
 
         # Disk jockey node creation and metadata storage
@@ -2668,8 +2667,8 @@ class MESS():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            self.log.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            self.log.exit()
+            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
+            journal.exit()
             return(None)
 
         # We now manually sample Thouless states guided by the LE solution
@@ -2741,21 +2740,21 @@ class MESS():
                 np.round(100 * (2 * cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)] - np.sum(np.abs(cov[spat_to_spin_idx("a", i)])) ) / cov[spat_to_spin_idx("a", i)][spat_to_spin_idx("a", i)], 1)
                 ])
 
-        self.log.print_table(
+        journal.print_table(
             table_name = "LE Zombie diag.",
             column_names = ["mean", "std", "var", "gershgorin disc", "leeway", "leeway %"],
             row_names = np.arange(1, self.mol.nao + 1, 1, dtype = int),
             list_of_rows = diagnostic_table
             )
 
-        self.log.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
+        journal.print_matrix(cov[:self.mol.nao,:self.mol.nao], "covariance matrix", dec_points = 5)
 
         # -------------- making sure covariances dont overshadow the variances ----------------
 
         eigvals, eigvecs = np.linalg.eigh(cov)
         min_eigval = min(eigvals)
         if min_eigval <= 0.0:
-            self.log.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
+            journal.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
         # We pre-sample the parameters
         rand_X = functions.sample_with_autocorrelation_safe(means, cov, N * N_subsample)
@@ -2775,7 +2774,7 @@ class MESS():
 
         msg = f"Conditioned sampling with ground state search on {N} states, each taken from {N_subsample} random states"
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, N_subsample * ((N + 2) * (N + 1) / 2 - 1) + 1, 1000 + 1))
 
         for n in range(N):
             # We add the best out of 10 random states
@@ -2793,7 +2792,7 @@ class MESS():
         procedure_diagnostic.append(f"Full sample condition number = {cur_sample.S_cond}")
 
         #solution_benchmark = self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         csv_sol = [] # list of rows
         for i in range(len(N_vals)):
@@ -2807,9 +2806,9 @@ class MESS():
 
         self.measured_datasets.append(dataset_label)
 
-        self.log.write(f"Measured datasets: {self.measured_datasets}")
+        journal.write(f"Measured datasets: {self.measured_datasets}")
 
-        self.log.exit()
+        journal.exit()
         return(N_vals, convergence_sols)
 
 
@@ -2841,11 +2840,11 @@ class MESS():
 
     def initialise_molecule(self, mol_ID, build = None):
         # If ID exists on disk, we just load it. If it doesn't, we build it.
-        self.log.enter(f"Initialising molecule '{mol_ID}'...")
-        self.mol = DO_Molecule(mol_ID, self.log)
+        journal.enter(f"Initialising molecule '{mol_ID}'...")
+        self.mol = DO_Molecule(mol_ID)
 
 
-        self.log.exit()
+        journal.exit()
 
 
 
@@ -2905,7 +2904,7 @@ class MESS():
             if self.HF_method == "RHF":
                 spin = "a" # doesn't matter
             else:
-                self.log.write("WARNING: Called mode_exchange_energy without specifying spin when Hilbert space is not assumed to be spin-symmetrical. Returning None...", 0)
+                journal.write("WARNING: Called mode_exchange_energy without specifying spin when Hilbert space is not assumed to be spin-symmetrical. Returning None...", 0)
                 return(None)
 
         # m_i/f are lists of either one mode index (single electron exchange) or two mode indices (two electron exchange)
@@ -3005,7 +3004,7 @@ class MESS():
         if method in self.find_ground_state_methods.keys():
             return(self.find_ground_state_methods[method](**kwargs))
         else:
-            self.log.write(f"ERROR: Unknown ground state method {method}. Available methods: {self.find_ground_state_methods.keys()}")
+            journal.write(f"ERROR: Unknown ground state method {method}. Available methods: {self.find_ground_state_methods.keys()}")
             return(None)
 
     ###########################################################################
@@ -3292,12 +3291,12 @@ class MESS():
         #   -The norm squared of the ci_sol projection onto these states (None
         #    if unknown)
 
-        self.log.enter(f"Obtaining all states with one excitation on both spin subspaces...", 8)
+        journal.enter(f"Obtaining all states with one excitation on both spin subspaces...", 8)
 
         # First, check if there are any such states
         if min(self.S_alpha, self.mol.nao - self.S_alpha) < 1 or min(self.S_beta, self.mol.nao - self.S_beta) < 1:
-            self.log.write("No excitation allowed on one of the spin subspaces.", 9)
-            self.log.exit()
+            journal.write("No excitation allowed on one of the spin subspaces.", 9)
+            journal.exit()
             return([])
 
         res = []
@@ -3312,8 +3311,8 @@ class MESS():
                                 (1,) * k + (0,) + (1,) * (self.S_beta - 1 - k) + (0,) * l + (1,)
                             ))
 
-        self.log.write(f"Obtained {len(res)} such states.", 9)
-        self.log.exit()
+        journal.write(f"Obtained {len(res)} such states.", 9)
+        journal.exit()
         return(res)
 
     def get_states_by_excitation_number(self, N_exc_a, N_exc_b, form = "tuple"):
@@ -3322,12 +3321,12 @@ class MESS():
         # N_exc_a: number of excitations in the spin-alpha subspace
         # N_exc_b: number of excitations in the spin-beta subspace
 
-        self.log.enter(f"Obtaining all states with {N_exc_a} excitations on spin-alpha and {N_exc_b} excitations on spin-beta...", 4)
+        journal.enter(f"Obtaining all states with {N_exc_a} excitations on spin-alpha and {N_exc_b} excitations on spin-beta...", 4)
 
         # First, check if there are any such states
         if min(self.S_alpha, self.mol.nao - self.S_alpha) < N_exc_a or min(self.S_beta, self.mol.nao - self.S_beta) < N_exc_b:
-            self.log.write("Number of excitations is too large. No such states exist.", 5)
-            self.log.exit()
+            journal.write("Number of excitations is too large. No such states exist.", 5)
+            journal.exit()
             return([])
 
         a_from = functions.subset_indices(np.arange(self.S_alpha), N_exc_a)
@@ -3353,8 +3352,8 @@ class MESS():
                         else:
                             res.append(cur_state)
 
-        self.log.write(f"Obtained {len(res)} such states.", 5)
-        self.log.exit()
+        journal.write(f"Obtained {len(res)} such states.", 5)
+        journal.exit()
         return(res)
 
     def get_top_single_excitation_states(self, N_top = 10):
@@ -3366,15 +3365,15 @@ class MESS():
         #    if unknown)
 
         if N_top is None:
-            self.log.enter(f"Obtaining all states with one excitation in total...", 4)
+            journal.enter(f"Obtaining all states with one excitation in total...", 4)
         else:
             N_top_a = min(N_top, self.S_alpha * (self.mol.nao - self.S_alpha))
             N_top_b = min(N_top, self.S_beta * (self.mol.nao - self.S_beta))
-            self.log.enter(f"Obtaining top ({N_top_a}, {N_top_b}) states with one excitation in spin (alpha, beta) as measured by overlap in true ground state...", 4)
+            journal.enter(f"Obtaining top ({N_top_a}, {N_top_b}) states with one excitation in spin (alpha, beta) as measured by overlap in true ground state...", 4)
 
         if "full_CI_sol" not in self.checklist:
-            self.log.write("WARNING: Full CI ground state solution has not been found yet. Aborting...")
-            self.log.exit()
+            journal.write("WARNING: Full CI ground state solution has not been found yet. Aborting...")
+            journal.exit()
             return(None)
 
         res = [[], []] #[0/1][i] = [n_sq, key, prom_label]; ordered by n_sq desc.
@@ -3436,8 +3435,8 @@ class MESS():
                     res[1].append(cur_state_beta)
 
 
-        self.log.write(f"Obtained ({len(res[0])}, {len(res[1])}) such states.", 5)
-        self.log.exit()
+        journal.write(f"Obtained ({len(res[0])}, {len(res[1])}) such states.", 5)
+        journal.exit()
         return(res, (self.S_alpha * (self.mol.nao - self.S_alpha), self.S_beta * (self.mol.nao - self.S_beta)), (total_norm_squared_projection_a, total_norm_squared_projection_b))
 
     def get_top_simultaneously_excited_states(self, N_top = 10):
@@ -3449,14 +3448,14 @@ class MESS():
         #    if unknown)
 
         if N_top is None:
-            self.log.enter(f"Obtaining all states with one excitation on both spin subspaces...", 4)
+            journal.enter(f"Obtaining all states with one excitation on both spin subspaces...", 4)
         else:
             N_top = min(N_top, self.S_alpha * (self.mol.nao - self.S_alpha) * self.S_beta * (self.mol.nao - self.S_beta))
-            self.log.enter(f"Obtaining top {N_top} states with one excitation on both spin subspaces as measured by overlap in true ground state...", 4)
+            journal.enter(f"Obtaining top {N_top} states with one excitation on both spin subspaces as measured by overlap in true ground state...", 4)
 
         if "full_CI_sol" not in self.checklist:
-            self.log.write("WARNING: Full CI ground state solution has not been found yet. Aborting...")
-            self.log.exit()
+            journal.write("WARNING: Full CI ground state solution has not been found yet. Aborting...")
+            journal.exit()
             return(None)
 
         res = [] #[i] = [n_sq, key, prom_label]; ordered by n_sq desc.
@@ -3493,8 +3492,8 @@ class MESS():
                             res.append((cur_state_alpha, cur_state_beta))
 
 
-        self.log.write(f"Obtained {len(res)} such states.", 5)
-        self.log.exit()
+        journal.write(f"Obtained {len(res)} such states.", 5)
+        journal.exit()
         return(res, self.S_alpha * (self.mol.nao - self.S_alpha) * self.S_beta * (self.mol.nao - self.S_beta), total_norm_squared_projection)
 
 
@@ -3549,7 +3548,7 @@ class MESS():
         self.LE_description["label"] = "Closed-shell states differing from the HF state by one shell at most"
 
 
-        self.log.enter("Solving on a single-excitation closed-shell basis...", 1)
+        journal.enter("Solving on a single-excitation closed-shell basis...", 1)
 
         self.user_actions += f"find_LE_solution_SECS [MOs considered: {act_M}]\n"
 
@@ -3559,7 +3558,7 @@ class MESS():
         basis = [[ref_state, ref_state]]
 
 
-        self.log.write(f"Obtaining the SECS basis....", 1)
+        journal.write(f"Obtaining the SECS basis....", 1)
 
         for a in range(act_M - self.S_alpha):
             for b in range(self.S_alpha):
@@ -3568,14 +3567,14 @@ class MESS():
                 cur_state[b] = 0
                 basis.append([cur_state, cur_state])
 
-        self.log.write(f"SECS basis of length {len(basis)} obtained.", 1)
+        journal.write(f"SECS basis of length {len(basis)} obtained.", 1)
 
         H = np.zeros((len(basis), len(basis)))
         msg = f"Explicit Hamiltonian evaluation on SECS basis"
 
 
         #new_sem_ID = self.semaphor.create_event(np.linspace(0, len(basis) * (len(basis) + 1) / 2, 100 + 1), msg)
-        self.log.enter(msg, 1, True, tau_space = np.linspace(0, len(basis) * (len(basis) + 1) / 2, 100 + 1))
+        journal.enter(msg, 1, True, tau_space = np.linspace(0, len(basis) * (len(basis) + 1) / 2, 100 + 1))
 
         for a in range(len(basis)):
             # Here the diagonal <Z_a|H|Z_a>
@@ -3583,7 +3582,7 @@ class MESS():
             assert cur_H_overlap.imag < 1e-08
             H[a][a] = cur_H_overlap.real
             #self.semaphor.update(new_sem_ID, a * (a + 1) / 2)
-            self.log.update_semaphor_event(a * (a + 1) / 2)
+            journal.update_semaphor_event(a * (a + 1) / 2)
 
             # Here the off-diagonal, using the fact that H is a Hermitian matrix
             for b in range(a):
@@ -3593,17 +3592,17 @@ class MESS():
                 H[a][b] = cur_H_overlap.real
                 H[b][a] = H[a][b] # np.conjugate(H[a][b])
                 #self.semaphor.update(new_sem_ID, a * (a + 1) / 2 + b + 1)
-                self.log.update_semaphor_event(a * (a + 1) / 2 + b + 1)
+                journal.update_semaphor_event(a * (a + 1) / 2 + b + 1)
 
         #self.semaphor.finish_event(new_sem_ID, "Evaluation")
-        self.log.exit("Evaluation")
+        journal.exit("Evaluation")
 
         energy_levels, energy_states = np.linalg.eig(H)
         ground_state_index = np.argmin(energy_levels)
         ground_state_energy = energy_levels[ground_state_index]
         ground_state_vector = energy_states[:,ground_state_index] # note that energy_states consist of column vectors, not row vectors
 
-        self.log.write(f"Ground state energy: {ground_state_energy} (compare to full CI: {self.ci_energy})", 1)
+        journal.write(f"Ground state energy: {ground_state_energy} (compare to full CI: {self.ci_energy})", 1)
 
         # Mark as solved
         self.check_off("LE_sol")
@@ -3616,8 +3615,8 @@ class MESS():
         # Derived properties
         self.derive_LE_property_reduction_matrix()
 
-        self.log.write(f"Success!", 1)
-        self.log.exit()
+        journal.write(f"Success!", 1)
+        journal.exit()
         return(None)
 
     def find_LE_solution_SEO1(self, **kwargs):
@@ -3650,7 +3649,7 @@ class MESS():
         self.LE_description["params"] = {"diag_alg" : diag_alg}
         self.LE_description["label"] = "at most one excitation in each spin subspace"
 
-        self.log.enter(f"Solving on a single-excitation closed-shell basis using {hr_diag_alg_label}...", 1)
+        journal.enter(f"Solving on a single-excitation closed-shell basis using {hr_diag_alg_label}...", 1)
 
         self.user_actions += f"find_LE_solution_SE [diag_alg = '{diag_alg}']\n"
 
@@ -3658,7 +3657,7 @@ class MESS():
 
         if diag_alg == "exp":
 
-            self.log.write(f"Obtaining the SE basis....", 1)
+            journal.write(f"Obtaining the SE basis....", 1)
 
             ref_state_a = (1,) * self.S_alpha
             ref_state_b = (1,) * self.S_beta
@@ -3697,19 +3696,19 @@ class MESS():
                             b_occ[l + self.S_beta] = 1
                             basis.append((ref_state_a, tuple(b_occ)))
 
-            self.log.write(f"SE basis of length {len(basis)} obtained.")
+            journal.write(f"SE basis of length {len(basis)} obtained.")
 
             H = np.zeros((len(basis), len(basis)))
             msg = f"Explicit Hamiltonian evaluation on SE basis"
 
-            self.log.enter(msg, 1, True, tau_space = np.linspace(0, len(basis) * (len(basis) + 1) / 2, 100 + 1))
+            journal.enter(msg, 1, True, tau_space = np.linspace(0, len(basis) * (len(basis) + 1) / 2, 100 + 1))
 
             for a in range(len(basis)):
                 # Here the diagonal <Z_a|H|Z_a>
                 cur_H_overlap = self.get_H_overlap_on_occupancy(self.occ_tuple_to_list(basis[a]), self.occ_tuple_to_list(basis[a]))
                 assert cur_H_overlap.imag < 1e-08
                 H[a][a] = cur_H_overlap.real
-                self.log.update_semaphor_event(a * (a + 1) / 2)
+                journal.update_semaphor_event(a * (a + 1) / 2)
 
                 # Here the off-diagonal, using the fact that H is a Hermitian matrix
                 for b in range(a):
@@ -3718,9 +3717,9 @@ class MESS():
                     assert cur_H_overlap.imag < 1e-08
                     H[a][b] = cur_H_overlap.real
                     H[b][a] = H[a][b] # np.conjugate(H[a][b])
-                    self.log.update_semaphor_event(a * (a + 1) / 2 + b + 1)
+                    journal.update_semaphor_event(a * (a + 1) / 2 + b + 1)
 
-            self.log.exit("Evaluation")
+            journal.exit("Evaluation")
 
             energy_levels, energy_states = np.linalg.eig(H)
             ground_state_index = np.argmin(energy_levels)
@@ -3728,12 +3727,12 @@ class MESS():
             ground_state_vector = energy_states[:,ground_state_index] # note that energy_states consist of column vectors, not row vectors
 
             if "full_CI_sol" in self.checklist:
-                self.log.write(f"Ground state energy: {ground_state_energy:0.5f} (compare to full CI: {self.ci_energy:0.5f})", 1)
+                journal.write(f"Ground state energy: {ground_state_energy:0.5f} (compare to full CI: {self.ci_energy:0.5f})", 1)
             else:
-                self.log.write(f"Ground state energy: {ground_state_energy:0.5f}", 1)
+                journal.write(f"Ground state energy: {ground_state_energy:0.5f}", 1)
 
             # Now, for the heatmap
-            self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+            journal.write(f"Obtaining the low-excitation prevalence matrix...", 2)
 
             res_sol = {(((), ()), ((), ())) : ground_state_vector[0]}
 
@@ -3777,22 +3776,22 @@ class MESS():
             self.LE_sol["sol"] = res_sol
 
         elif diag_alg == "SCF":
-            self.log.enter("SCF on CISD basis...", 3)
+            journal.enter("SCF on CISD basis...", 3)
 
             cisd_solver = self.mean_field.CISD().run()
 
             if not cisd_solver.converged:
-                self.log.write("ERROR: SCF solver failed to converge. Aborting...")
-                self.log.exit()
-                self.log.exit()
+                journal.write("ERROR: SCF solver failed to converge. Aborting...")
+                journal.exit()
+                journal.exit()
                 return(None)
 
-            self.log.write(f"Obtained CISD solution (basis length = {len(cisd_solver.ci)})")
+            journal.write(f"Obtained CISD solution (basis length = {len(cisd_solver.ci)})")
 
             if "full_CI_sol" in self.checklist:
-                self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f} (compare to full CI: {self.ci_energy:0.5f})", 1)
+                journal.write(f"Ground state energy: {cisd_solver.e_tot:0.5f} (compare to full CI: {self.ci_energy:0.5f})", 1)
             else:
-                self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f}", 1)
+                journal.write(f"Ground state energy: {cisd_solver.e_tot:0.5f}", 1)
 
 
             if self.HF_method == "UHF":
@@ -3805,13 +3804,13 @@ class MESS():
                 c1_a, c1_b = c1
                 c2_aa, c2_ab, c2_bb = c2
 
-                self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
-                self.log.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
-                self.log.write(f"  For one excitation: {c1_a.shape} on alpha, {c1_b.shape} on beta")
-                self.log.write(f"  For two excitations: {c2_aa.shape} on alpha-alpha, {c2_bb.shape} on beta-beta, {c2_ab.shape} on mixed-spin excitations")
+                journal.write("Excitation-based Slater determinant sub-bases have lengths:")
+                journal.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
+                journal.write(f"  For one excitation: {c1_a.shape} on alpha, {c1_b.shape} on beta")
+                journal.write(f"  For two excitations: {c2_aa.shape} on alpha-alpha, {c2_bb.shape} on beta-beta, {c2_ab.shape} on mixed-spin excitations")
 
                 # Now, for the heatmap
-                self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+                journal.write(f"Obtaining the low-excitation prevalence matrix...", 2)
 
 
                 # We do not need to project onto the (no same-spin double excitation) basis,
@@ -3840,7 +3839,7 @@ class MESS():
 
                 res_sol = {}
 
-                self.log.write("Regularising solution as a dict of tuples...", 3)
+                journal.write("Regularising solution as a dict of tuples...", 3)
                 # We omit entries which are not singlet or doublet excitations, since they are by definition zero in the CISD sol
                 HF_occ = "1" * self.S_alpha
                 res_sol[(((), ()), ((), ()))] = float(fci_coefs[fci.cistring.str2addr(self.mol.nao, self.S_alpha, HF_occ), fci.cistring.str2addr(self.mol.nao, self.S_beta, HF_occ)])
@@ -3913,13 +3912,13 @@ class MESS():
                         idx_a += 1"""
 
 
-                """self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
-                self.log.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
-                self.log.write(f"  For one excitation: {c1.shape} spin-adapted configurations of the form | i -> j > = 1/sqrt(2) . (a_i,alpha\\hc a_j,alpha + a_i,beta\\hc a_j,beta) | HF >")
-                self.log.write(f"  For two excitations: {c2.shape} singlet-coupled combinations of the form | ij -> kl > 1/2 . (a_k,alpha\\hc a_l,beta\\hc - a_l,alpha\\hc a_k,beta\\hc) . (a_i,alpha a_j,beta - a_j,alpha a_i,beta) | HF >")
+                """journal.write("Excitation-based Slater determinant sub-bases have lengths:")
+                journal.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
+                journal.write(f"  For one excitation: {c1.shape} spin-adapted configurations of the form | i -> j > = 1/sqrt(2) . (a_i,alpha\\hc a_j,alpha + a_i,beta\\hc a_j,beta) | HF >")
+                journal.write(f"  For two excitations: {c2.shape} singlet-coupled combinations of the form | ij -> kl > 1/2 . (a_k,alpha\\hc a_l,beta\\hc - a_l,alpha\\hc a_k,beta\\hc) . (a_i,alpha a_j,beta - a_j,alpha a_i,beta) | HF >")
 
                 # Now, for the heatmap
-                self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+                journal.write(f"Obtaining the low-excitation prevalence matrix...", 2)
 
 
                 # We do not need to project onto the (no same-spin double excitation) basis,
@@ -3947,13 +3946,13 @@ class MESS():
             self.LE_sol["E"] = cisd_solver.e_tot
             self.LE_sol["sol"] = res_sol
 
-            self.log.exit()
+            journal.exit()
 
         # Derived properties
         self.derive_LE_property_reduction_matrix()
 
-        self.log.write(f"Success!", 1)
-        self.log.exit()
+        journal.write(f"Success!", 1)
+        journal.exit()
         return(None)
 
 
@@ -3965,24 +3964,24 @@ class MESS():
         self.LE_description["params"] = {}
         self.LE_description["label"] = "at most one excitation in each spin subspace"
 
-        self.log.enter(f"Solving on a mixed-spin double-excitation basis using SCF...", 1)
+        journal.enter(f"Solving on a mixed-spin double-excitation basis using SCF...", 1)
 
         self.user_actions += f"find_LE_solution_MSDE [def_var = {def_var}]\n"
 
         # Finding the LE solution
-        self.log.enter("SCF on CISD basis...", 3)
+        journal.enter("SCF on CISD basis...", 3)
         cisd_solver = self.mean_field.CISD().run()
         if not cisd_solver.converged:
-            self.log.write("ERROR: SCF solver failed to converge. Aborting...")
-            self.log.exit()
-            self.log.exit()
+            journal.write("ERROR: SCF solver failed to converge. Aborting...")
+            journal.exit()
+            journal.exit()
             return(None)
-        self.log.write(f"Obtained CISD solution (basis length = {len(cisd_solver.ci)})")
+        journal.write(f"Obtained CISD solution (basis length = {len(cisd_solver.ci)})")
 
         if "full_CI_sol" in self.checklist:
-            self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f} (compare to full CI: {self.ci_energy:0.5f})", 1)
+            journal.write(f"Ground state energy: {cisd_solver.e_tot:0.5f} (compare to full CI: {self.ci_energy:0.5f})", 1)
         else:
-            self.log.write(f"Ground state energy: {cisd_solver.e_tot:0.5f}", 1)
+            journal.write(f"Ground state energy: {cisd_solver.e_tot:0.5f}", 1)
 
         # We characterise the coef array by excitations
         c0, c1, c2 = cisd_solver.cisdvec_to_amplitudes(cisd_solver.ci)
@@ -3993,13 +3992,13 @@ class MESS():
             c1_a, c1_b = c1
             c2_aa, c2_ab, c2_bb = c2
 
-            self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
-            self.log.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
-            self.log.write(f"  For one excitation: {c1_a.shape} on alpha, {c1_b.shape} on beta")
-            self.log.write(f"  For two excitations: {c2_aa.shape} on alpha-alpha, {c2_bb.shape} on beta-beta, {c2_ab.shape} on mixed-spin excitations")
+            journal.write("Excitation-based Slater determinant sub-bases have lengths:")
+            journal.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
+            journal.write(f"  For one excitation: {c1_a.shape} on alpha, {c1_b.shape} on beta")
+            journal.write(f"  For two excitations: {c2_aa.shape} on alpha-alpha, {c2_bb.shape} on beta-beta, {c2_ab.shape} on mixed-spin excitations")
 
             # Now, for the heatmap
-            self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+            journal.write(f"Obtaining the low-excitation prevalence matrix...", 2)
 
 
             # We do not need to project onto the (no same-spin double excitation) basis,
@@ -4021,13 +4020,13 @@ class MESS():
                             res_sol[ (((j,), (i,)), ((l,), (k,))) ] = c2_ab[j][l][i][k]
 
         elif self.HF_method == "RHF":
-            self.log.write("Excitation-based Slater determinant sub-bases have lengths:")
-            self.log.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
-            self.log.write(f"  For one excitation: {c1.shape} spin-adapted configurations of the form | i -> j > = 1/sqrt(2) . (a_i,alpha\\hc a_j,alpha + a_i,beta\\hc a_j,beta) | HF >")
-            self.log.write(f"  For two excitations: {c2.shape} singlet-coupled combinations of the form | ij -> kl > 1/2 . (a_k,alpha\\hc a_l,beta\\hc - a_l,alpha\\hc a_k,beta\\hc) . (a_i,alpha a_j,beta - a_j,alpha a_i,beta) | HF >")
+            journal.write("Excitation-based Slater determinant sub-bases have lengths:")
+            journal.write(f"  For zero excitation: one state only (overlap {c0:0.5f})")
+            journal.write(f"  For one excitation: {c1.shape} spin-adapted configurations of the form | i -> j > = 1/sqrt(2) . (a_i,alpha\\hc a_j,alpha + a_i,beta\\hc a_j,beta) | HF >")
+            journal.write(f"  For two excitations: {c2.shape} singlet-coupled combinations of the form | ij -> kl > 1/2 . (a_k,alpha\\hc a_l,beta\\hc - a_l,alpha\\hc a_k,beta\\hc) . (a_i,alpha a_j,beta - a_j,alpha a_i,beta) | HF >")
 
             # Now, for the heatmap
-            self.log.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+            journal.write(f"Obtaining the low-excitation prevalence matrix...", 2)
 
 
             # We do not need to project onto the (no same-spin double excitation) basis,
@@ -4058,7 +4057,7 @@ class MESS():
         self.LE_sol["E"] = cisd_solver.e_tot
         self.LE_sol["sol"] = res_sol
 
-        self.log.exit()
+        journal.exit()
 
 
     # Derived properties calculation
@@ -4068,9 +4067,9 @@ class MESS():
 
         assert "sol" in self.LE_sol
 
-        self.log.enter("Deriving the reduction matrix for the LE solution...")
+        journal.enter("Deriving the reduction matrix for the LE solution...")
 
-        self.log.write("Calculating the norm of the solution on singlets and mixed-spin doublets...")
+        journal.write("Calculating the norm of the solution on singlets and mixed-spin doublets...")
 
         LE_norm = 0.0
         LE_reduced_norm = 0.0 # sans phi_0
@@ -4106,11 +4105,11 @@ class MESS():
                             if i == k and j == l:
                                 LE_CS_norm += cur_z * cur_z
 
-        self.log.write(f"Low excitation solution norm squared:")
-        self.log.write(f"  -for all singlet and mixed-doublet excitations: <LE | LE> = {LE_norm:0.5f}")
-        self.log.write(f"  -for all singlet and mixed-doublet excitations, ignoring the HF state: <LE | LE> = {LE_reduced_norm:0.5f}")
-        self.log.write(f"  -for closed-shell mixed-doublet excitations: <LE | LE> = {LE_CS_norm:0.5f}")
-        self.log.enter("Calculating reduction matrix", 1, True, tau_space = np.linspace(0, 4 * self.mol.nao * self.mol.nao, 1000 + 1))
+        journal.write(f"Low excitation solution norm squared:")
+        journal.write(f"  -for all singlet and mixed-doublet excitations: <LE | LE> = {LE_norm:0.5f}")
+        journal.write(f"  -for all singlet and mixed-doublet excitations, ignoring the HF state: <LE | LE> = {LE_reduced_norm:0.5f}")
+        journal.write(f"  -for closed-shell mixed-doublet excitations: <LE | LE> = {LE_CS_norm:0.5f}")
+        journal.enter("Calculating reduction matrix", 1, True, tau_space = np.linspace(0, 4 * self.mol.nao * self.mol.nao, 1000 + 1))
 
         spin_idx_dict = {"a" : 0, "b" : 1}
         spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
@@ -4122,7 +4121,7 @@ class MESS():
             for left_i in range(self.mol.nao):
                 for right_sigma in ["a", "b"]:
                     for right_i in range(self.mol.nao):
-                        self.log.update_semaphor_event(2 * self.mol.nao * spat_to_spin_idx(left_sigma, left_i) + spat_to_spin_idx(right_sigma, right_i))
+                        journal.update_semaphor_event(2 * self.mol.nao * spat_to_spin_idx(left_sigma, left_i) + spat_to_spin_idx(right_sigma, right_i))
 
                         for left_prom, left_z in self.LE_sol["sol"].items():
                             left_prom_a, left_prom_b = left_prom
@@ -4197,16 +4196,16 @@ class MESS():
             for j in range(self.S_beta):
                 # we just forbid transitionin
         """
-        self.log.exit("Calculation")
+        journal.exit("Calculation")
 
-        self.log.enter("Calculating closed-shell reduction matrix", 1, True, tau_space = np.linspace(0, self.mol.nao * self.mol.nao, 1000 + 1))
+        journal.enter("Calculating closed-shell reduction matrix", 1, True, tau_space = np.linspace(0, self.mol.nao * self.mol.nao, 1000 + 1))
 
         self.LE_sol["CSRM"] = np.zeros((self.mol.nao, self.mol.nao))
         # here, [i][j] corresponds to a simultaneous transition j -> i on both spin subspaces
 
         for left_i in range(self.mol.nao):
             for right_i in range(self.mol.nao):
-                self.log.update_semaphor_event(self.mol.nao * left_i + right_i)
+                journal.update_semaphor_event(self.mol.nao * left_i + right_i)
 
                 for left_prom, left_z in self.LE_sol["sol"].items():
                     left_prom_a, left_prom_b = left_prom
@@ -4277,9 +4276,9 @@ class MESS():
             for j in range(self.S_beta):
                 # we just forbid transitionin
         """
-        self.log.exit("Calculation")
+        journal.exit("Calculation")
 
-        self.log.enter("Calculating transition prevalence matrix", 1, True, tau_space = np.linspace(0, (self.mol.nao - self.S_alpha) * self.S_alpha + (self.mol.nao - self.S_beta) * self.S_beta, 1000 + 1))
+        journal.enter("Calculating transition prevalence matrix", 1, True, tau_space = np.linspace(0, (self.mol.nao - self.S_alpha) * self.S_alpha + (self.mol.nao - self.S_beta) * self.S_beta, 1000 + 1))
 
         spin_idx_dict = {"a" : 0, "b" : 1}
         spat_to_spin_idx = lambda sigma, i : spin_idx_dict[sigma] * self.mol.nao + i
@@ -4289,7 +4288,7 @@ class MESS():
         # spin a
         for prom_i in range(self.S_alpha):
             for prom_j in range(self.mol.nao - self.S_alpha):
-                self.log.update_semaphor_event((self.mol.nao - self.S_alpha) * prom_i + prom_j)
+                journal.update_semaphor_event((self.mol.nao - self.S_alpha) * prom_i + prom_j)
                 # We need to select all coefs from sol which are characterised by i -> j on spin sigma
                 for state_prom, state_z in self.LE_sol["sol"].items():
                     state_prom_a, state_prom_b = state_prom
@@ -4299,7 +4298,7 @@ class MESS():
         # spin b
         for prom_i in range(self.S_beta):
             for prom_j in range(self.mol.nao - self.S_beta):
-                self.log.update_semaphor_event((self.mol.nao - self.S_alpha) * self.S_alpha + (self.mol.nao - self.S_beta) * prom_i + prom_j)
+                journal.update_semaphor_event((self.mol.nao - self.S_alpha) * self.S_alpha + (self.mol.nao - self.S_beta) * prom_i + prom_j)
                 # We need to select all coefs from sol which are characterised by i -> j on spin sigma
                 for state_prom, state_z in self.LE_sol["sol"].items():
                     state_prom_a, state_prom_b = state_prom
@@ -4309,10 +4308,10 @@ class MESS():
 
 
 
-        self.log.exit("Calculation")
+        journal.exit("Calculation")
 
 
-        self.log.enter("Calculating spin-reduced reduction matrix", 1, True, tau_space = np.linspace(0, 2 * self.mol.nao * self.mol.nao, 1000 + 1))
+        journal.enter("Calculating spin-reduced reduction matrix", 1, True, tau_space = np.linspace(0, 2 * self.mol.nao * self.mol.nao, 1000 + 1))
 
         self.LE_sol["SRRM"] = np.zeros((2 * self.mol.nao, self.mol.nao))
 
@@ -4320,7 +4319,7 @@ class MESS():
         for prom_sigma in ["a", "b"]:
             for prom_i in range(self.mol.nao):
                 for prom_j in range(self.mol.nao):
-                    self.log.update_semaphor_event(self.mol.nao * spat_to_spin_idx(prom_sigma, prom_i) + prom_j)
+                    journal.update_semaphor_event(self.mol.nao * spat_to_spin_idx(prom_sigma, prom_i) + prom_j)
 
                     for left_prom, left_z in self.LE_sol["sol"].items():
                         left_prom_a, left_prom_b = left_prom
@@ -4389,10 +4388,10 @@ class MESS():
                                 if np.all(left_b_occ == right_b_occ):
                                     self.LE_sol["SRRM"][spat_to_spin_idx(prom_sigma, prom_i)][prom_j] += np.abs(left_z * right_z / LE_norm)
 
-        self.log.exit("Calculation")
+        journal.exit("Calculation")
 
 
-        self.log.enter("Calculating simultanous occupancy proportion matrix", 1, True, tau_space = np.linspace(0, 4 * self.mol.nao * self.mol.nao, 1000 + 1))
+        journal.enter("Calculating simultanous occupancy proportion matrix", 1, True, tau_space = np.linspace(0, 4 * self.mol.nao * self.mol.nao, 1000 + 1))
 
         self.LE_sol["SOPM"] = np.zeros((2 * self.mol.nao, 2 * self.mol.nao))
 
@@ -4400,7 +4399,7 @@ class MESS():
             for i in range(self.mol.nao):
                 for j_sigma in ["a", "b"]:
                     for j in range(self.mol.nao):
-                        self.log.update_semaphor_event(2 * self.mol.nao * spat_to_spin_idx(i_sigma, i) + spat_to_spin_idx(j_sigma, j))
+                        journal.update_semaphor_event(2 * self.mol.nao * spat_to_spin_idx(i_sigma, i) + spat_to_spin_idx(j_sigma, j))
                         for cur_prom, cur_z in self.LE_sol["sol"].items():
                             cur_prom_a, cur_prom_b = cur_prom
                             cur_a_from, cur_a_to = cur_prom_a
@@ -4429,9 +4428,9 @@ class MESS():
 
 
 
-        self.log.exit("Calculation")
+        journal.exit("Calculation")
 
-        self.log.enter("Calculating reduced simultanous occupancy proportion matrix", 1, True, tau_space = np.linspace(0, 4 * self.mol.nao * self.mol.nao, 1000 + 1))
+        journal.enter("Calculating reduced simultanous occupancy proportion matrix", 1, True, tau_space = np.linspace(0, 4 * self.mol.nao * self.mol.nao, 1000 + 1))
 
         self.LE_sol["RSOPM"] = np.zeros((2 * self.mol.nao, 2 * self.mol.nao))
 
@@ -4439,7 +4438,7 @@ class MESS():
             for i in range(self.mol.nao):
                 for j_sigma in ["a", "b"]:
                     for j in range(self.mol.nao):
-                        self.log.update_semaphor_event(2 * self.mol.nao * spat_to_spin_idx(i_sigma, i) + spat_to_spin_idx(j_sigma, j))
+                        journal.update_semaphor_event(2 * self.mol.nao * spat_to_spin_idx(i_sigma, i) + spat_to_spin_idx(j_sigma, j))
                         for cur_prom, cur_z in self.LE_sol["sol"].items():
                             if cur_prom == (((), ()), ((), ())):
                                 continue
@@ -4470,18 +4469,18 @@ class MESS():
 
 
 
-        self.log.exit("Calculation")
+        journal.exit("Calculation")
 
 
         # Now we calculate the reduced null-coherent state (RNCS)
         # The RNCS is simply a Qubit CS for which every expected occupancy
         # matches the LE solution after projecting out |HF>
 
-        self.log.enter("Calculating the reduced null-coherent state...")
+        journal.enter("Calculating the reduced null-coherent state...")
 
         # Firstly, we renormalise RSOPM to satisfy the constraint
         RSOPM_tr = np.trace(self.LE_sol["RSOPM"])
-        self.log.write(f"Trace of RSOPM = {RSOPM_tr}; expected value is S = {self.S_alpha + self.S_beta}; renormalising...")
+        journal.write(f"Trace of RSOPM = {RSOPM_tr}; expected value is S = {self.S_alpha + self.S_beta}; renormalising...")
         RSOPM_renorm = self.LE_sol["RSOPM"] * (self.S_alpha + self.S_beta) / RSOPM_tr
 
         def cur_scale(c_y):
@@ -4492,7 +4491,7 @@ class MESS():
         for i in range(2 * self.mol.nao):
             y_0[i] = np.log(RSOPM_renorm[i][i])
         y_0_norm_sq = cur_scale(y_0)
-        self.log.write(f"Norm squared of initial guess is {y_0_norm_sq}. Renormalising...")
+        journal.write(f"Norm squared of initial guess is {y_0_norm_sq}. Renormalising...")
         """"
         z^2 = e^y
         {z|z} = e_S(z^2) = e_S(e^y)
@@ -4505,22 +4504,22 @@ class MESS():
 
         y_0 -= np.log(y_0_norm_sq) / (self.S_alpha + self.S_beta)
         y_0_norm_sq = cur_scale(y_0)
-        self.log.write(f"Norm squared of initial guess was renormalised to {y_0_norm_sq}.")
+        journal.write(f"Norm squared of initial guess was renormalised to {y_0_norm_sq}.")
 
         # --------------- Gradient descent to find the solution -----------------
         # Parameters
         eta = 0.1
         max_err = 1e-3
-        self.log.write("Parameters for the gradient descent:")
-        self.log.write(f"  -eta (step size) = {eta}")
-        self.log.write(f"  -epsilon (max allowed error) = {max_err}")
+        journal.write("Parameters for the gradient descent:")
+        journal.write(f"  -eta (step size) = {eta}")
+        journal.write(f"  -epsilon (max allowed error) = {max_err}")
 
         cur_y = np.array(y_0)
 
         # Now, we converge the solution
         cur_err = 10 * max_err # a bogus val to enter the while loop
         # Cannot track max step because that converges to counteract the renorm step!
-        self.log.enter("Calculating z_i to match reduced mode occupancies", 1, True, tau_space = np.linspace(0, 1, 1000 + 1))
+        journal.enter("Calculating z_i to match reduced mode occupancies", 1, True, tau_space = np.linspace(0, 1, 1000 + 1))
         init_err = None
         while(cur_err > max_err):
             # We calculate the step and execute it
@@ -4535,12 +4534,12 @@ class MESS():
             if init_err is None:
                 init_err = cur_err
             else:
-                self.log.update_semaphor_event((init_err - cur_err) / (init_err - max_err))
+                journal.update_semaphor_event((init_err - cur_err) / (init_err - max_err))
 
             # We project y onto the norm = 1 surface
             cur_y -= np.log(cur_scale(cur_y)) / (self.S_alpha + self.S_beta)
 
-        self.log.exit("Calculation")
+        journal.exit("Calculation")
 
         # Now we convert back to the null-CS
         z_null_sq = np.exp(cur_y)
@@ -4548,7 +4547,7 @@ class MESS():
         # The diagnostic
         A_i_actual = np.zeros(2 * self.mol.nao)
         final_norm_sq = esp(z_null_sq, self.S_alpha + self.S_beta)
-        self.log.write(f"Final norm squared = {final_norm_sq}")
+        journal.write(f"Final norm squared = {final_norm_sq}")
         for i in range(2 * self.mol.nao):
             A_i_actual[i] = z_null_sq[i] * esp(z_null_sq, self.S_alpha + self.S_beta - 1, omit = [i]) / final_norm_sq
 
@@ -4569,17 +4568,17 @@ class MESS():
                 ])
             diagnostic_row_names.append(f"{i + 1 - self.mol.nao}(b)")
 
-        self.log.print_table(
+        journal.print_table(
             table_name = "<S_i> diagnostic>",
             column_names = ["< LE | S_i | LE >", "< Z | S_i | Z >", "Err %"],
             row_names = diagnostic_row_names,
             list_of_rows = diagnostic_table
             )
 
-        self.log.exit()
+        journal.exit()
 
 
-        self.log.exit()
+        journal.exit()
 
 
 
@@ -4587,23 +4586,23 @@ class MESS():
 
     def find_LE_solution(self, spec, **kwargs):
         # requires HF_method to be established, i.e. mol_init
-        self.log.enter(f"Obtaining low-excitation solution with env. {self.HF_method}, spec {spec}...", 1)
+        journal.enter(f"Obtaining low-excitation solution with env. {self.HF_method}, spec {spec}...", 1)
 
         if "mol_init" not in self.checklist or self.HF_method is None:
-            self.log.write("WARNING: Molecule not initialised. Aborting...")
-            self.log.exit()
+            journal.write("WARNING: Molecule not initialised. Aborting...")
+            journal.exit()
             return(None)
 
         if "LE_sol" in self.checklist:
-            self.log.write("WARNING: LE solution initialised before.")
+            journal.write("WARNING: LE solution initialised before.")
             if self.LE_description["env"] != self.HF_method or self.LE_description["spec"] != spec:
-                self.log.write(f"Previous solution found with a different spec ({self.LE_description["env"]}: {self.LE_description["spec"]})")
-            self.log.exit()
+                journal.write(f"Previous solution found with a different spec ({self.LE_description["env"]}: {self.LE_description["spec"]})")
+            journal.exit()
             return(None)
 
         if spec not in self.low_excitation_methods[self.HF_method]:
-            self.log.write(f"ERROR: Unknown spec '{spec}'. Methods available for {self.HF_method}: {self.low_excitation_methods[self.HF_method].keys()}")
-            self.log.exit()
+            journal.write(f"ERROR: Unknown spec '{spec}'. Methods available for {self.HF_method}: {self.low_excitation_methods[self.HF_method].keys()}")
+            journal.exit()
             return(None)
 
         self.LE_description["env"] = self.HF_method
@@ -4611,7 +4610,7 @@ class MESS():
 
         self.low_excitation_methods[self.HF_method][spec]["method"](**kwargs)
 
-        self.log.exit()
+        journal.exit()
         return(None)
 
     ###########################################################################
@@ -4624,7 +4623,7 @@ class MESS():
         self.user_actions += f"save_data\n"
         # Save user log
         self.disk_jockey.commit_datum_bulk("system", "user_actions", self.user_actions)
-        self.disk_jockey.commit_datum_bulk("system", "log", self.log.dump())
+        self.disk_jockey.commit_datum_bulk("system", "log", journal.dump())
         self.disk_jockey.commit_metadatum("system", "log", {
             "checklist" : self.checklist,
             "measured_datasets" : self.measured_datasets
@@ -4661,25 +4660,23 @@ class MESS():
         # Save to disk
         self.disk_jockey.save_data()
 
-        self.log.close_journal()
-
     def load_data(self, what_to_load = None):
         # what_to_load is a list of magic strings
         if what_to_load is None:
             # Default option
             self.load_data(["system", "self_analysis", "measured_datasets"])
         else:
-            self.log.enter("Loading data from the disk...", 0)
+            journal.enter("Loading data from the disk...", 0)
             self.user_actions += f"load_data\n"
             # loads data using disk jockey
 
             # Firstly, let's see what we can load!
-            self.log.write("Reading files on disk...", 5)
+            journal.write("Reading files on disk...", 5)
             self.disk_jockey.load_data(["system", "diagnostics"]) # Always by default
             loaded_checklist = self.disk_jockey.metadata["system"]["log"]["checklist"]
 
             if "self_analysis" in what_to_load and "mol_init" in loaded_checklist:
-                self.log.enter("Restoring self-analysis values...", 3)
+                journal.enter("Restoring self-analysis values...", 3)
                 if "mol_init" not in self.checklist:
                     self.disk_jockey.load_data(["molecule"])
                 self.disk_jockey.load_data(["self_analysis"])
@@ -4695,7 +4692,7 @@ class MESS():
                     self.ci_energy = loaded_full_CI_sol["E"]
                     self.ci_sol = {self.occ_tuple_restore(k): v for k, v in loaded_full_CI_sol["sol"].items()}
                     self.check_off("full_CI_sol")
-                    self.log.write("Results from SCF performed on the full CI loaded...", 4)
+                    journal.write("Results from SCF performed on the full CI loaded...", 4)
 
                 if "LE_sol" in loaded_checklist:
                     loaded_LE_sol = self.disk_jockey.data_bulks["self_analysis"]["LE_sol"]
@@ -4714,51 +4711,51 @@ class MESS():
                         "RNCS" : np.array(loaded_LE_sol["RNCS"])
                         }
                     self.check_off("LE_sol")
-                    self.log.write(f"Results from diagonalisation on a low-excitation basis loaded...", 4)
-                    self.log.write(f"  -environment: {self.LE_description["env"]}", 4)
-                    self.log.write(f"  -specification: {self.LE_description["spec"]}", 4)
-                    self.log.write(f"  -scope: {self.LE_description["scope"]}", 4)
-                    self.log.write(f"  -description: {self.LE_description["label"]}", 4)
-                    self.log.write(f"  -parameters:", 4)
+                    journal.write(f"Results from diagonalisation on a low-excitation basis loaded...", 4)
+                    journal.write(f"  -environment: {self.LE_description["env"]}", 4)
+                    journal.write(f"  -specification: {self.LE_description["spec"]}", 4)
+                    journal.write(f"  -scope: {self.LE_description["scope"]}", 4)
+                    journal.write(f"  -description: {self.LE_description["label"]}", 4)
+                    journal.write(f"  -parameters:", 4)
                     for param_name, param_val in self.LE_description["params"].items():
-                        self.log.write(f"    -{param_name}: {param_val}", 4)
+                        journal.write(f"    -{param_name}: {param_val}", 4)
 
-                self.log.exit()
+                journal.exit()
 
             if "measured_datasets" in what_to_load:
-                self.log.enter("Restoring measured datasets...", 3)
+                journal.enter("Restoring measured datasets...", 3)
                 for loaded_dataset in self.disk_jockey.metadata["system"]["log"]["measured_datasets"]:
                     if loaded_dataset not in self.measured_datasets:
-                        self.log.enter(f"Loading dataset '{loaded_dataset}'...", 4)
+                        journal.enter(f"Loading dataset '{loaded_dataset}'...", 4)
                         for dataset_datum in self.disk_jockey.data_nodes[loaded_dataset]:
                             self.disk_jockey.load_datum(loaded_dataset, dataset_datum)
                         self.measured_datasets.append(loaded_dataset)
-                        self.log.write(f"Results from dataset '{loaded_dataset}' loaded.", 4)
-                        self.log.write(f"  -sampling method: {self.disk_jockey.metadata[loaded_dataset]["basis_samples"]["method"]}", 4)
-                        self.log.write(f"  -parameters:", 4)
+                        journal.write(f"Results from dataset '{loaded_dataset}' loaded.", 4)
+                        journal.write(f"  -sampling method: {self.disk_jockey.metadata[loaded_dataset]["basis_samples"]["method"]}", 4)
+                        journal.write(f"  -parameters:", 4)
                         for param_name, param_val in self.disk_jockey.metadata[loaded_dataset]["basis_samples"]["params"].items():
-                            self.log.write(f"    -{param_name}: {param_val}", 4)
+                            journal.write(f"    -{param_name}: {param_val}", 4)
 
-                        self.log.exit()
+                        journal.exit()
                     else:
-                        self.log.write("WARNING: Attempted to load a dataset which exists in internal checklist. Data from the disk was ignored.", 0)
-                self.log.exit()
+                        journal.write("WARNING: Attempted to load a dataset which exists in internal checklist. Data from the disk was ignored.", 0)
+                journal.exit()
 
-            self.log.exit()
+            journal.exit()
 
 
     # ------------------------------- Plotting --------------------------------
 
     def plot_datasets(self, reference_energies = None):
         # Plots energy against configuration size
-        self.log.enter("Plotting obtained measurements...", 1)
+        journal.enter("Plotting obtained measurements...", 1)
 
         plt.title(f"[{self.ID}] Ground state estimate with Monte Carlo")
         plt.xlabel("Basis size")
         plt.ylabel("E [Hartree]")
 
         for i in range(len(self.measured_datasets)):
-            self.log.write(f"Collecting data from dataset '{self.measured_datasets[i]}'...", 5)
+            journal.write(f"Collecting data from dataset '{self.measured_datasets[i]}'...", 5)
             ds_val = self.disk_jockey.data_bulks[self.measured_datasets[i]]["result_energy_states"]
             # ds_val is a list of dicts - here we cast it into plottable arrays
             N_space = []
@@ -4794,12 +4791,12 @@ class MESS():
                     ref_linestyle = ref_energy["linestyle"]
                 plt.axhline(y = ref_e, label = ref_label, color = ref_color, linestyle = ref_linestyle)
 
-        self.log.write(f"Displaying plot...", 5)
+        journal.write(f"Displaying plot...", 5)
         plt.legend()
         plt.tight_layout()
         plt.show()
 
-        self.log.exit()
+        journal.exit()
 
     def plot_datasets_against_param(self, param_name, param_label = None, reference_energies = None):
         # plots only the final value of each dataset against a parameter value in the dataset's metadata
@@ -4808,7 +4805,7 @@ class MESS():
         if param_label is None:
             param_label = param_name
 
-        self.log.enter(f"Plotting obtained measurements against parameter '{param_name}'...", 1)
+        journal.enter(f"Plotting obtained measurements against parameter '{param_name}'...", 1)
 
         plt.title(f"[{self.ID}] Ground state estimate against {param_label}")
         plt.xlabel(param_label)
@@ -4818,7 +4815,7 @@ class MESS():
         ground_state_energy_space = []
 
         for i in range(len(self.measured_datasets)):
-            self.log.write(f"Collecting data from dataset '{self.measured_datasets[i]}'...", 5)
+            journal.write(f"Collecting data from dataset '{self.measured_datasets[i]}'...", 5)
             ds_val = self.disk_jockey.data_bulks[self.measured_datasets[i]]["result_energy_states"]
             # ds_val is a list of dicts - here we cast it into plottable arrays
             N_space = []
@@ -4861,12 +4858,12 @@ class MESS():
 
         plt.scatter(param_space, ground_state_energy_space, label = "$E_{min}$ in datasets", marker = "x")
 
-        self.log.write(f"Displaying plot...", 5)
+        journal.write(f"Displaying plot...", 5)
         plt.legend()
         plt.tight_layout()
         plt.show()
 
-        self.log.exit()
+        journal.exit()
 
     def plot_single_excitation_closed_shell_heatmap(self, ax = None, trim_M = None):
 
@@ -5023,8 +5020,8 @@ class MESS():
         assert "LE_sol" in self.checklist
         assert "CSRM" in self.LE_sol
 
-        self.log.enter("Plotting the closed-shell reduction matrix...")
-        self.log.print_matrix(self.LE_sol["CSRM"], "CSRM")
+        journal.enter("Plotting the closed-shell reduction matrix...")
+        journal.print_matrix(self.LE_sol["CSRM"], "CSRM")
 
         if ax is None:
             ax = plt.gca()
@@ -5080,14 +5077,14 @@ class MESS():
         ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
         ax.tick_params(which="minor", bottom=False, left=False)
 
-        self.log.exit()
+        journal.exit()
 
         return(heatmap, cbar)
 
     def plot_LE_TPM(self, spin = "a", log_plot = True, ax = None):
         self.user_actions += f"plot_LE_TPM\n"
 
-        self.log.enter("Plotting the transition prevalence matrix...", 5)
+        journal.enter("Plotting the transition prevalence matrix...", 5)
 
         assert "LE_sol" in self.checklist
         assert "TPM" in self.LE_sol
@@ -5139,14 +5136,14 @@ class MESS():
         ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
         ax.tick_params(which="minor", bottom=False, left=False)
 
-        self.log.exit()
+        journal.exit()
 
         return(heatmap, cbar)
 
     def plot_LE_SRRM(self, spin = "a", log_plot = True, ax = None):
         self.user_actions += f"plot_LE_SRRM\n"
 
-        self.log.enter("Plotting the spin-reduced reduction matrix...", 5)
+        journal.enter("Plotting the spin-reduced reduction matrix...", 5)
 
         assert "LE_sol" in self.checklist
         assert "SRRM" in self.LE_sol
@@ -5198,14 +5195,14 @@ class MESS():
         ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
         ax.tick_params(which="minor", bottom=False, left=False)
 
-        self.log.exit()
+        journal.exit()
 
         return(heatmap, cbar)
 
     def plot_LE_SOPM(self, spin = "a", log_plot = True, ax = None):
         self.user_actions += f"plot_LE_SOPM\n"
 
-        self.log.enter("Plotting the spin-reduced reduction matrix...", 5)
+        journal.enter("Plotting the spin-reduced reduction matrix...", 5)
 
         assert "LE_sol" in self.checklist
         assert "SOPM" in self.LE_sol
@@ -5257,14 +5254,14 @@ class MESS():
         ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
         ax.tick_params(which="minor", bottom=False, left=False)
 
-        self.log.exit()
+        journal.exit()
 
         return(heatmap, cbar)
 
     def plot_LE_RSOPM(self, spin = "a", log_plot = True, ax = None):
         self.user_actions += f"plot_LE_RSOPM\n"
 
-        self.log.enter("Plotting the reduced simultanous occupancy proportion matrix...", 5)
+        journal.enter("Plotting the reduced simultanous occupancy proportion matrix...", 5)
 
         assert "LE_sol" in self.checklist
         assert "RSOPM" in self.LE_sol
@@ -5316,73 +5313,73 @@ class MESS():
         ax.grid(which="minor", color="b", linestyle='-', linewidth=3)
         ax.tick_params(which="minor", bottom=False, left=False)
 
-        self.log.exit()
+        journal.exit()
 
         return(heatmap, cbar)
 
     # ------------------------------- Printing --------------------------------
 
     def print_singlet_info(self, top_N_closed_shells = 5):
-        self.log.enter("Reporting on singlet Spin-Adapted Configurations...", 0)
+        journal.enter("Reporting on singlet Spin-Adapted Configurations...", 0)
         if "full_CI_sol" not in self.checklist:
-            self.log.write("Full CI solution not known, aborting...")
-            self.log.exit()
+            journal.write("Full CI solution not known, aborting...")
+            journal.exit()
             return(None)
-        self.log.enter("Closed-shell Slater determinants")
+        journal.enter("Closed-shell Slater determinants")
         closed_shell_proj, closed_shell_N = self.closed_shell_projection()
-        self.log.write(f"Norm squared of projection onto all {closed_shell_N} closed-shell states = {closed_shell_proj:0.5f}")
-        self.log.write(f"Top {top_N_closed_shells} closed shell occupancies are:")
+        journal.write(f"Norm squared of projection onto all {closed_shell_N} closed-shell states = {closed_shell_proj:0.5f}")
+        journal.write(f"Top {top_N_closed_shells} closed shell occupancies are:")
         top_N_closed_shell_states = self.get_top_closed_shells(top_N_closed_shells)
         for i in range(top_N_closed_shells):
             prom_label = self.get_prom_label(top_N_closed_shell_states[i][1], hr = True)
-            self.log.write(f"  {i+1}) Coef = {top_N_closed_shell_states[i][0]:0.4f}; occ. = {top_N_closed_shell_states[i][1]} (prom ({prom_label[0]}) -> ({prom_label[1]}))")
-        self.log.exit()
-        self.log.enter("Two-open-shell singlet SACs")
+            journal.write(f"  {i+1}) Coef = {top_N_closed_shell_states[i][0]:0.4f}; occ. = {top_N_closed_shell_states[i][1]} (prom ({prom_label[0]}) -> ({prom_label[1]}))")
+        journal.exit()
+        journal.enter("Two-open-shell singlet SACs")
         single_exc_proj, single_exc_N = self.single_excitation_singlets_projection()
-        self.log.write(f"Total square norm of the projection into all {single_exc_N} two-open-shell SAC singlets is {single_exc_proj:0.5f}")
-        self.log.exit()
-        self.log.write(f"The total space of singlet SACs with up to two open shells is {closed_shell_N + single_exc_N}-dimensional; with norm square projection {closed_shell_proj + single_exc_proj:0.5f}")
-        self.log.exit()
+        journal.write(f"Total square norm of the projection into all {single_exc_N} two-open-shell SAC singlets is {single_exc_proj:0.5f}")
+        journal.exit()
+        journal.write(f"The total space of singlet SACs with up to two open shells is {closed_shell_N + single_exc_N}-dimensional; with norm square projection {closed_shell_proj + single_exc_proj:0.5f}")
+        journal.exit()
 
     def print_UHF_low_excitation_info(self, top_N_single_excitation = 5, top_N_simulatenous_excitation = 10):
-        self.log.enter("Reporting on low-excitation configurations for inequal MOs...", 0)
+        journal.enter("Reporting on low-excitation configurations for inequal MOs...", 0)
         if "full_CI_sol" not in self.checklist:
-            self.log.write("Full CI solution not known, aborting...")
-            self.log.exit()
+            journal.write("Full CI solution not known, aborting...")
+            journal.exit()
             return(None)
 
         ref_a, ref_b = self.get_ref_state()
         ref_state_component = self.ground_state_component(ref_a, ref_b)
         ref_state_proj = ref_state_component * ref_state_component
-        self.log.write(f"No-excitation (reference) state norm squared ground state projection = {ref_state_proj:0.5f}")
+        journal.write(f"No-excitation (reference) state norm squared ground state projection = {ref_state_proj:0.5f}")
 
 
-        self.log.enter("Single-excitation Slater determinants")
+        journal.enter("Single-excitation Slater determinants")
         single_exc_top, single_exc_N, single_exc_proj = self.get_top_single_excitation_states(top_N_single_excitation)
         single_exc_N_a, single_exc_N_b = single_exc_N
         single_exc_proj_a, single_exc_proj_b = single_exc_proj
-        self.log.write(f"For all single-excitation Slater determinants:")
-        self.log.write(f"  -Exc. on spin alpha: {single_exc_N_a} states with norm squared projection {single_exc_proj_a:0.5f}")
-        self.log.write(f"  -Exc. on spin beta: {single_exc_N_b} states with norm squared projection {single_exc_proj_b:0.5f}")
-        self.log.write(f"  -In total: {single_exc_N_a + single_exc_N_b} states with norm squared projection {single_exc_proj_a + single_exc_proj_b:0.5f}")
-        self.log.write(f"Top {len(single_exc_top[0])} Slater determinants with one excited spin-alpha electron:")
+        journal.write(f"For all single-excitation Slater determinants:")
+        journal.write(f"  -Exc. on spin alpha: {single_exc_N_a} states with norm squared projection {single_exc_proj_a:0.5f}")
+        journal.write(f"  -Exc. on spin beta: {single_exc_N_b} states with norm squared projection {single_exc_proj_b:0.5f}")
+        journal.write(f"  -In total: {single_exc_N_a + single_exc_N_b} states with norm squared projection {single_exc_proj_a + single_exc_proj_b:0.5f}")
+        journal.write(f"Top {len(single_exc_top[0])} Slater determinants with one excited spin-alpha electron:")
         for i in range(len(single_exc_top[0])):
-            self.log.write(f"  {i+1}) Coef = {single_exc_top[0][i][0]:0.4f}; promotion {single_exc_top[0][i][2]}")
-        self.log.write(f"Top {len(single_exc_top[1])} Slater determinants with one excited spin-beta electron:")
+            journal.write(f"  {i+1}) Coef = {single_exc_top[0][i][0]:0.4f}; promotion {single_exc_top[0][i][2]}")
+        journal.write(f"Top {len(single_exc_top[1])} Slater determinants with one excited spin-beta electron:")
         for i in range(len(single_exc_top[1])):
-            self.log.write(f"  {i+1}) Coef = {single_exc_top[1][i][0]:0.4f}; promotion {single_exc_top[1][i][2]}")
-        self.log.exit()
+            journal.write(f"  {i+1}) Coef = {single_exc_top[1][i][0]:0.4f}; promotion {single_exc_top[1][i][2]}")
+        journal.exit()
 
-        self.log.enter("Simultaneourly excited Slater deteminants")
+        journal.enter("Simultaneourly excited Slater deteminants")
         sim_exc_top, sim_exc_N, sim_exc_proj = self.get_top_simultaneously_excited_states(top_N_simulatenous_excitation)
-        self.log.write(f"Total square norm of the projection into all {sim_exc_N} simultaneously-excited Slater determinants: {sim_exc_proj:0.5f}")
-        self.log.write(f"Top {len(sim_exc_top)} simultaneously-excited Slater determinants:")
+        journal.write(f"Total square norm of the projection into all {sim_exc_N} simultaneously-excited Slater determinants: {sim_exc_proj:0.5f}")
+        journal.write(f"Top {len(sim_exc_top)} simultaneously-excited Slater determinants:")
         for i in range(len(sim_exc_top)):
-            self.log.write(f"  {i+1}) Coef = {sim_exc_top[i][0]:0.4f}; promotion {sim_exc_top[i][2]}")
-        self.log.exit()
+            journal.write(f"  {i+1}) Coef = {sim_exc_top[i][0]:0.4f}; promotion {sim_exc_top[i][2]}")
+        journal.exit()
 
-        self.log.write(f"The total space of states with up to one excitation on either spin subspace is {1 + single_exc_N_a + single_exc_N_b + sim_exc_N}-dimensional; with norm square projection {ref_state_proj + single_exc_proj_a + single_exc_proj_b + sim_exc_proj:0.5f}")
-        self.log.exit()
+        journal.write(f"The total space of states with up to one excitation on either spin subspace is {1 + single_exc_N_a + single_exc_N_b + sim_exc_N}-dimensional; with norm square projection {ref_state_proj + single_exc_proj_a + single_exc_proj_b + sim_exc_proj:0.5f}")
+        journal.exit()
 
 
 

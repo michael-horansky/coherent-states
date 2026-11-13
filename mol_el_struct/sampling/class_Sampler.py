@@ -37,12 +37,12 @@ class Sampler:
                 }
         }
 
-    def __init__(self, method, journal_instance = None, **kwargs):
+    def __init__(self, method, **kwargs):
         # method [string] is a keyword which specifies what sampling method (family of PDFs) is used.
         # It must be found in Sampler.methods.keys().
         # kwargs are properties of the PDF, stored in a dictionary self.properties. All keywords listed in the documentation of the method must be present.
 
-        self.log = Correspondent(journal_instance, {"ID" : f"S_{method}", "label" : f"Sampler ({method})", "color" : color.BRIGHT_MAGENTA})
+        self.log = Correspondent({"ID" : f"S_{method}", "label" : f"Sampler ({method})", "color" : ("magenta", True)})
 
         if method not in Sampler.methods.keys():
             self.log.error(f"Method {method} not a valid method. Sampler cannot be initialised.")

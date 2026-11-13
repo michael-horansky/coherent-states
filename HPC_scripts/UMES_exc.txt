@@ -1,0 +1,6 @@
+__pycache__/
+/outputs/
+/plots/
+/storage/
+/surf_outputs/
+/job_requests/

@@ -10,7 +10,7 @@ from coherent_states.CS_Thouless import CS_Thouless
 from coherent_states.CS_Qubit import CS_Qubit
 from coherent_states.CS_sample import CS_sample
 
-from project_management_utils.Journal import Journal
+from project_management_utils.Journal import journal
 from project_management_utils.Disk_Jockey import Disk_Jockey
 import functions
 
@@ -94,10 +94,9 @@ class potential_surface_extrapolator():
     }
 
 
-    def __init__(self, ID, log_verbosity = 5):
+    def __init__(self, ID):
 
         self.ID = ID
-        self.log = Journal(log_verbosity, print_on_the_fly = True)
         # Verbosity key:
         #   0/None: Important, always prints (user methods)
         #   2: Important, major subroutine
@@ -105,11 +104,11 @@ class potential_surface_extrapolator():
         #   10: Micro-subroutine (expected to repeat many times)
         # Typically, writes within subroutines are one level of verbosity higher than the subroutine itself
 
-        self.log.enter(f"Initialising potential surface extrapolator {ID} at log_verbosity = {log_verbosity}")
+        journal.enter(f"Initialising potential surface extrapolator {ID}")
 
         # Data Storage Manager
-        self.log.write("Initialising Data Storage Manager...", 1)
-        self.disk_jockey = Disk_Jockey(f"surf_outputs/{self.ID}", self.log)
+        journal.write("Initialising Data Storage Manager...", 1)
+        self.disk_jockey = Disk_Jockey(f"surf_outputs/{self.ID}")
         self.disk_jockey.create_data_nodes(potential_surface_extrapolator.data_nodes) # Each solver call adds a new node dynamically
 
         self.user_actions = f"initialised PSE {self.ID}\n"
@@ -117,13 +116,13 @@ class potential_surface_extrapolator():
         # The structure of the diagnostics log is like so: every element is either a list (for multiple same-level subprocedures) or a dict (for a header : content) pair
 
         # ----------- Self-analysis properties
-        self.log.write("Initialising self-analysis properties...", 1)
+        journal.write("Initialising self-analysis properties...", 1)
         self.checklist = [] # List of succesfully performed actions
 
         # Potential surface structure properties
         self.structure = None
 
-        self.log.exit()
+        journal.exit()
 
         self.find_potential_surfaces_methods = {
             "frozen_basis" : self.find_potential_surfaces_frozen_basis
@@ -200,7 +199,7 @@ class potential_surface_extrapolator():
 
     def get_all_slater_determinants_with_fixed_S(self, M, S):
 
-        self.log.enter(f"Getting all Slater determinants for M = {M}, S = {S}", 5)
+        journal.enter(f"Getting all Slater determinants for M = {M}, S = {S}", 5)
         res = [ [1] * S + [0] * (M - S) ]
         while(True):
             next_state = functions.choose_iterator(res[-1])
@@ -208,8 +207,8 @@ class potential_surface_extrapolator():
                 break
             res.append(next_state)
 
-        self.log.write(f"Found {len(res)} states.", 6)
-        self.log.exit()
+        journal.write(f"Found {len(res)} states.", 6)
+        journal.exit()
         return(res)
 
 
@@ -221,21 +220,21 @@ class potential_surface_extrapolator():
         # if trim_M is set to an int S <= trim_M < mol.nao, we will restrict
         # the occupancy basis to the lowest trim_M MOs.
 
-        self.log.enter(f"Getting the full electronic occupancy basis with trim_M = {trim_M}", 5)
+        journal.enter(f"Getting the full electronic occupancy basis with trim_M = {trim_M}", 5)
 
         if trim_M is None:
             M = self.N_orb
         else:
             M = trim_M
-        self.log.write(f"Mode number for basis = {M}", 6)
+        journal.write(f"Mode number for basis = {M}", 6)
         S_A = self.S_alpha
         S_B = self.S_beta
-        self.log.write(f"Total electron numbers for basis: S_alpha = {S_A}, S_beta = {S_B}.", 6)
+        journal.write(f"Total electron numbers for basis: S_alpha = {S_A}, S_beta = {S_B}.", 6)
 
         full_basis_A = self.get_all_slater_determinants_with_fixed_S(M, S_A)
         full_basis_B = self.get_all_slater_determinants_with_fixed_S(M, S_B)
 
-        self.log.exit()
+        journal.exit()
         return(full_basis_A, full_basis_B)
 
     def get_exchange_integral_on_occupancy(self, occ_a, occ_b, c = [], a = []):
@@ -376,40 +375,40 @@ class potential_surface_extrapolator():
         # N_surf is the number of lowest-energy potential surfaces to consider
         # kwargs are kwargs for the relevant init_geometry method
 
-        self.log.enter("Initialising structure by automatic calculation...")
+        journal.enter("Initialising structure by automatic calculation...")
 
         # 1. Register structure
 
         structure_class = potential_surface_extrapolator.structure_types[cls]
-        self.log.write(f"Structure class: {cls}. {structure_class.desc}")
+        journal.write(f"Structure class: {cls}.{structure_class.desc}")
 
         mol_bp = bp_catalogue[mol_name]
-        self.log.write("Molecule blueprint:")
-        self.log.print_itemize({
+        journal.write("Molecule blueprint:")
+        journal.print_itemize({
             "name" : mol_bp.name,
             "atoms" : ', '.join(mol_bp.hr_atoms),
             "basis" : mol_bp.basis,
             "unit" : mol_bp.unit
             })
 
-        self.structure = structure_class(mol_bp, self.log)
+        self.structure = structure_class(mol_bp)
 
         self.disk_jockey.commit_datum_bulk("structure", "info", self.structure.info)
 
         # 2. Initialise geometry
 
         self.structure.init_geometry(**kwargs)
-        self.log.write(f"Structure geometry loaded ({self.structure.N_nodes} nodes).")
+        journal.write(f"Structure geometry loaded ({self.structure.N_nodes} nodes).")
 
         self.disk_jockey.commit_datum_bulk("structure", "geometry", kwargs)
 
         # 3. Initialise nodes
 
-        self.log.enter("HF calculation", semaphored = True, tau_space = np.linspace(0, self.structure.N_nodes, 1000 + 1))
+        journal.enter("HF calculation", semaphored = True, tau_space = np.linspace(0, self.structure.N_nodes, 1000 + 1))
         self.structure.init_nodes_with_HF(HF_method)
-        self.log.exit("HF calculation")
-        self.log.write("Mean-field properties loaded for each node:")
-        self.log.print_itemize({
+        journal.exit("HF calculation")
+        journal.write("Mean-field properties loaded for each node:")
+        journal.print_itemize({
             "Hartree-Fock method" : self.structure.mean_field["HF_method"],
             "Number of spatial molecular orbitals" : self.structure.mean_field["N_orb"],
             "Electrons with spin alpha" : self.structure.mean_field["S_alpha"],
@@ -426,7 +425,7 @@ class potential_surface_extrapolator():
         # 4. Initialise base node solution
 
         self.structure.find_base_sol(N_surf)
-        self.log.write(f"Base node solution loaded (for the {self.structure.N_surf} lowest-energy surfaces)")
+        journal.write(f"Base node solution loaded (for the {self.structure.N_surf} lowest-energy surfaces)")
 
         self.disk_jockey.commit_datum_bulk("structure", "base_sol_energies", self.structure.base_sol_energies)
         self.disk_jockey.commit_datum_bulk("structure", "base_sol_coefs", self.structure.base_sol_coefs)
@@ -436,18 +435,18 @@ class potential_surface_extrapolator():
     # ----------------------- Load structure from disk ------------------------
 
     def load_structure(self):
-        self.log.enter("Loading molecular geometry structure...")
+        journal.enter("Loading molecular geometry structure...")
 
         # ---------- Build structure
 
         # 1. Register structure
 
         structure_info = self.disk_jockey.data_bulks["structure"]["info"]
-        self.log.write(f"Structure class: {structure_info['class']}. {structure_info['desc']}")
+        journal.write(f"Structure class: {structure_info['class']}. {structure_info['desc']}")
 
         mol_bp = bp_catalogue[structure_info["mol_bp"]["name"]]
-        self.log.write("Molecule blueprint:")
-        self.log.print_itemize({
+        journal.write("Molecule blueprint:")
+        journal.print_itemize({
             "name" : mol_bp.name,
             "atoms" : ', '.join(mol_bp.hr_atoms),
             "basis" : mol_bp.basis,
@@ -459,7 +458,7 @@ class potential_surface_extrapolator():
         # 2. Initialise geometry
 
         self.structure.init_geometry(**self.disk_jockey.data_bulks["structure"]["geometry"])
-        self.log.write(f"Structure geometry loaded ({self.structure.N_nodes} nodes).")
+        journal.write(f"Structure geometry loaded ({self.structure.N_nodes} nodes).")
 
         # 3. Initialise nodes
 
@@ -475,8 +474,8 @@ class potential_surface_extrapolator():
             self.disk_jockey.data_bulks["structure"]["mean_field_reference_state_energy"]
             )
 
-        self.log.write("Mean-field properties loaded for each node:")
-        self.log.print_itemize({
+        journal.write("Mean-field properties loaded for each node:")
+        journal.print_itemize({
             "Hartree-Fock method" : self.structure.mean_field["HF_method"],
             "Number of spatial molecular orbitals" : self.structure.mean_field["N_orb"],
             "Electrons with spin alpha" : self.structure.mean_field["S_alpha"],
@@ -491,33 +490,33 @@ class potential_surface_extrapolator():
             self.disk_jockey.data_bulks["structure"]["base_sol_spins"]
             )
 
-        self.log.write(f"Base node solution loaded (for the {self.structure.N_surf} lowest-energy surfaces)")
+        journal.write(f"Base node solution loaded (for the {self.structure.N_surf} lowest-energy surfaces)")
 
         # ---------- Load surfaces
 
-        self.log.enter("Loading surfaces...")
+        journal.enter("Loading surfaces...")
         for surface_label in self.disk_jockey.metadata["structure"]["info"]["surface_labels"]:
             self.load_surface(surface_label)
-            self.log.write(f"Loaded surface {surface_label}:")
-            self.log.print_itemize({
+            journal.write(f"Loaded surface {surface_label}:")
+            journal.print_itemize({
                 "surface index" : self.structure.surfaces[surface_label].meta["i_surf"],
                 "calc. method" : self.structure.surfaces[surface_label].meta["method"],
                 "calc. duration" : functions.dtstr(self.structure.surfaces[surface_label].meta["duration"])
                 })
-        self.log.exit()
+        journal.exit()
 
-        self.log.exit()
+        journal.exit()
 
     def run_FCI_on_structure(self):
 
-        self.log.enter("Running FCI for every node in the geometry structure...")
+        journal.enter("Running FCI for every node in the geometry structure...")
 
         FCI_energies, FCI_coefs, FCI_meta = self.structure.find_FCI_surfaces()
 
         for i_surf in range(self.structure.N_surf):
             self.register_surface(f"FCI[{i_surf}]", FCI_energies[i_surf], {"type" : "occupancy"}, FCI_coefs[i_surf], FCI_meta[i_surf])
 
-        self.log.exit()
+        journal.exit()
 
 
 
@@ -692,7 +691,7 @@ class potential_surface_extrapolator():
         self.user_actions += f"save_data\n"
         # ---- Save user log
         self.disk_jockey.commit_datum_bulk("system", "user_actions", self.user_actions)
-        self.disk_jockey.commit_datum_bulk("system", "log", self.log.dump())
+        self.disk_jockey.commit_datum_bulk("system", "log", journal.dump())
 
         # Save list of surfaces
         self.disk_jockey.commit_metadatum("structure", "info", {"surface_labels" : list(self.structure.surfaces.keys())})
@@ -703,19 +702,19 @@ class potential_surface_extrapolator():
         # Save to disk
         self.disk_jockey.save_data()
 
-        self.log.close_journal()
+        journal.close_journal()
 
     def load_data(self, what_to_load = None):
         # what_to_load is a list of magic strings
 
-        self.log.enter("Loading data from the disk...", 0)
+        journal.enter("Loading data from the disk...", 0)
         self.user_actions += f"load_data\n"
 
         self.disk_jockey.load_data()
 
         self.load_structure()
 
-        self.log.exit()
+        journal.exit()
 
 
     # ------------------------------- Plotting --------------------------------
@@ -730,7 +729,7 @@ class potential_surface_extrapolator():
 
         self.user_actions += f"plot_grid_potential_surfaces\n"
 
-        self.log.enter("Plotting potential surfaces...", 5)
+        journal.enter("Plotting potential surfaces...", 5)
 
         if surface_labels is None:
             surface_labels = list(self.structure.surfaces.keys())
@@ -816,7 +815,7 @@ class potential_surface_extrapolator():
 
         ax.legend()
 
-        self.log.exit()
+        journal.exit()
 
 
 
@@ -828,7 +827,7 @@ class potential_surface_extrapolator():
             if method in self.find_potential_surfaces_methods.keys():
                 return(self.find_potential_surfaces_methods[method](**kwargs))
             else:
-                self.log.write(f"ERROR: Unknown potential surface analysis method {method}. Available methods: {self.find_potential_surfaces_methods.keys()}")
+                journal.write(f"ERROR: Unknown potential surface analysis method {method}. Available methods: {self.find_potential_surfaces_methods.keys()}")
                 return(None)
 
 

@@ -6,6 +6,8 @@ from coherent_states.CS_base import CS_Base
 import numpy as np
 import scipy as sp
 
+from project_management_utils.Correspondent import Correspondent
+
 EPS = np.finfo(float).eps # machine precision. Used to score parameters by condition number.
 
 def lowest_E_safe(H, S, tol = 1e-14):
@@ -22,6 +24,8 @@ def lowest_E_safe(H, S, tol = 1e-14):
 
 
 class CS_sample:
+
+    CS_sample_Correspondent = Correspondent({"ID" : "CS_Sample", "label" : "CS Sample", "color" : ("magenta", False)})
 
     def __init__(self, solver, CS_class, add_ref_state = True):
         # Solver is an instance of ground_state_solver
@@ -154,7 +158,7 @@ class CS_sample:
                     if candidate_proj > best_addition_proj:
                         # We reject this state without calculating the new min E because it is not orthogonal enough
                         if update_semaphor:
-                            self.solver.log.update_semaphor_event(semaphor_offset + (i + 1) * (self.N + 1))
+                            CS_sample.CS_sample_Correspondent.update_semaphor_event(semaphor_offset + (i + 1) * (self.N + 1))
                         continue
 
                 # We augment the Hamiltonian matrix
@@ -162,13 +166,13 @@ class CS_sample:
                     aug_H[a][self.N] = self.solver.H_overlap(self.basis[a], candidate)
 
                     if update_semaphor:
-                        self.solver.log.update_semaphor_event(semaphor_offset + i * (self.N + 1) + a + 1)
+                        CS_sample.CS_sample_Correspondent.update_semaphor_event(semaphor_offset + i * (self.N + 1) + a + 1)
 
                     aug_H[self.N][a] = np.conjugate(aug_H[a][self.N])
                 aug_H[self.N][self.N] = self.solver.H_overlap(candidate, candidate)
 
                 if update_semaphor:
-                    self.solver.log.update_semaphor_event(semaphor_offset + (i + 1) * (self.N + 1))
+                    CS_sample.CS_sample_Correspondent.update_semaphor_event(semaphor_offset + (i + 1) * (self.N + 1))
 
                 # If candidate is (almost) linearly dependent on old basis, the
                 # process breaks down. We firstly condition the sampling based
@@ -223,10 +227,10 @@ class CS_sample:
             for a in range(self.N):
                 best_H_part[a] = self.solver.H_overlap(self.basis[a], best_addition)
                 if update_semaphor:
-                    self.solver.log.update_semaphor_event(semaphor_offset + a + 1)
+                    CS_sample.CS_sample_Correspondent.update_semaphor_event(semaphor_offset + a + 1)
             best_self_E = aug_H[self.N][self.N] = self.solver.H_overlap(best_addition, best_addition)
             if update_semaphor:
-                self.solver.log.update_semaphor_event(semaphor_offset + self.N + 1)
+                CS_sample.CS_sample_Correspondent.update_semaphor_event(semaphor_offset + self.N + 1)
 
 
         # We now formally add the best candidate to state properties
@@ -341,15 +345,13 @@ class CS_sample:
             aug_H[a][self.N] = self.solver.H_overlap(self.basis[a], candidate)
 
             if S_ID is not None:
-                #self.solver.log.update_semaphor_event(semaphor_offset + a + 1)
-                self.solver.log.semaphor_progress(S_ID = S_ID)
+                CS_sample.CS_sample_Correspondent.semaphor_progress(S_ID = S_ID)
 
             aug_H[self.N][a] = np.conjugate(aug_H[a][self.N])
         aug_H[self.N][self.N] = self.solver.H_overlap(candidate, candidate).real
 
         if S_ID is not None:
-            #self.solver.log.update_semaphor_event(semaphor_offset + (self.N + 1))
-            self.solver.log.semaphor_progress(S_ID = S_ID)
+            CS_sample.CS_sample_Correspondent.semaphor_progress(S_ID = S_ID)
 
         # Now we find the new ground state energy
         candidate_E_ground = lowest_E_safe(aug_H, aug_S)
@@ -361,9 +363,9 @@ class CS_sample:
         def semaphor_record_work(dtau = 1):
             if S_ID is not None:
                 if N_tries < min_tries:
-                    self.solver.log.semaphor_progress(dtau, S_ID = S_ID)
+                    CS_sample.CS_sample_Correspondent.semaphor_progress(dtau, S_ID = S_ID)
                 else:
-                    self.solver.log.semaphor_overtime(dtau, S_ID = S_ID)
+                    CS_sample.CS_sample_Correspondent.semaphor_overtime(dtau, S_ID = S_ID)
 
 
         while(N_tries < min_tries or (best_S_cond > max_cond and N_tries < max_tries)):
@@ -383,7 +385,7 @@ class CS_sample:
                     if candidate_proj > best_addition_proj:
                         # We reject this state without calculating the new min E because it is not orthogonal enough
                         if update_semaphor:
-                            self.solver.log.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
+                            CS_sample.CS_sample_Correspondent.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
                         continue"""
 
                 candidate_cond = np.linalg.cond(aug_S)
@@ -394,7 +396,6 @@ class CS_sample:
                 best_feasible = best_S_cond <= max_cond
 
                 if not candidate_feasible:
-                    #self.solver.log.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
                     semaphor_record_work(self.N + 1)
 
                     if best_feasible or candidate_cond >= best_S_cond:
@@ -410,13 +411,11 @@ class CS_sample:
                 for a in range(self.N):
                     aug_H[a][self.N] = self.solver.H_overlap(self.basis[a], candidate)
 
-                    #self.solver.log.update_semaphor_event(semaphor_offset + min(N_tries, min_tries) * (self.N + 1) + a + 1)
                     semaphor_record_work()
 
                     aug_H[self.N][a] = np.conjugate(aug_H[a][self.N])
                 aug_H[self.N][self.N] = self.solver.H_overlap(candidate, candidate).real
 
-                #self.solver.log.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
                 semaphor_record_work()
 
                 # Now we find the new ground state energy
@@ -441,7 +440,6 @@ class CS_sample:
                 candidate_cond = np.linalg.cond(aug_S)
                 if not np.isfinite(candidate_cond):
                     # infinite condition number = reject
-                    #self.solver.log.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
                     semaphor_record_work(self.N + 1)
                     continue
 
@@ -449,13 +447,11 @@ class CS_sample:
                 for a in range(self.N):
                     aug_H[a][self.N] = self.solver.H_overlap(self.basis[a], candidate)
 
-                    #self.solver.log.update_semaphor_event(semaphor_offset + min(N_tries, min_tries) * (self.N + 1) + a + 1)
                     semaphor_record_work()
 
                     aug_H[self.N][a] = np.conjugate(aug_H[a][self.N])
                 aug_H[self.N][self.N] = self.solver.H_overlap(candidate, candidate).real
 
-                #self.solver.log.update_semaphor_event(semaphor_offset + (min(N_tries, min_tries) + 1) * (self.N + 1))
                 semaphor_record_work()
 
                 candidate_E_ground = lowest_E_safe(aug_H, aug_S)
@@ -469,7 +465,7 @@ class CS_sample:
 
         if best_S_cond > max_cond:
             # We exited the loop because we reached a hard cap on max tries. The current candidate is infeasible. We calculate its energy.
-            self.solver.log.warning(f"Sampler exited sampling due to hard cap on max tries reached. Current condition number: {best_S_cond} (> {max_cond})")
+            CS_sample.CS_sample_Correspondent.warning(f"Sampler exited sampling due to hard cap on max tries reached. Current condition number: {best_S_cond} (> {max_cond})")
 
             if min_ground_state is None:
                 aug_S[:, self.N] = best_S_part

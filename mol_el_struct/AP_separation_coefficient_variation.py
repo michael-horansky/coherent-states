@@ -20,7 +20,8 @@ from molecules_abstract import *
 
 # AP header
 from AP_catalogue import sep_coef_AP
-sep_coef_AP.man()
+
+from project_management_utils.Journal import journal
 
 params = sep_coef_AP.process_cmd_args()
 
@@ -45,6 +46,8 @@ number_of_NOs = params["N_MO"]
 if number_of_NOs == 0:
     number_of_NOs = None
 
+# We prepare the journal properties
+journal.set_yes(True)
 
 
 #nontrivial_separations = [0.5, 0.6, 0.7, 0.85, 1.2, 1.4, 1.7, 2.0]
@@ -74,7 +77,7 @@ mol_solvers = {} # [sep coef] = ground_state_solver object
 
 if freeze_basis or (c_restrict == 0 or c_restrict == 1):
     # Standard sep
-    mol_solvers[1.0] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist=1.0", yes = True, fancy_printing = True)
+    mol_solvers[1.0] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist=1.0")
     mol_solvers[1.0].initialise_molecule(mol_objs[1.0], N_MO = number_of_NOs)
     if load_analysis:
         if load_base_dist:
@@ -96,7 +99,7 @@ if freeze_basis or (c_restrict == 0 or c_restrict == 1):
 for i_separation_coef in range(len(nontrivial_separations)):
     if c_restrict == 0 or c_restrict == i_separation_coef + 2:
         separation_coef = nontrivial_separations[i_separation_coef]
-        mol_solvers[separation_coef] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist={separation_coef}", yes = True, fancy_printing = True)
+        mol_solvers[separation_coef] = ground_state_solver(f"{cur_molecule}_{sys_id}_dist={separation_coef}")
         mol_solvers[separation_coef].initialise_molecule(mol_objs[separation_coef], N_MO = number_of_NOs)
         if load_analysis:
             mol_solvers[separation_coef].load_data(["self_analysis"])
@@ -111,6 +114,6 @@ for i_separation_coef in range(len(nontrivial_separations)):
 
 
 
-
+journal.close_journal()
 
 

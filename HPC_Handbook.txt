@@ -190,6 +190,39 @@ Folder:
 
 
 
+-------------------------------------------------------------------------------
+--------------------------- Environment management ----------------------------
+-------------------------------------------------------------------------------
 
+The environment is managed by Miniforge/conda. It can be managed from in-session bash. To load conda:
 
+    module load miniforge/24.7.1
+
+To create a new environment, firstly create a .yml or .yaml file from this template:
+
+name: my-env-name
+
+dependencies:
+  - python=3.12
+  - [...add more dependencies here...]
+
+Then, register the environment with conda:
+
+    conda env create -f path-to-environment-file.yml
+
+To activate an environment:
+
+    conda activate my-env-name
+
+To deactivate an environment:
+
+    conda deactivate
+
+While the environment is active, you can install modules using pip. For a standard installation:
+
+    python -m pip install package-name
+
+For an editable installation:
+
+    python -m pip install -e /users/vzwt2244/path-to-package-directory
 

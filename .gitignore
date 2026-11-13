@@ -9,3 +9,5 @@ outputs/
 *.nav
 *.snm
 *.toc
+# We ignore submodule metadata files
+*.egg-info/

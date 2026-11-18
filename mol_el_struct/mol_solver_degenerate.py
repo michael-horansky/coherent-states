@@ -144,7 +144,7 @@ class ground_state_solver():
         journal.enter(f"Initialising molecule solver {ID}")
 
         # Data Storage Manager
-        journal.write("Initialising Data Storage Manager...", 1)
+        journal.write("Initialising Data Storage Manager", 1)
         self.disk_jockey = Disk_Jockey(f"outputs/{self.ID}")
         self.disk_jockey.create_data_nodes(ground_state_solver.data_nodes) # Each solver call adds a new node dynamically
 
@@ -153,7 +153,7 @@ class ground_state_solver():
         # The structure of the diagnostics log is like so: every element is either a list (for multiple same-level subprocedures) or a dict (for a header : content) pair
 
         # ----------- Self-analysis properties
-        journal.write("Initialising self-analysis properties...", 1)
+        journal.write("Initialising self-analysis properties", 1)
         self.checklist = [] # List of succesfully performed actions
         self.measured_datasets = [] # list of dataset labels
 
@@ -500,7 +500,7 @@ class ground_state_solver():
 
         journal.exit()
 
-        journal.enter(f"Diagonalising Hamiltonian matrix...", 3)
+        journal.enter(f"Diagonalising Hamiltonian matrix", 3)
         energy_levels, energy_states = np.linalg.eig(H)
         ground_state_index = np.argmin(energy_levels)
         ground_state_energy = energy_levels[ground_state_index].real
@@ -581,7 +581,7 @@ class ground_state_solver():
 
         #procedure_diagnostic.append(f"basis norm max/min = {np.max(norm_coefs) / np.min(norm_coefs)}")
 
-        journal.write(f"Initialising overlap matrix...", 4)
+        journal.write(f"Initialising overlap matrix", 4)
         overlap_matrix = np.zeros((N, N), dtype=complex) # [a][b] = <a|b>
         for i in range(N):
             for j in range(N):
@@ -853,9 +853,7 @@ class ground_state_solver():
         assert self.S_alpha == self.S_beta # So far only RHF!
 
         if "LE_sol" not in self.checklist:
-            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error(f"LEGS method requires LE solution to be known. Aborting!")
 
         cur_SECS_heatmap = self.LE_sol["exp"]
 
@@ -864,7 +862,7 @@ class ground_state_solver():
 
 
         # Here, depending on the CS type, we set up the normal distribution parameters
-        journal.write(f"Determining proper Z-parameter constants for the sampling process...", 7)
+        journal.write(f"Determining proper Z-parameter constants for the sampling process", 7)
         if CS_type == "Thouless":
             shape_alpha = (self.N_MO - self.S_alpha, self.S_alpha)
             shape_beta = (self.N_MO - self.S_beta, self.S_beta)
@@ -973,9 +971,7 @@ class ground_state_solver():
         assert self.S_alpha == self.S_beta
 
         if "LE_sol" not in self.checklist:
-            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error(f"LEGS method requires LE solution to be known. Aborting!")
 
         cur_SECS_heatmap = self.LE_sol["exp"]
 
@@ -983,7 +979,7 @@ class ground_state_solver():
         cur_sample = CS_sample(self, CS_Thouless, add_ref_state = True)
 
 
-        journal.write(f"Determining proper Z-parameter constants for the sampling process...", 7)
+        journal.write(f"Determining proper Z-parameter constants for the sampling process", 7)
 
         shape_alpha = (self.N_MO - self.S_alpha, self.S_alpha)
         shape_beta = (self.N_MO - self.S_beta, self.S_beta)
@@ -1074,9 +1070,7 @@ class ground_state_solver():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error(f"LEGS method requires LE solution to be known. Aborting!")
 
         cur_LE_heatmap = self.LE_sol["exp"] #["g"/"a"/"b"/"ab"] for first order
 
@@ -1229,9 +1223,7 @@ class ground_state_solver():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error(f"LEGS method requires LE solution to be known. Aborting!")
 
         cur_LE_heatmap = self.LE_sol["exp"] #["g"/"a"/"b"/"ab"] for first order
 
@@ -1374,9 +1366,7 @@ class ground_state_solver():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error(f"LEGS method requires LE solution to be known. Aborting!")
 
         # We now manually sample Thouless states guided by the LE solution
         cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
@@ -1473,7 +1463,7 @@ class ground_state_solver():
         print("")"""
 
 
-        """journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
+        """journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii")
         for i in range(2 * self.N_MO):
             cov[i][i] = np.sum(np.abs(cov[i]))"""
 
@@ -1571,9 +1561,7 @@ class ground_state_solver():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error(f"LEGS method requires LE solution to be known. Aborting!")
 
         # We now manually sample Thouless states guided by the LE solution
         cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
@@ -1678,7 +1666,7 @@ class ground_state_solver():
         print("")"""
 
 
-        """journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
+        """journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii")
         for i in range(2 * self.N_MO):
             cov[i][i] = np.sum(np.abs(cov[i]))"""
 
@@ -1779,9 +1767,7 @@ class ground_state_solver():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error(f"LEGS method requires LE solution to be known. Aborting!")
 
         # We now manually sample Thouless states guided by the LE solution
         cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
@@ -1888,10 +1874,10 @@ class ground_state_solver():
         # -------------- making sure covariances dont overshadow the variances ----------------
 
         """
-        journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
+        journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii")
         for i in range(2 * self.N_MO):
             cov[i][i] = np.sum(np.abs(cov[i]))"""
-        journal.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...")
+        journal.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms")
         for i in range(2 * self.N_MO):
             row_coef = (np.sum(np.abs(cov[i])) - cov[i][i]) / cov[i][i]
             if row_coef > 1.0:
@@ -2027,9 +2013,7 @@ class ground_state_solver():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error(f"LEGS method requires LE solution to be known. Aborting!")
 
         # We now manually sample Thouless states guided by the LE solution
         cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
@@ -2195,10 +2179,10 @@ class ground_state_solver():
         # -------------- making sure covariances dont overshadow the variances ----------------
 
 
-        #journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
+        #journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii")
         #for i in range(2 * self.N_MO):
         #    cov[i][i] = np.sum(np.abs(cov[i]))
-        journal.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...")
+        journal.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms")
         for i in range(2 * self.N_MO):
             if np.sum(np.abs(cov[i])) - cov[i][i] == 0.0:
                 # No off-diagonal terms, we protect against div by zero
@@ -2352,9 +2336,7 @@ class ground_state_solver():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error(f"LEGS method requires LE solution to be known. Aborting!")
 
         # We now manually sample Thouless states guided by the LE solution
         cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
@@ -2453,10 +2435,10 @@ class ground_state_solver():
         # -------------- making sure covariances dont overshadow the variances ----------------
 
 
-        #journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii...")
+        #journal.write("Gershgorin-proving the covariance matrix by increasing variances by their respective Gershgorin disc radii")
         #for i in range(2 * self.N_MO):
         #    cov[i][i] = np.sum(np.abs(cov[i]))
-        journal.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms...")
+        journal.write("Gershgorin-proving the covariance matrix by re-scaling the off-diagonal terms")
         for i in range(2 * self.N_MO):
             if np.sum(np.abs(cov[i])) - cov[i][i] == 0.0:
                 # No off-diagonal terms, we protect against div by zero
@@ -2609,9 +2591,7 @@ class ground_state_solver():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error(f"LEGS method requires LE solution to be known. Aborting!")
 
         # We now manually sample Thouless states guided by the LE solution
         cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
@@ -2820,9 +2800,7 @@ class ground_state_solver():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error(f"LEGS method requires LE solution to be known. Aborting!")
 
         if randomise_signs == "ai":
             journal.write("Parameter phases are untouched after sampling.")
@@ -2948,7 +2926,7 @@ class ground_state_solver():
         if min_eigval <= 0.0:
             journal.write(f"Warning: Covariance matrix is not positive-semidefinite (min eig = {min_eigval})")
 
-        journal.enter("Creating a Sampler...")
+        journal.enter("Creating a Sampler")
 
         if sym == "none":
             Sampler_cov = Sampler("MNDps", m = means, S = cov, pr = randomise_signs, sym = sym)
@@ -3119,9 +3097,7 @@ class ground_state_solver():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error(f"LEGS method requires LE solution to be known. Aborting!")
 
         # We now manually sample Thouless states guided by the LE solution
         cur_sample = CS_sample(self, CS_Qubit, add_ref_state = True)
@@ -3327,9 +3303,7 @@ class ground_state_solver():
         procedure_diagnostic = []
 
         if "LE_sol" not in self.checklist:
-            journal.write(f"ERROR: LEGS method requires LE solution to be known. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error(f"LEGS method requires LE solution to be known. Aborting!")
 
         if randomise_signs == "ai":
             journal.write("Parameter phases are untouched after sampling.")
@@ -3486,7 +3460,7 @@ class ground_state_solver():
         raw_Z_sample = np.zeros((2, N, N_subsample, self.N_MO), dtype = complex)
 
 
-        journal.enter("Treating phase randomisation and spin symmetrisation of sample...")
+        journal.enter("Treating phase randomisation and spin symmetrisation of sample")
 
         if sym == "full":
             journal.write("Full symmetry across spin-subspaces.")
@@ -3501,11 +3475,11 @@ class ground_state_solver():
                     for i in range(self.N_MO):
                         raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
 
-            journal.write("Randomising parameter phases...")
+            journal.write("Randomising parameter phases")
             spin_symmetrical_randsign_mask = functions.randsign_mask((N, N_subsample, self.N_MO), randomise_signs)
             raw_Z_sample[0] = raw_Z_sample[0] * spin_symmetrical_randsign_mask
 
-            journal.write("Setting |Z_beta> = |Z_alpha> for each basis state...")
+            journal.write("Setting |Z_beta> = |Z_alpha> for each basis state")
             raw_Z_sample[1] = raw_Z_sample[0]
 
         if sym == "phase":
@@ -3523,7 +3497,7 @@ class ground_state_solver():
 
             raw_Z_sample[1] = raw_Z_sample[0]
 
-            journal.write("Randomising parameter phases...")
+            journal.write("Randomising parameter phases")
             raw_Z_sample = raw_Z_sample * functions.randsign_mask(raw_Z_sample.shape, randomise_signs)
 
 
@@ -3542,7 +3516,7 @@ class ground_state_solver():
                         raw_Z_sample[0][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("a", i)]
                         raw_Z_sample[1][n][N_subsample - N_no_cov + n_sub][i] = rand_X_no_cov[n * N_no_cov + n_sub][spat_to_spin_idx("b", i)]
 
-            journal.write("Randomising parameter phases...")
+            journal.write("Randomising parameter phases")
             raw_Z_sample = raw_Z_sample * functions.randsign_mask(raw_Z_sample.shape, randomise_signs)
 
         journal.exit()
@@ -3892,7 +3866,7 @@ class ground_state_solver():
 
     def get_dataset_info(self, dataset_label_list, base_err_dict = None):
 
-        journal.enter(f"Collecting info about datasets...")
+        journal.enter(f"Collecting info about datasets")
 
         if isinstance(dataset_label_list, str):
             dataset_label_list = [dataset_label_list]
@@ -3906,7 +3880,7 @@ class ground_state_solver():
             }
 
         for dataset_label in dataset_label_list:
-            journal.enter(f"Dataset '{dataset_label}' under scrutiny...")
+            journal.enter(f"Dataset '{dataset_label}' under scrutiny")
             if dataset_label not in self.disk_jockey.data_nodes.keys():
                 journal.write("Dataset not found on disk.")
                 journal.exit()
@@ -3917,7 +3891,7 @@ class ground_state_solver():
             final_guess_err = None
             final_guess_index = None
             if base_err_dict is not None or "E_base_err" in self.disk_jockey.metadata[dataset_label]["result_energy_states"].keys():
-                journal.enter("Meta-analysis on sqrt N linfit begins...")
+                journal.enter("Meta-analysis on sqrt N linfit begins")
                 if base_err_dict is None:
                     base_err = self.disk_jockey.metadata[dataset_label]["result_energy_states"]["E_base_err"]
                     journal.write(f"Base error is {base_err} (as read from the dataset metadata)")
@@ -3983,13 +3957,13 @@ class ground_state_solver():
         #   -"default": RHF if singlet mol, UHF otherwise
         # N_MO specifies the number of MOs. If None, no trimming occurs.
 
-        journal.enter("Initialising molecule...", 0)
+        journal.enter("Initialising molecule", 0)
 
         if "mol_init" in self.checklist:
             journal.write("Molecule already initialised.", 1)
             return(None)
 
-        journal.enter("Building molecule...", 1)
+        journal.enter("Building molecule", 1)
 
         # TODO move constructing molecule here so we can store just the parameters!
 
@@ -4005,7 +3979,7 @@ class ground_state_solver():
             self.N_MO = self.mol.nao
         else:
             if N_MO > self.mol.nao:
-                journal.warning(f"Number of MOs provided ({N_MO}) larger than number of atomic orbitals ({self.mol.nao}). Maximum number chosen...")
+                journal.warning(f"Number of MOs provided ({N_MO}) larger than number of atomic orbitals ({self.mol.nao}). Maximum number chosen")
                 self.N_MO = self.mol.nao
             else:
                 self.N_MO = N_MO
@@ -4042,17 +4016,17 @@ class ground_state_solver():
             "Total number of S_z-preserving spin-adapted configurations" : total_SACs
             })
 
-        journal.write("Calculating 1e integrals...", 1)
+        journal.write("Calculating 1e integrals", 1)
         AO_H_one = self.mol.intor('int1e_kin', hermi = 1) + self.mol.intor('int1e_nuc', hermi = 1)
 
-        journal.write("Calculating 2e integrals...", 1)
+        journal.write("Calculating 2e integrals", 1)
         #self.H_two = self.mol.intor('int2e', aosym = "s1")
         AO_H_two_chemist = self.mol.intor('int2e')
         # <ij|kl> = (ik|jl)
 
         journal.exit()
 
-        journal.enter("Performing mean-field calculations to determine the molecular orbitals...", 1)
+        journal.enter("Performing mean-field calculations to determine the molecular orbitals", 1)
 
         if HF_method == "RHF":
             self.HF_method = HF_method
@@ -4091,7 +4065,7 @@ class ground_state_solver():
 
         if self.HF_method == "RHF":
             # Everything is the same in both subspaces
-            journal.write("Finding the molecular orbitals using mean-field approximations...", 1)
+            journal.write("Finding the molecular orbitals using mean-field approximations", 1)
             self.mean_field = scf.RHF(self.mol).run(verbose = 0)
 
             self.MO_coefs["a"] = self.mean_field.mo_coeff
@@ -4102,7 +4076,7 @@ class ground_state_solver():
             self.reference_state_energy = self.mean_field.e_tot
             journal.write(f"Done! Reference state energy is {self.reference_state_energy:0.5f}", 1)
 
-            journal.write("Transforming 1e and 2e integrals to MO basis...", 3)
+            journal.write("Transforming 1e and 2e integrals to MO basis", 3)
             self.MO_H_one["a"] = np.matmul(self.MO_coefs["a"].T, np.matmul(AO_H_one, self.MO_coefs["a"]))
             self.MO_H_one["b"] = self.MO_H_one["a"]
             MO_H_two_packed = ao2mo.kernel(AO_H_two_chemist, self.MO_coefs["a"])
@@ -4118,7 +4092,7 @@ class ground_state_solver():
 
         elif self.HF_method == "UHF":
             # Coefs and exchange intergrals differ for the two subspaces
-            journal.write("Finding the molecular orbitals using mean-field approximations...", 1)
+            journal.write("Finding the molecular orbitals using mean-field approximations", 1)
             mf_object = scf.UHF(self.mol)
 
             mf_object.init_guess = 'atom'  # Atomic initial guess. If doesn't work, run RHF first and then use its result as the initial guess
@@ -4145,7 +4119,7 @@ class ground_state_solver():
             self.reference_state_energy = self.mean_field.e_tot
             journal.write(f"Done! Reference state energy is {self.reference_state_energy:0.5f}", 1)
 
-            journal.write("Transforming 1e and 2e integrals to MO basis...", 3)
+            journal.write("Transforming 1e and 2e integrals to MO basis", 3)
             self.MO_H_one["a"] = np.matmul(self.MO_coefs["a"].T, np.matmul(AO_H_one, self.MO_coefs["a"]))
             self.MO_H_one["b"] = np.matmul(self.MO_coefs["b"].T, np.matmul(AO_H_one, self.MO_coefs["b"]))
             MO_H_two_packed_alpha = ao2mo.kernel(AO_H_two_chemist, self.MO_coefs["a"])
@@ -4171,7 +4145,7 @@ class ground_state_solver():
         journal.write(f"  -in the spin-alpha subspace: {occ_orbs_alpha}", 4)
         journal.write(f"  -in the spin-beta subspace:  {occ_orbs_beta}", 4)
 
-        """journal.write("Testing each CS type Hamiltonian overlap evaluation against the reference state...")
+        """journal.write("Testing each CS type Hamiltonian overlap evaluation against the reference state")
         for CS_type in self.coherent_state_types.keys():
             null_state_alpha = self.coherent_state_types[CS_type].null_state(self.N_MO, self.S_alpha)
             null_state_beta = self.coherent_state_types[CS_type].null_state(self.N_MO, self.S_beta)
@@ -4209,7 +4183,7 @@ class ground_state_solver():
     def full_CI_sol(self):
         self.user_actions += f"full_CI_sol\n"
 
-        journal.enter("Performing SCF on full CI...", 0)
+        journal.enter("Performing SCF on full CI", 0)
 
         if "full_CI_sol" in self.checklist:
             print("Full CI by PySCF already performed.")
@@ -4224,7 +4198,7 @@ class ground_state_solver():
             journal.write("WARNING: Unknown HF method, cannot run full CI calculation.")
             return(None)
 
-        journal.write("FCI solver initialised...", 0)
+        journal.write("FCI solver initialised", 0)
         FCI_start_time = time.time()
         self.FCI_sol["E"], raw_ci_sol = cisolver.kernel()
         self.FCI_sol["duration"] = time.time() - FCI_start_time
@@ -4236,7 +4210,7 @@ class ground_state_solver():
 
         self.FCI_sol["sol"] = {}
 
-        journal.write("Regularising solution as a dict of tuples...", 3)
+        journal.write("Regularising solution as a dict of tuples", 3)
         for a in range(raw_ci_sol.shape[0]):
             for b in range(raw_ci_sol.shape[1]):
                 alpha_occ = self.occ_str_to_occ_tuple("{0:b}".format(fci.cistring.addr2str(self.N_MO, self.S_alpha, a)))
@@ -4307,7 +4281,7 @@ class ground_state_solver():
             if self.HF_method == "RHF":
                 spin = "a" # doesn't matter
             else:
-                journal.write("WARNING: Called mode_exchange_energy without specifying spin when Hilbert space is not assumed to be spin-symmetrical. Returning None...", 0)
+                journal.write("WARNING: Called mode_exchange_energy without specifying spin when Hilbert space is not assumed to be spin-symmetrical. Returning None", 0)
                 return(None)
 
         # m_i/f are lists of either one mode index (single electron exchange) or two mode indices (two electron exchange)
@@ -4542,7 +4516,7 @@ class ground_state_solver():
     def print_ground_state(self):
         assert self.FCI_sol["sol"] is not None
 
-        print("Printing ground state solution on the full CI...")
+        print("Printing ground state solution on the full CI")
         print(self.FCI_sol["sol"])
 
     def ground_state_component(self, alpha_occupancy, beta_occupancy):
@@ -4694,7 +4668,7 @@ class ground_state_solver():
         #   -The norm squared of the ci_sol projection onto these states (None
         #    if unknown)
 
-        journal.enter(f"Obtaining all states with one excitation on both spin subspaces...", 8)
+        journal.enter(f"Obtaining all states with one excitation on both spin subspaces", 8)
 
         # First, check if there are any such states
         if min(self.S_alpha, self.N_MO - self.S_alpha) < 1 or min(self.S_beta, self.N_MO - self.S_beta) < 1:
@@ -4724,7 +4698,7 @@ class ground_state_solver():
         # N_exc_a: number of excitations in the spin-alpha subspace
         # N_exc_b: number of excitations in the spin-beta subspace
 
-        journal.enter(f"Obtaining all states with {N_exc_a} excitations on spin-alpha and {N_exc_b} excitations on spin-beta...", 4)
+        journal.enter(f"Obtaining all states with {N_exc_a} excitations on spin-alpha and {N_exc_b} excitations on spin-beta", 4)
 
         # First, check if there are any such states
         if min(self.S_alpha, self.N_MO - self.S_alpha) < N_exc_a or min(self.S_beta, self.N_MO - self.S_beta) < N_exc_b:
@@ -4768,16 +4742,16 @@ class ground_state_solver():
         #    if unknown)
 
         if N_top is None:
-            journal.enter(f"Obtaining all states with one excitation in total...", 4)
+            journal.enter(f"Obtaining all states with one excitation in total", 4)
         else:
             N_top_a = min(N_top, self.S_alpha * (self.N_MO - self.S_alpha))
             N_top_b = min(N_top, self.S_beta * (self.N_MO - self.S_beta))
-            journal.enter(f"Obtaining top ({N_top_a}, {N_top_b}) states with one excitation in spin (alpha, beta) as measured by overlap in true ground state...", 4)
+            journal.enter(f"Obtaining top ({N_top_a}, {N_top_b}) states with one excitation in spin (alpha, beta) as measured by overlap in true ground state", 4)
 
         if "full_CI_sol" not in self.checklist:
-            journal.write("WARNING: Full CI ground state solution has not been found yet. Aborting...")
+            journal.warning("Full CI ground state solution has not been found yet. Aborting!")
             journal.exit()
-            return(None)
+            return None
 
         res = [[], []] #[0/1][i] = [n_sq, key, prom_label]; ordered by n_sq desc.
         if N_top is not None:
@@ -4851,15 +4825,15 @@ class ground_state_solver():
         #    if unknown)
 
         if N_top is None:
-            journal.enter(f"Obtaining all states with one excitation on both spin subspaces...", 4)
+            journal.enter(f"Obtaining all states with one excitation on both spin subspaces", 4)
         else:
             N_top = min(N_top, self.S_alpha * (self.N_MO - self.S_alpha) * self.S_beta * (self.N_MO - self.S_beta))
-            journal.enter(f"Obtaining top {N_top} states with one excitation on both spin subspaces as measured by overlap in true ground state...", 4)
+            journal.enter(f"Obtaining top {N_top} states with one excitation on both spin subspaces as measured by overlap in true ground state", 4)
 
         if "full_CI_sol" not in self.checklist:
-            journal.write("WARNING: Full CI ground state solution has not been found yet. Aborting...")
+            journal.warning("Full CI ground state solution has not been found yet. Aborting!")
             journal.exit()
-            return(None)
+            return None
 
         res = [] #[i] = [n_sq, key, prom_label]; ordered by n_sq desc.
         if N_top is not None:
@@ -4951,7 +4925,7 @@ class ground_state_solver():
         self.LE_description["label"] = "Closed-shell states differing from the HF state by one shell at most"
 
 
-        journal.enter("Solving on a single-excitation closed-shell basis...", 1)
+        journal.enter("Solving on a single-excitation closed-shell basis", 1)
 
         self.user_actions += f"find_LE_solution_SECS [MOs considered: {act_M}]\n"
 
@@ -4961,7 +4935,7 @@ class ground_state_solver():
         basis = [[ref_state, ref_state]]
 
 
-        journal.write(f"Obtaining the SECS basis....", 1)
+        journal.write(f"Obtaining the SECS basis.", 1)
 
         for a in range(act_M - self.S_alpha):
             for b in range(self.S_alpha):
@@ -5053,7 +5027,7 @@ class ground_state_solver():
         self.LE_description["params"] = {"diag_alg" : diag_alg}
         self.LE_description["label"] = "at most one excitation in each spin subspace"
 
-        journal.enter(f"Solving on a single-excitation closed-shell basis using {hr_diag_alg_label}...", 1)
+        journal.enter(f"Solving on a single-excitation closed-shell basis using {hr_diag_alg_label}", 1)
 
         self.user_actions += f"find_LE_solution_SE [diag_alg = '{diag_alg}']\n"
 
@@ -5061,7 +5035,7 @@ class ground_state_solver():
 
         if diag_alg == "exp":
 
-            journal.write(f"Obtaining the SE basis....", 1)
+            journal.write(f"Obtaining the SE basis.", 1)
 
             ref_state_a = (1,) * self.S_alpha
             ref_state_b = (1,) * self.S_beta
@@ -5136,7 +5110,7 @@ class ground_state_solver():
                 journal.write(f"Ground state energy: {ground_state_energy:0.5f}", 1)
 
             # Now, for the heatmap
-            journal.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+            journal.write(f"Obtaining the low-excitation prevalence matrix", 2)
 
             res_sol = {(((), ()), ((), ())) : ground_state_vector[0]}
 
@@ -5180,7 +5154,7 @@ class ground_state_solver():
             self.LE_sol["sol"] = res_sol
 
         elif diag_alg == "SCF":
-            journal.enter("SCF on CISD basis...", 3)
+            journal.enter("SCF on CISD basis", 3)
 
             if self.HF_method == "RHF":
                 cisd_solver = self.mean_field.CISD(mo_coeff = self.MO_coefs["a"], mo_occ=self.mean_field.mo_occ[:self.N_MO]).run()
@@ -5189,10 +5163,7 @@ class ground_state_solver():
                 cisd_solver = self.mean_field.CISD(mo_coeff = (self.MO_coefs["a"], self.MO_coefs["b"]), mo_occ=(mo_occ_alpha[:self.N_MO], mo_occ_beta[:self.N_MO])).run()
 
             if not cisd_solver.converged:
-                journal.write("ERROR: SCF solver failed to converge. Aborting...")
-                journal.exit()
-                journal.exit()
-                return(None)
+                journal.error("SCF solver failed to converge. Aborting!")
 
             journal.write(f"Obtained CISD solution (basis length = {len(cisd_solver.ci)})")
 
@@ -5218,7 +5189,7 @@ class ground_state_solver():
                 journal.write(f"  For two excitations: {c2_aa.shape} on alpha-alpha, {c2_bb.shape} on beta-beta, {c2_ab.shape} on mixed-spin excitations")
 
                 # Now, for the heatmap
-                journal.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+                journal.write(f"Obtaining the low-excitation prevalence matrix", 2)
 
 
                 # We do not need to project onto the (no same-spin double excitation) basis,
@@ -5247,7 +5218,7 @@ class ground_state_solver():
 
                 res_sol = {}
 
-                journal.write("Regularising solution as a dict of tuples...", 3)
+                journal.write("Regularising solution as a dict of tuples", 3)
                 # We omit entries which are not singlet or doublet excitations, since they are by definition zero in the CISD sol
                 HF_occ = "1" * self.S_alpha
                 res_sol[(((), ()), ((), ()))] = float(fci_coefs[fci.cistring.str2addr(self.N_MO, self.S_alpha, HF_occ), fci.cistring.str2addr(self.N_MO, self.S_beta, HF_occ)])
@@ -5326,7 +5297,7 @@ class ground_state_solver():
                 journal.write(f"  For two excitations: {c2.shape} singlet-coupled combinations of the form | ij -> kl > 1/2 . (a_k,alpha\\hc a_l,beta\\hc - a_l,alpha\\hc a_k,beta\\hc) . (a_i,alpha a_j,beta - a_j,alpha a_i,beta) | HF >")
 
                 # Now, for the heatmap
-                journal.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+                journal.write(f"Obtaining the low-excitation prevalence matrix", 2)
 
 
                 # We do not need to project onto the (no same-spin double excitation) basis,
@@ -5376,18 +5347,15 @@ class ground_state_solver():
         self.LE_description["params"] = {}
         self.LE_description["label"] = "at most one excitation in each spin subspace"
 
-        journal.enter(f"Solving on a mixed-spin double-excitation basis using SCF...", 1)
+        journal.enter(f"Solving on a mixed-spin double-excitation basis using SCF", 1)
 
         self.user_actions += f"find_LE_solution_MSDE [def_var = {def_var}]\n"
 
         # Finding the LE solution
-        journal.enter("SCF on CISD basis...", 3)
+        journal.enter("SCF on CISD basis", 3)
         cisd_solver = self.mean_field.CISD().run()
         if not cisd_solver.converged:
-            journal.write("ERROR: SCF solver failed to converge. Aborting...")
-            journal.exit()
-            journal.exit()
-            return(None)
+            journal.error("SCF solver failed to converge. Aborting!")
         journal.write(f"Obtained CISD solution (basis length = {len(cisd_solver.ci)})")
 
         if "full_CI_sol" in self.checklist:
@@ -5410,7 +5378,7 @@ class ground_state_solver():
             journal.write(f"  For two excitations: {c2_aa.shape} on alpha-alpha, {c2_bb.shape} on beta-beta, {c2_ab.shape} on mixed-spin excitations")
 
             # Now, for the heatmap
-            journal.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+            journal.write(f"Obtaining the low-excitation prevalence matrix", 2)
 
 
             # We do not need to project onto the (no same-spin double excitation) basis,
@@ -5438,7 +5406,7 @@ class ground_state_solver():
             journal.write(f"  For two excitations: {c2.shape} singlet-coupled combinations of the form | ij -> kl > 1/2 . (a_k,alpha\\hc a_l,beta\\hc - a_l,alpha\\hc a_k,beta\\hc) . (a_i,alpha a_j,beta - a_j,alpha a_i,beta) | HF >")
 
             # Now, for the heatmap
-            journal.write(f"Obtaining the low-excitation prevalence matrix...", 2)
+            journal.write(f"Obtaining the low-excitation prevalence matrix", 2)
 
 
             # We do not need to project onto the (no same-spin double excitation) basis,
@@ -5483,9 +5451,9 @@ class ground_state_solver():
 
         assert "sol" in self.LE_sol
 
-        journal.enter("Deriving the reduction matrix for the LE solution...")
+        journal.enter("Deriving the reduction matrix for the LE solution")
 
-        journal.write("Calculating the norm of the solution on singlets and mixed-spin doublets...")
+        journal.write("Calculating the norm of the solution on singlets and mixed-spin doublets")
 
         LE_norm = 0.0
         LE_reduced_norm = 0.0 # sans phi_0
@@ -5873,11 +5841,11 @@ class ground_state_solver():
 
 
 
-        journal.enter("Calculating the reduced null-coherent state...")
+        journal.enter("Calculating the reduced null-coherent state")
 
         # Firstly, we renormalise RSOPM to satisfy the constraint
         RSOPM_tr = np.trace(self.LE_sol["RSOPM"])
-        journal.write(f"Trace of RSOPM = {RSOPM_tr}; expected value is S = {self.S_alpha + self.S_beta}; renormalising...")
+        journal.write(f"Trace of RSOPM = {RSOPM_tr}; expected value is S = {self.S_alpha + self.S_beta}; renormalising")
         RSOPM_renorm = self.LE_sol["RSOPM"] * (self.S_alpha + self.S_beta) / RSOPM_tr
 
         def cur_scale(c_y):
@@ -5888,7 +5856,7 @@ class ground_state_solver():
         for i in range(2 * self.N_MO):
             y_0[i] = np.log(RSOPM_renorm[i][i])
         y_0_norm_sq = cur_scale(y_0)
-        journal.write(f"Norm squared of initial guess is {y_0_norm_sq}. Renormalising...")
+        journal.write(f"Norm squared of initial guess is {y_0_norm_sq}. Renormalising")
 
         # z^2 = e^y
         # {z|z} = e_S(z^2) = e_S(e^y)
@@ -6000,24 +5968,20 @@ class ground_state_solver():
 
     def find_LE_solution(self, spec, **kwargs):
         # requires HF_method to be established, i.e. mol_init
-        journal.enter(f"Obtaining low-excitation solution with env. {self.HF_method}, spec {spec}...", 1)
+        journal.enter(f"Obtaining low-excitation solution with env. {self.HF_method}, spec {spec}", 1)
 
         if "mol_init" not in self.checklist or self.HF_method is None:
-            journal.write("WARNING: Molecule not initialised. Aborting...")
-            journal.exit()
-            return(None)
+            journal.error("Molecule not initialised. Aborting!")
 
         if "LE_sol" in self.checklist:
-            journal.write("WARNING: LE solution initialised before.")
+            journal.warning("LE solution initialised before.")
             if self.LE_description["env"] != self.HF_method or self.LE_description["spec"] != spec:
                 journal.write(f"Previous solution found with a different spec ({self.LE_description["env"]}: {self.LE_description["spec"]})")
             journal.exit()
-            return(None)
+            return None
 
         if spec not in self.low_excitation_methods[self.HF_method]:
-            journal.write(f"ERROR: Unknown spec '{spec}'. Methods available for {self.HF_method}: {self.low_excitation_methods[self.HF_method].keys()}")
-            journal.exit()
-            return(None)
+            journal.error(f"Unknown spec '{spec}'. Methods available for {self.HF_method}: {self.low_excitation_methods[self.HF_method].keys()}")
 
         self.LE_description["env"] = self.HF_method
         self.LE_description["spec"] = spec
@@ -6092,12 +6056,12 @@ class ground_state_solver():
             # Default option
             self.load_data(["system", "self_analysis", "measured_datasets"])
         else:
-            journal.enter("Loading data from the disk...", 0)
+            journal.enter("Loading data from the disk", 0)
             self.user_actions += f"load_data\n"
             # loads data using disk jockey
 
             # Firstly, let's see what we can load!
-            journal.write("Reading files on disk...", 5)
+            journal.write("Reading files on disk", 5)
             self.disk_jockey.load_data(["system", "diagnostics"]) # Always by default
             loaded_checklist = self.disk_jockey.metadata["system"]["log"]["checklist"]
 
@@ -6106,7 +6070,7 @@ class ground_state_solver():
                 load_specific_datasets = self.disk_jockey.metadata["system"]["log"]["measured_datasets"]
 
             if "self_analysis" in what_to_load and "mol_init" in loaded_checklist:
-                journal.enter("Restoring self-analysis values...", 3)
+                journal.enter("Restoring self-analysis values", 3)
                 if "mol_init" not in self.checklist:
                     self.disk_jockey.load_data(["molecule"])
                 self.disk_jockey.load_data(["self_analysis"])
@@ -6125,7 +6089,7 @@ class ground_state_solver():
                         "duration" : loaded_full_CI_sol.get("duration", 0)
                         }
                     self.check_off("full_CI_sol")
-                    journal.write("Results from SCF performed on the full CI loaded...", 4)
+                    journal.write("Results from SCF performed on the full CI loaded", 4)
 
                 if "LE_sol" in loaded_checklist:
                     loaded_LE_sol = self.disk_jockey.data_bulks["self_analysis"]["LE_sol"]
@@ -6151,7 +6115,7 @@ class ground_state_solver():
                         "RNCS" : np.array(loaded_LE_sol["RNCS"])
                         }"""
                     self.check_off("LE_sol")
-                    journal.write(f"Results from diagonalisation on a low-excitation basis loaded...", 4)
+                    journal.write(f"Results from diagonalisation on a low-excitation basis loaded", 4)
                     journal.write(f"  -environment: {self.LE_description["env"]}", 4)
                     journal.write(f"  -specification: {self.LE_description["spec"]}", 4)
                     journal.write(f"  -scope: {self.LE_description["scope"]}", 4)
@@ -6163,7 +6127,7 @@ class ground_state_solver():
                 journal.exit()
 
             if "measured_datasets" in what_to_load:
-                journal.enter("Restoring measured datasets...", 3)
+                journal.enter("Restoring measured datasets", 3)
 
                 for loaded_dataset in load_specific_datasets:
                     if loaded_dataset not in self.disk_jockey.data_nodes.keys():
@@ -6171,7 +6135,7 @@ class ground_state_solver():
                     elif loaded_dataset in self.measured_datasets:
                         journal.warning(f"Requested dataset '{loaded_dataset}' initialised during computation session. Loading aborted to not overwrite session data.")
                     else:
-                        journal.enter(f"Loading dataset '{loaded_dataset}'...", 4)
+                        journal.enter(f"Loading dataset '{loaded_dataset}'", 4)
                         for dataset_datum in self.disk_jockey.data_nodes[loaded_dataset]:
                             self.disk_jockey.load_datum(loaded_dataset, dataset_datum)
                         self.measured_datasets.append(loaded_dataset)
@@ -6192,14 +6156,14 @@ class ground_state_solver():
 
     def plot_datasets(self, reference_energies = None):
         # Plots energy against configuration size
-        journal.enter("Plotting obtained measurements...", 1)
+        journal.enter("Plotting obtained measurements", 1)
 
         plt.title(f"[{self.ID}] Ground state estimate with Monte Carlo")
         plt.xlabel("Basis size")
         plt.ylabel("E [Hartree]")
 
         for i in range(len(self.measured_datasets)):
-            journal.write(f"Collecting data from dataset '{self.measured_datasets[i]}'...", 5)
+            journal.write(f"Collecting data from dataset '{self.measured_datasets[i]}'", 5)
             ds_val = self.disk_jockey.data_bulks[self.measured_datasets[i]]["result_energy_states"]
             # ds_val is a list of dicts - here we cast it into plottable arrays
             N_space = []
@@ -6250,7 +6214,7 @@ class ground_state_solver():
             'right', functions=(H_to_K, K_to_H))
         secax_y.set_ylabel(r'$E\ [K]$')
 
-        journal.write(f"Displaying plot...", 5)
+        journal.write(f"Displaying plot", 5)
         plt.legend()
         plt.tight_layout()
         plt.show()
@@ -6259,7 +6223,7 @@ class ground_state_solver():
 
     def plot_datasets_extra(self, aggregate = False, reference_energies = None):
         # Plots energy against configuration size
-        journal.enter("Plotting obtained measurements...", 1)
+        journal.enter("Plotting obtained measurements", 1)
 
         plt.title(f"[{self.ID}] Ground state estimate with Monte Carlo")
         plt.xlabel("1/sqrt(Basis size)")
@@ -6273,7 +6237,7 @@ class ground_state_solver():
         fitted_datalines = []
 
         for i in range(len(self.measured_datasets)):
-            journal.write(f"Collecting data from dataset '{self.measured_datasets[i]}'...", 5)
+            journal.write(f"Collecting data from dataset '{self.measured_datasets[i]}'", 5)
             ds_val = self.disk_jockey.data_bulks[self.measured_datasets[i]]["result_energy_states"]
             # ds_val is a list of dicts - here we cast it into plottable arrays
             N_space = []
@@ -6354,7 +6318,7 @@ class ground_state_solver():
         secax_y.set_ylabel(r'$E\ [K]$')
 
 
-        journal.write(f"Displaying plot...", 5)
+        journal.write(f"Displaying plot", 5)
         plt.legend()
         plt.tight_layout()
         plt.show()
@@ -6368,7 +6332,7 @@ class ground_state_solver():
         if param_label is None:
             param_label = param_name
 
-        journal.enter(f"Plotting obtained measurements against parameter '{param_name}'...", 1)
+        journal.enter(f"Plotting obtained measurements against parameter '{param_name}'", 1)
 
         plt.title(f"[{self.ID}] Ground state estimate against {param_label}")
         plt.xlabel(param_label)
@@ -6378,7 +6342,7 @@ class ground_state_solver():
         ground_state_energy_space = []
 
         for i in range(len(self.measured_datasets)):
-            journal.write(f"Collecting data from dataset '{self.measured_datasets[i]}'...", 5)
+            journal.write(f"Collecting data from dataset '{self.measured_datasets[i]}'", 5)
             ds_val = self.disk_jockey.data_bulks[self.measured_datasets[i]]["result_energy_states"]
             # ds_val is a list of dicts - here we cast it into plottable arrays
             N_space = []
@@ -6421,7 +6385,7 @@ class ground_state_solver():
 
         plt.scatter(param_space, ground_state_energy_space, label = "$E_{min}$ in datasets", marker = "x")
 
-        journal.write(f"Displaying plot...", 5)
+        journal.write(f"Displaying plot", 5)
         plt.legend()
         plt.tight_layout()
         plt.show()
@@ -6583,7 +6547,7 @@ class ground_state_solver():
         assert "LE_sol" in self.checklist
         assert "CSRM" in self.LE_sol
 
-        journal.enter("Plotting the closed-shell reduction matrix...")
+        journal.enter("Plotting the closed-shell reduction matrix")
         journal.print_matrix(self.LE_sol["CSRM"], "CSRM")
 
         if ax is None:
@@ -6647,7 +6611,7 @@ class ground_state_solver():
     def plot_LE_TPM(self, spin = "a", log_plot = True, ax = None):
         self.user_actions += f"plot_LE_TPM\n"
 
-        journal.enter("Plotting the transition prevalence matrix...", 5)
+        journal.enter("Plotting the transition prevalence matrix", 5)
 
         assert "LE_sol" in self.checklist
         assert "TPM" in self.LE_sol
@@ -6706,7 +6670,7 @@ class ground_state_solver():
     def plot_LE_SRRM(self, spin = "a", log_plot = True, ax = None):
         self.user_actions += f"plot_LE_SRRM\n"
 
-        journal.enter("Plotting the spin-reduced reduction matrix...", 5)
+        journal.enter("Plotting the spin-reduced reduction matrix", 5)
 
         assert "LE_sol" in self.checklist
         assert "SRRM" in self.LE_sol
@@ -6765,7 +6729,7 @@ class ground_state_solver():
     def plot_LE_SOPM(self, spin = "a", log_plot = True, ax = None):
         self.user_actions += f"plot_LE_SOPM\n"
 
-        journal.enter("Plotting the spin-reduced reduction matrix...", 5)
+        journal.enter("Plotting the spin-reduced reduction matrix", 5)
 
         assert "LE_sol" in self.checklist
         assert "SOPM" in self.LE_sol
@@ -6824,7 +6788,7 @@ class ground_state_solver():
     def plot_LE_RSOPM(self, spin = "a", log_plot = True, ax = None):
         self.user_actions += f"plot_LE_RSOPM\n"
 
-        journal.enter("Plotting the reduced simultanous occupancy proportion matrix...", 5)
+        journal.enter("Plotting the reduced simultanous occupancy proportion matrix", 5)
 
         assert "LE_sol" in self.checklist
         assert "RSOPM" in self.LE_sol
@@ -6883,9 +6847,9 @@ class ground_state_solver():
     # ------------------------------- Printing --------------------------------
 
     def print_singlet_info(self, top_N_closed_shells = 5):
-        journal.enter("Reporting on singlet Spin-Adapted Configurations...", 0)
+        journal.enter("Reporting on singlet Spin-Adapted Configurations", 0)
         if "full_CI_sol" not in self.checklist:
-            journal.write("Full CI solution not known, aborting...")
+            journal.write("Full CI solution not known, aborting")
             journal.exit()
             return(None)
         journal.enter("Closed-shell Slater determinants")
@@ -6905,9 +6869,9 @@ class ground_state_solver():
         journal.exit()
 
     def print_UHF_low_excitation_info(self, top_N_single_excitation = 5, top_N_simulatenous_excitation = 10):
-        journal.enter("Reporting on low-excitation configurations for inequal MOs...", 0)
+        journal.enter("Reporting on low-excitation configurations for inequal MOs", 0)
         if "full_CI_sol" not in self.checklist:
-            journal.write("Full CI solution not known, aborting...")
+            journal.warning("Full CI solution not known, aborting")
             journal.exit()
             return(None)
 
